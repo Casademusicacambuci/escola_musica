@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Casa de Música Cambuci - ERP</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 0; }
+        .navbar { background-color: #1e3d59; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .navbar h1 { margin: 0; font-size: 22px; font-weight: 600; }
+        .nav-tabs { display: flex; background: #e3e8f0; padding: 10px 20px 0 20px; border-bottom: 1px solid #cbd5e1; }
+        .tab-button { background: #cbd5e1; border: none; padding: 10px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px 6px 0 0; margin-right: 5px; color: #475569; transition: all 0.2s; }
+        .tab-button.active { background: white; color: #1e3d59; border-bottom: 2px solid white; position: relative; bottom: -1px; }
+        .container { max-width: 1400px; margin: 30px auto; padding: 0 20px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .grid { display: grid; grid-template-columns: 1fr 1.3fr; gap: 25px; margin-bottom: 30px; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-top: 4px solid #17b978; }
+        .card.studio { border-top-color: #6c5ce7; }
+        .card.shop { border-top-color: #ff7675; }
+        .card.financeiro-card { border-top-color: #2ecc71; }
+        h2 { color: #1e3d59; margin-top: 0; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; font-size: 18px; }
+        .form-group { margin-bottom: 15px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #475569; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        button { background-color: #17b978; color: white; border: none; padding: 12px 20px; width: 100%; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+        button:hover { background-color: #139e65; }
+        .list-section { background: white; padding: 25px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        th { background-color: #f8fafc; color: #1e3d59; font-weight: 700; }
+        
+        /* Estilos do Financeiro */
+        .fin-resumo-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 25px; }
+        .fin-box { padding: 15px; border-radius: 6px; color: white; font-weight: bold; }
+        .fin-box.entradas { background-color: #2ec4b6; }
+        .fin-box.saidas { background-color: #e71d36; }
+        .fin-box span { display: block; font-size: 11px; text-transform: uppercase; opacity: 0.9; margin-bottom: 5px; }
+        .fin-box h3 { margin: 0; font-size: 22px; }
+        
+        .badge-fin { padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge-entrada { background-color: #e8f5e9; color: #2e7d32; }
+        .badge-saida { background-color: #ffebee; color: #c62828; }
+        
+        /* Botões de Relatórios */
+        .report-bar { display: flex; gap: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 15px; border-radius: 6px; margin-bottom: 20px; align-items: center; }
+        .btn-report { background-color: #475569; color: white; text-decoration: none; padding: 10px 15px; border-radius: 4px; font-size: 13px; font-weight: bold; display: inline-flex; align-items: center; gap: 5px; transition: background 0.2s; width: auto; }
+        .btn-report:hover { background-color: #334155; }
+        
+        .btn-action { background: none; border: none; padding: 4px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: normal; width: auto; text-align: center; }
+        .btn-invert { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; margin-right: 4px; }
+        .btn-invert:hover { background-color: #e2e8f0; }
+        .btn-delete { background-color: #fee2e2; color: #991b1b; }
+        .btn-delete:hover { background-color: #fca5a5; }
+        
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; }
+        .status-agendado { background-color: #e3f2fd; color: #0d47a1; }
+        .status-concluido { background-color: #e8f5e9; color: #1b5e20; }
+        .status-pago { background-color: #e8f8f5; color: #117a65; font-weight: 900; border: 1px solid #117a65; }
+        .status-apagar { background-color: #fff3e0; color: #e65100; }
+        
+        .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .badge-gravacao { background-color: #ffeaa7; color: #d63031; }
+        .badge-ensaio { background-color: #dff9fb; color: #0984e3; }
+        .badge-videoclipe { background-color: #e0dffb; color: #6c5ce7; }
+        
+        .inline-form { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
+        .inline-form select { padding: 4px; font-size: 12px; width: auto; }
+        .inline-form button { padding: 5px 10px; font-size: 11px; width: auto; background-color: #64748b; }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <h1>🎵 Casa de Música Cambuci — Sistema de Gestão</h1>
+        <span style="font-size: 13px; opacity: 0.8;">Rede Local Ativa</span>
+    </div>
+
+    <div class="nav-tabs">
+        <button class="tab-button active" onclick="switchTab('secretaria')">🏛️ Recepção & Matrículas</button>
+        <button class="tab-button" onclick="switchTab('estudios')">🎙️ Agendas dos Estúdios</button>
+        <button class="tab-button" onclick="switchTab('loja')">🎸 Loja & Acessórios</button>
+        <button class="tab-button" onclick="switchTab('caixa')">💰 Caixa & Financeiro</button>
+    </div>
+
+    <div class="container">
+        
+        <div id="secretaria" class="tab-content active">
+            <div class="grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="card">
+                    <h2>Matricular Novo Aluno</h2>
+                    <form action="/cadastrar_aluno" method="POST">
+                        <div class="form-group"><input type="text" name="nome" placeholder="Nome Completo" required></div>
+                        <div class="form-group"><input type="email" name="email" placeholder="E-mail"></div>
+                        <div class="form-group"><input type="text" name="telefone" placeholder="Telefone / WhatsApp"></div>
+                        <div class="form-group"><input type="text" name="instrumento" placeholder="Instrumento (ex: Piano, Violão)"></div>
+                        <div class="form-group"><label>Data de Matrícula</label><input type="date" name="data_matricula"></div>
+                        <button type="submit">Confirmar Matrícula</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h2>Cadastrar Novo Professor</h2>
+                    <form action="/cadastrar_professor" method="POST">
+                        <div class="form-group"><input type="text" name="nome" placeholder="Nome do Professor" required></div>
+                        <div class="form-group"><input type="email" name="email" placeholder="E-mail"></div>
+                        <div class="form-group"><input type="text" name="telefone" placeholder="Telefone / WhatsApp"></div>
+                        <div class="form-group"><input type="text" name="especialidade" placeholder="Especialidade (ex: Canto, Bateria)"></div>
+                        <button type="submit" style="background-color: #1e3d59;">Cadastrar Professor</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="list-section">
+                <h2>Alunos Matriculados</h2>
+                <table>
+                    <thead><tr><th>ID</th><th>Nome</th><th>Instrumento</th><th>Telefone</th></tr></thead>
+                    <tbody>
+                        {% for aluno in alunos %}
+                        <tr><td>{{ aluno[0] }}</td><td>{{ aluno[1] }}</td><td>{{ aluno[4] }}</td><td>{{ aluno[3] }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="list-section">
+                <h2>Corpo Docente (Professores)</h2>
+                <table>
+                    <thead><tr><th>ID</th><th>Nome</th><th>Especialidade</th><th>Telefone</th></tr></thead>
+                    <tbody>
+                        {% for prof in professores %}
+                        <tr><td>{{ prof[0] }}</td><td>{{ prof[1] }}</td><td>{{ prof[4] }}</td><td>{{ prof[3] }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="estudios" class="tab-content">
+            <div class="grid">
+                <div class="card studio">
+                    <h2>Novo Agendamento de Estúdio</h2>
+                    <form action="/agendar_studio" method="POST">
+                        <div class="form-group">
+                            <label>Selecione o Espaço</label>
+                            <select name="tipo_agenda" required>
+                                <option value="gravacao">🎙️ Estúdio de Gravação</option>
+                                <option value="ensaio">🎸 Estúdio de Ensaio</option>
+                                <option value="videoclipe">🎥 Estúdio de Videoclipe</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <input type="text" name="cliente_aluno_nome" placeholder="Nome do Cliente / Banda / Aluno" required>
+                        </div>
+                        <div class="form-row">
+                            <div>
+                                <label>Data</label>
+                                <input type="date" name="data" required>
+                            </div>
+                            <div>
+                                <label>Status Inicial</label>
+                                <select name="status">
+                                    <option value="Agendado">🔵 Agendado</option>
+                                    <option value="Serviço concluído">🟢 Serviço concluído</option>
+                                    <option value="Agendamento pago">💰 Agendamento pago</option>
+                                    <option value="Agendamento a pagar">🟠 Agendamento a pagar</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div>
+                                <label>Horário de Início</label>
+                                <input type="time" name="horario" required>
+                            </div>
+                            <div>
+                                <label>Horário de Término</label>
+                                <input type="time" name="horario_termino" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor Total (R$)</label>
+                            <input type="number" step="0.01" name="valor_total" placeholder="Ex: 150.00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Observações / Ocorrências</label>
+                            <textarea name="observacoes" rows="2" placeholder="Ex: Cliente trouxe instrumentos próprios. Atraso de 10 min..."></textarea>
+                        </div>
+
+                        <button type="submit" style="background-color: #6c5ce7;">Reservar Horário & Faturar</button>
+                    </form>
+                </div>
+                
+                <div class="list-section" style="margin-bottom: 0;">
+                    <h2>Próximas Reservas nos Estúdios</h2>
+                    <table>
+                        <thead><tr><th>Espaço</th><th>Cliente</th><th>Data / Horário</th><th>Valor</th><th>Status / Atualizar</th><th>Observações</th></tr></thead>
+                        <tbody>
+                            {% for agenda in agendamentos %}
+                            <tr>
+                                <td>
+                                    <span class="badge badge-{{ agenda[1] }}">
+                                        {% if agenda[1] == 'gravacao' %}🎙️ Gravação
+                                        {% elif agenda[1] == 'ensaio' %}🎸 Ensaio
+                                        {% elif agenda[1] == 'videoclipe' %}🎥 Videoclipe
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td><strong>{{ agenda[2] }}</strong></td>
+                                <td>{{ agenda[3] }}<br><small>{{ agenda[4] }} às {{ agenda[5] if agenda[5] else '--:--' }}</small></td>
+                                <td>R$ {{ "%.2f"|format(agenda[6]|float) }}</td>
+                                <td>
+                                    <span class="status-badge 
+                                        {% if agenda[7] == 'Agendamento pago' %}status-pago
+                                        {% elif agenda[7] == 'Serviço concluído' %}status-concluido
+                                        {% elif agenda[7] == 'Agendamento a pagar' %}status-apagar
+                                        {% else %}status-agendado{% endif %}">
+                                        {{ agenda[7] if agenda[7] else 'Agendado' }}
+                                    </span>
+                                    
+                                    <form class="inline-form" action="/atualizar_status_studio/{{ agenda[0] }}" method="POST">
+                                        <select name="novo_status">
+                                            <option value="Agendado" {% if agenda[7] == 'Agendado' %}selected{% endif %}>Agendado</option>
+                                            <option value="Serviço concluído" {% if agenda[7] == 'Serviço concluído' %}selected{% endif %}>Serviço concluído</option>
+                                            <option value="Agendamento pago" {% if agenda[7] == 'Agendamento pago' %}selected{% endif %}>Agendamento pago</option>
+                                            <option value="Agendamento a pagar" {% if agenda[7] == 'Agendamento a pagar' %}selected{% endif %}>Agendamento a pagar</option>
+                                        </select>
+                                        <input type="hidden" name="observacoes" value="{{ agenda[8] if agenda[8] else '' }}" id="obs_hid_{{ agenda[0] }}">
+                                        <button type="submit">✍️ Salvar</button>
+                                    </form>
+                                </td>
+                                <td>
+                                    <textarea style="font-size: 11px; padding: 4px;" rows="2" 
+                                              oninput="document.getElementById('obs_hid_{{ agenda[0] }}').value = this.value;"
+                                              placeholder="Adicionar nota...">{{ agenda[8] if agenda[8] else '' }}</textarea>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="loja" class="tab-content">
+            <div class="card shop" style="max-width: 600px; margin: 0 auto;">
+                <h2>Venda de Acessórios e Instrumentos (PDV)</h2>
+                <div class="form-group">
+                    <label>Código de Barras / Categoria</label>
+                    <input type="text" placeholder="Passe o leitor ou digite o código do produto...">
+                </div>
+                <button type="button" style="background-color: #ff7675;">Simular Venda Balcão</button>
+            </div>
+        </div>
+
+        <div id="caixa" class="tab-content">
+            <div class="fin-resumo-grid">
+                <div class="fin-box entradas">
+                    <span>🟢 Total Entradas</span>
+                    <h3>R$ {{ "%.2f"|format(total_entradas) }}</h3>
+                </div>
+                <div class="fin-box saidas">
+                    <span>🔴 Total Saídas</span>
+                    <h3>R$ {{ "%.2f"|format(total_saidas) }}</h3>
+                </div>
+                <div class="fin-box" style="background-color: {% if saldo_atual >= 0 %}#2ecc71{% else %}#e71d36{% endif %};">
+                    <span>💰 Saldo de Caixa</span>
+                    <h3>R$ {{ "%.2f"|format(saldo_atual) }}</h3>
+                </div>
+            </div>
+
+            <div class="report-bar">
+                <strong style="color: #1e3d59; font-size: 14px;">📊 Planilhas e Relatórios:</strong>
+                <a href="/exportar_caixa_dia" class="btn-report" style="background-color: #2e7d32;">📥 Baixar Caixa do Dia (.CSV)</a>
+                <a href="/exportar_fechamento_mes" class="btn-report" style="background-color: #1e3d59;">📥 Baixar Fechamento do Mês (.CSV)</a>
+            </div>
+
+            <div class="grid">
+                <div class="card financeiro-card">
+                    <h2>Lançar Fluxo Manual (Caixa / Despesas)</h2>
+                    <form action="/cadastrar_financeiro" method="POST">
+                        <div class="form-group">
+                            <label>Tipo de Operação</label>
+                            <select name="tipo" required>
+                                <option value="entrada">🟢 Entrada (Receita / Lanchonete / Matrícula)</option>
+                                <option value="saida">🔴 Saída (Pagamento / Despesa / Manutenção)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Origem do Fluxo</label>
+                            <select name="origem" required>
+                                <option value="lanchonete">🍔 Lanchonete / Café</option>
+                                <option value="despesa">🔌 Contas Fixas (Luz, Água, Internet)</option>
+                                <option value="loja">🎸 Venda Balcão Loja</option>
+                                <option value="manutencao">🛠️ Manutenção / Infraestrutura</option>
+                                <option value="outros">❓ Outras Origens</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Descrição detalhada</label>
+                            <input type="text" name="descricao" placeholder="Ex: Compra de pó de café e água" required>
+                        </div>
+                        <div class="form-row">
+                            <div>
+                                <label>Valor (R$)</label>
+                                <input type="number" step="0.01" name="valor" placeholder="0.00" required>
+                            </div>
+                            <div>
+                                <label>Data Competência</label>
+                                <input type="date" name="data_lancamento">
+                            </div>
+                        </div>
+                        <button type="submit" style="background-color: #2ecc71;">Efetuar Lançamento</button>
+                    </form>
+                </div>
+
+                <div class="list-section" style="margin-bottom: 0;">
+                    <h2>Extrato Geral de Movimentações</h2>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table>
+                            <thead><tr><th>Data</th><th>Tipo</th><th>Origem</th><th>Descrição</th><th>Valor</th><th style="text-align: center;">Ações</th></tr></thead>
+                            <tbody>
+                                {% for item in fluxo_caixa %}
+                                <tr>
+                                    <td><small>{{ item[5] }}</small></td>
+                                    <td>
+                                        <span class="badge-fin {% if item[1] == 'entrada' %}badge-entrada{% else %}badge-saida{% endif %}">
+                                            {{ 'ENTRADA' if item[1] == 'entrada' else 'SAÍDA' }}
+                                        </span>
+                                    </td>
+                                    <td><small><strong>{{ item[2]|upper }}</strong></small></td>
+                                    <td>{{ item[3] }}</td>
+                                    <td><strong style="color: {% if item[1] == 'entrada' %}#2e7d32{% else %}#c62828{% endif %};">
+                                        R$ {{ "%.2f"|format(item[4]|float) }}
+                                    </strong></td>
+                                    <td style="text-align: center; white-space: nowrap;">
+                                        <form action="/inverter_tipo_financeiro/{{ item[0] }}" method="POST" style="display: inline;">
+                                            <button type="submit" class="btn-action btn-invert" title="Inverter de Entrada para Saída e vice-versa">🔄 Inverter</button>
+                                        </form>
+                                        <form action="/remover_financeiro/{{ item[0] }}" method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja apagar este lançamento?');">
+                                            <button type="submit" class="btn-action btn-delete" title="Excluir Permanentemente">❌</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
+            
+            const targetContent = document.getElementById(tabId);
+            if(targetContent) {
+                targetContent.classList.add('active');
+            }
+            
+            const buttons = document.querySelectorAll('.tab-button');
+            buttons.forEach(btn => {
+                if(btn.getAttribute('onclick').includes(tabId)) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
