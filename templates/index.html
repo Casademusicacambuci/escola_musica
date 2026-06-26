@@ -1,82 +1,111 @@
-import os
-import sqlite3
-from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Casa de Música Cambuci - Gestão</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .navbar-brand { font-weight: bold; }
+        .card { margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">🎵 Casa de Música Cambuci</a>
+        </div>
+    </nav>
 
-app = Flask(__name__)
-app.secret_key = "chave_secreta_cambuci"
-DATABASE = "escola.db"
+    <div class="container mt-4">
+        <h1 class="mb-4 text-center">Painel de Controlo e Gestão</h1>
+        
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white"><h5>Cadastrar Aluno</h5></div>
+                    <div class="card-body">
+                        <form action="/cadastrar_aluno" method="POST">
+                            <div class="mb-2"><input type="text" name="nome" class="form-control" placeholder="Nome do Aluno" required></div>
+                            <div class="mb-2"><input type="text" name="instrumento" class="form-control" placeholder="Instrumento (ex: Violão)" required></div>
+                            <div class="mb-2"><input type="text" name="telefone" class="form-control" placeholder="Telefone"></div>
+                            <button type="submit" class="btn btn-primary w-100">Adicionar</button>
+                        </form>
+                    </div>
+                </div>
 
-def get_db_connection():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
+                <div class="card">
+                    <div class="card-header bg-success text-white"><h5>Cadastrar Professor</h5></div>
+                    <div class="card-body">
+                        <form action="/cadastrar_professor" method="POST">
+                            <div class="mb-2"><input type="text" name="nome" class="form-control" placeholder="Nome do Professor" required></div>
+                            <div class="mb-2"><input type="text" name="especialidade" class="form-control" placeholder="Especialidade" required></div>
+                            <div class="mb-2"><input type="text" name="telefone" class="form-control" placeholder="Telefone"></div>
+                            <button type="submit" class="btn btn-success w-100">Adicionar</button>
+                        </form>
+                    </div>
+                </div>
 
-def init_db():
-    if not os.path.exists(DATABASE):
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('CREATE TABLE IF NOT EXISTS alunos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, instrumento TEXT NOT NULL, telefone TEXT, data_matricula TEXT)')
-        cursor.execute('CREATE TABLE IF NOT EXISTS professores (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, especialidade TEXT NOT NULL, telefone TEXT)')
-        cursor.execute('CREATE TABLE IF NOT EXISTS agendamentos (id INTEGER PRIMARY KEY AUTOINCREMENT, sala_estudio TEXT NOT NULL, professor_id INTEGER, aluno_id INTEGER, data_hora TEXT NOT NULL)')
-        cursor.execute('CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, categoria TEXT, preco REAL NOT NULL, estoque INTEGER NOT NULL)')
-        cursor.execute('CREATE TABLE IF NOT EXISTS financeiro (id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, data TEXT NOT NULL)')
-        conn.commit()
-        conn.close()
+                <div class="card">
+                    <div class="card-header bg-warning text-dark"><h5>Registrar Movimentação</h5></div>
+                    <div class="card-body">
+                        <form action="/registrar_financeiro" method="POST">
+                            <div class="mb-2">
+                                <select name="tipo" class="form-select" required>
+                                    <option value="entrada">Entrada (Recebimento)</option>
+                                    <option value="saida">Saída (Pagamento)</option>
+                                </select>
+                            </div>
+                            <div class="mb-2"><input type="text" name="descricao" class="form-control" placeholder="Descrição (ex: Mensalidade)" required></div>
+                            <div class="mb-2"><input type="number" step="0.01" name="valor" class="form-control" placeholder="Valor (R$)" required></div>
+                            <button type="submit" class="btn btn-warning w-100">Registrar</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
 
-init_db()
+            <div class="col-md-8">
+                <div class="row text-center mb-3">
+                    <div class="col-4"><div class="p-2 bg-success text-white rounded">Entradas<br><strong>R$ {{ "%.2f"|format(total_entradas) }}</strong></div></div>
+                    <div class="col-4"><div class="p-2 bg-danger text-white rounded">Saídas<br><strong>R$ {{ "%.2f"|format(total_saidas) }}</strong></div></div>
+                    <div class="col-4"><div class="p-2 bg-info text-dark rounded">Saldo<br><strong>R$ {{ "%.2f"|format(saldo_caixa) }}</strong></div></div>
+                </div>
 
-@app.route('/')
-def index():
-    conn = get_db_connection()
-    alunos = conn.execute('SELECT * FROM alunos').fetchall()
-    professores = conn.execute('SELECT * FROM professores').fetchall()
-    agendamentos = conn.execute('SELECT ag.id, ag.sala_estudio, ag.data_hora, al.nome as aluno, pr.nome as professor FROM agendamentos ag LEFT JOIN alunos al ON ag.aluno_id = al.id LEFT JOIN professores pr ON ag.professor_id = pr.id').fetchall()
-    produtos = conn.execute('SELECT * FROM produtos').fetchall()
-    movimentacoes = conn.execute('SELECT * FROM financeiro ORDER BY id DESC').fetchall()
-    total_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()[0] or 0.0
-    total_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()[0] or 0.0
-    saldo_caixa = total_entradas - total_saidas
-    conn.close()
-    return render_template('index.html', alunos=alunos, professores=professores, agendamentos=agendamentos, produtos=produtos, movimentacoes=movimentacoes, total_entradas=total_entradas, total_saidas=total_saidas, saldo_caixa=saldo_caixa)
+                <div class="card">
+                    <div class="card-header bg-dark text-white"><h5>Alunos Matriculados</h5></div>
+                    <div class="card-body p-0">
+                        <table class="table table-striped mb-0">
+                            <thead><tr><th>Nome</th><th>Instrumento</th><th>Telefone</th></tr></thead>
+                            <tbody>
+                                {% for aluno in alunos %}
+                                <tr><td>{{ aluno.nome }}</td><td>{{ aluno.instrumento }}</td><td>{{ aluno.telefone or '-' }}</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-@app.route('/cadastrar_aluno', methods=['POST'])
-def cadastrar_aluno():
-    nome, instrumento, telefone = request.form.get('nome'), request.form.get('instrumento'), request.form.get('telefone')
-    data = request.form.get('data') or datetime.now().strftime('%Y-%m-%d')
-    conn = get_db_connection()
-    conn.execute('INSERT INTO alunos (nome, instrumento, telefone, data_matricula) VALUES (?, ?, ?, ?)', (nome, instrumento, telefone, data))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/cadastrar_professor', methods=['POST'])
-def cadastrar_professor():
-    nome, especialidade, telefone = request.form.get('nome'), request.form.get('especialidade'), request.form.get('telefone')
-    conn = get_db_connection()
-    conn.execute('INSERT INTO professores (nome, especialidade, telefone) VALUES (?, ?, ?)', (nome, especialidade, telefone))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/agendar_estudio', methods=['POST'])
-def agendar_estudio():
-    sala, aluno_id, professor_id, data_hora = request.form.get('sala_estudio'), request.form.get('aluno_id'), request.form.get('professor_id'), request.form.get('data_hora')
-    conn = get_db_connection()
-    conn.execute('INSERT INTO agendamentos (sala_estudio, aluno_id, professor_id, data_hora) VALUES (?, ?, ?, ?)', (sala, aluno_id, professor_id, data_hora))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/registrar_financeiro', methods=['POST'])
-def registrar_financeiro():
-    tipo, descricao, valor = request.form.get('tipo'), request.form.get('descricao'), float(request.form.get('valor') or 0)
-    data = datetime.now().strftime('%Y-%m-%d %H:%M')
-    conn = get_db_connection()
-    conn.execute('INSERT INTO financeiro (tipo, descricao, valor, data) VALUES (?, ?, ?, ?)', (tipo, descricao, valor, data))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    app.run(debug=True)
+                <div class="card">
+                    <div class="card-header bg-dark text-white"><h5>Fluxo de Caixa Reais</h5></div>
+                    <div class="card-body p-0">
+                        <table class="table table-striped mb-0">
+                            <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Valor</th></tr></thead>
+                            <tbody>
+                                {% for mov in movimentacoes %}
+                                <tr>
+                                    <td>{{ mov.data }}</td>
+                                    <td><span class="badge bg-{{ 'success' if mov.tipo == 'entrada' else 'danger' }}">{{ mov.tipo }}</span></td>
+                                    <td>{{ mov.descricao }}</td>
+                                    <td>R$ {{ "%.2f"|format(mov.valor) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
