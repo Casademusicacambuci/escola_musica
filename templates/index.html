@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for
 
 app = Flask(__name__)
 app.secret_key = "chave_secreta_cambuci"
@@ -13,158 +13,67 @@ def get_db_connection():
     return conn
 
 def init_db():
-    """Cria o banco de dados e as tabelas automaticamente se não existirem."""
     if not os.path.exists(DATABASE):
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # Tabela de Alunos
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS alunos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nome TEXT NOT NULL,
-                instrumento TEXT NOT NULL,
-                telefone TEXT,
-                data_matricula TEXT
-            )
-        ''')
-        
-        # Tabela de Professores
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS professores (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nome TEXT NOT NULL,
-                especialidade TEXT NOT NULL,
-                telefone TEXT
-            )
-        ''')
-        
-        # Tabela de Agendamentos (Estúdios)
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS agendamentos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sala_estudio TEXT NOT NULL,
-                professor_id INTEGER,
-                aluno_id INTEGER,
-                data_hora TEXT NOT NULL,
-                FOREIGN KEY(professor_id) REFERENCES professores(id),
-                FOREIGN KEY(aluno_id) REFERENCES alunos(id)
-            )
-        ''')
-        
-        # Tabela de Loja (Produtos e Instrumentos)
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS produtos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nome TEXT NOT NULL,
-                categoria TEXT,
-                preco REAL NOT NULL,
-                estoque INTEGER NOT NULL
-            )
-        ''')
-        
-        # Tabela de Caixa (Financeiro)
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS financeiro (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tipo TEXT NOT NULL,
-                descricao TEXT NOT NULL,
-                valor REAL NOT NULL,
-                data TEXT NOT NULL
-            )
-        ''')
-        
+        cursor.execute('CREATE TABLE IF NOT EXISTS alunos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, instrumento TEXT NOT NULL, telefone TEXT, data_matricula TEXT)')
+        cursor.execute('CREATE TABLE IF NOT EXISTS professores (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, especialidade TEXT NOT NULL, telefone TEXT)')
+        cursor.execute('CREATE TABLE IF NOT EXISTS agendamentos (id INTEGER PRIMARY KEY AUTOINCREMENT, sala_estudio TEXT NOT NULL, professor_id INTEGER, aluno_id INTEGER, data_hora TEXT NOT NULL)')
+        cursor.execute('CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, categoria TEXT, preco REAL NOT NULL, estoque INTEGER NOT NULL)')
+        cursor.execute('CREATE TABLE IF NOT EXISTS financeiro (id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, data TEXT NOT NULL)')
         conn.commit()
         conn.close()
 
-# Inicializa o banco de dados ao rodar o app
 init_db()
 
 @app.route('/')
 def index():
     conn = get_db_connection()
-    
     alunos = conn.execute('SELECT * FROM alunos').fetchall()
     professores = conn.execute('SELECT * FROM professores').fetchall()
-    agendamentos = conn.execute('''
-        SELECT ag.id, ag.sala_estudio, ag.data_hora, al.nome as aluno, pr.nome as professor 
-        FROM agendamentos ag
-        LEFT JOIN alunos al ON ag.aluno_id = al.id
-        LEFT JOIN professores pr ON ag.professor_id = pr.id
-    ''').fetchall()
+    agendamentos = conn.execute('SELECT ag.id, ag.sala_estudio, ag.data_hora, al.nome as aluno, pr.nome as professor FROM agendamentos ag LEFT JOIN alunos al ON ag.aluno_id = al.id LEFT JOIN professores pr ON ag.professor_id = pr.id').fetchall()
     produtos = conn.execute('SELECT * FROM produtos').fetchall()
     movimentacoes = conn.execute('SELECT * FROM financeiro ORDER BY id DESC').fetchall()
-    
-    # Cálculos do Financeiro
     total_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()[0] or 0.0
     total_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()[0] or 0.0
     saldo_caixa = total_entradas - total_saidas
-    
     conn.close()
-    
-    return render_template(
-        'index.html', 
-        alunos=alunos, 
-        professores=professores,
-        agendamentos=agendamentos, 
-        produtos=produtos,
-        movimentacoes=movimentacoes,
-        total_entradas=total_entradas, 
-        total_saidas=total_saidas,
-        saldo_caixa=saldo_caixa
-    )
+    return render_template('index.html', alunos=alunos, professores=professores, agendamentos=agendamentos, produtos=produtos, movimentacoes=movimentacoes, total_entradas=total_entradas, total_saidas=total_saidas, saldo_caixa=saldo_caixa)
 
 @app.route('/cadastrar_aluno', methods=['POST'])
 def cadastrar_aluno():
-    nome = request.form.get('nome')
-    instrumento = request.form.get('instrumento')
-    telefone = request.form.get('telefone')
+    nome, instrumento, telefone = request.form.get('nome'), request.form.get('instrumento'), request.form.get('telefone')
     data = request.form.get('data') or datetime.now().strftime('%Y-%m-%d')
-    
     conn = get_db_connection()
-    conn.execute('INSERT INTO alunos (nome, instrumento, telefone, data_matricula) VALUES (?, ?, ?, ?)',
-                 (nome, instrumento, telefone, data))
+    conn.execute('INSERT INTO alunos (nome, instrumento, telefone, data_matricula) VALUES (?, ?, ?, ?)', (nome, instrumento, telefone, data))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
 
 @app.route('/cadastrar_professor', methods=['POST'])
 def cadastrar_professor():
-    nome = request.form.get('nome')
-    especialidade = request.form.get('especialidade')
-    telefone = request.form.get('telefone')
-    
+    nome, especialidade, telefone = request.form.get('nome'), request.form.get('especialidade'), request.form.get('telefone')
     conn = get_db_connection()
-    conn.execute('INSERT INTO professores (nome, specialty=especialidade, telefone) VALUES (?, ?, ?)' if False else 'INSERT INTO professores (nome, especialidade, telefone) VALUES (?, ?, ?)',
-                 (nome, especialidade, telefone))
+    conn.execute('INSERT INTO professores (nome, especialidade, telefone) VALUES (?, ?, ?)', (nome, especialidade, telefone))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
 
 @app.route('/agendar_estudio', methods=['POST'])
 def agendar_estudio():
-    sala = request.form.get('sala_estudio')
-    aluno_id = request.form.get('aluno_id')
-    professor_id = request.form.get('professor_id')
-    data_hora = request.form.get('data_hora')
-    
+    sala, aluno_id, professor_id, data_hora = request.form.get('sala_estudio'), request.form.get('aluno_id'), request.form.get('professor_id'), request.form.get('data_hora')
     conn = get_db_connection()
-    conn.execute('INSERT INTO agendamentos (sala_estudio, aluno_id, professor_id, data_hora) VALUES (?, ?, ?, ?)',
-                 (sala, aluno_id, professor_id, data_hora))
+    conn.execute('INSERT INTO agendamentos (sala_estudio, aluno_id, professor_id, data_hora) VALUES (?, ?, ?, ?)', (sala, aluno_id, professor_id, data_hora))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
 
 @app.route('/registrar_financeiro', methods=['POST'])
 def registrar_financeiro():
-    tipo = request.form.get('tipo')
-    descricao = request.form.get('descricao')
-    valor = float(request.form.get('valor') or 0)
+    tipo, descricao, valor = request.form.get('tipo'), request.form.get('descricao'), float(request.form.get('valor') or 0)
     data = datetime.now().strftime('%Y-%m-%d %H:%M')
-    
     conn = get_db_connection()
-    conn.execute('INSERT INTO financeiro (tipo, descricao, valor, data) VALUES (?, ?, ?, ?)',
-                 (tipo, descricao, valor, data))
+    conn.execute('INSERT INTO financeiro (tipo, descricao, valor, data) VALUES (?, ?, ?, ?)', (tipo, descricao, valor, data))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
