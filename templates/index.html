@@ -1,1 +1,39 @@
+🎵 Casa de Música Cambuci — Sistema de Gestão
+Rede Local Ativa
+🏛️ Recepção & Matrículas
+🎙️ Agendas dos Estúdios
+🎸 Loja & Acessórios
+💰 Caixa & Financeiro
+Matricular Novo Aluno
 
+
+
+
+Data de Matrícula
+Confirmar Matrícula 
+Cadastrar Novo Professor
+
+
+
+
+Cadastrar Professor 
+Alunos Matriculados
+{% for aluno in alunos %} {% endfor %}
+ID
+Nome
+Instrumento
+Telefone
+{{ aluno[0] }}
+{{ aluno[1] }}
+{{ aluno[4] }}
+{{ aluno[3] }}
+Corpo Docente (Professores)
+{% for prof in professores %} {% endfor %}
+ID
+Nome
+Especialidade
+Telefone
+{{ prof[0] }}
+{{ prof[1] }}
+{{ prof[4] }}
+{{ prof[3] }}
