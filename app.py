@@ -1,121 +1,137 @@
+import os
 import sqlite3
-import csv
-import io
-from flask import Flask, render_template, request, redirect, url_for, Response
 from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for, flash
 
 app = Flask(__name__)
+app.secret_key = "chave_secreta_cambuci"
+DATABASE = "escola.db"
 
-# Configuração e Inicialização do Banco de Dados
+def get_db_connection():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 def init_db():
-    conn = sqlite3.connect('escola.db')
-    cursor = conn.cursor()
-    
-    # Tabela de Alunos
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS alunos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            email TEXT,
-            telefone TEXT,
-            instrumento TEXT,
-            data_matricula TEXT
-        )
-    ''')
-    
-    # Tabela de Professores
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS professores (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            email TEXT,
-            telefone TEXT,
-            especialidade TEXT
-        )
-    ''')
-    
-    # Tabela de Agendamentos / Locações de Estúdio
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS agendamentos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tipo_agenda TEXT,
-            cliente_aluno_nome TEXT,
-            data TEXT,
-            horario TEXT,
-            horario_termino TEXT,
-            valor_total REAL DEFAULT 0.0,
-            status TEXT DEFAULT 'Agendado',
-            observacoes TEXT
-        )
-    ''')
-    
-    # Tabela do Fluxo de Caixa / Financeiro
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS financeiro (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            origem TEXT,
-            descricao TEXT,
-            valor REAL NOT NULL,
-            tipo_pagamento TEXT,
-            data_lancamento TEXT,
-            tipo TEXT NOT NULL
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()
+    """Cria o banco de dados e as tabelas automaticamente se não existirem."""
+    if not os.path.exists(DATABASE):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Tabela de Alunos
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS alunos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                instrumento TEXT NOT NULL,
+                telefone TEXT,
+                data_matricula TEXT
+            )
+        ''')
+        
+        # Tabela de Professores
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS professores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                especialidade TEXT NOT NULL,
+                telefone TEXT
+            )
+        ''')
+        
+        # Tabela de Agendamentos (Estúdios)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS agendamentos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sala_estudio TEXT NOT NULL,
+                professor_id INTEGER,
+                aluno_id INTEGER,
+                data_hora TEXT NOT NULL,
+                FOREIGN KEY(professor_id) REFERENCES professores(id),
+                FOREIGN KEY(aluno_id) REFERENCES alunos(id)
+            )
+        ''')
+        
+        # Tabela de Loja (Produtos e Instrumentos)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS produtos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                categoria TEXT,
+                preco REAL NOT NULL,
+                estoque INTEGER NOT NULL
+            )
+        ''')
+        
+        # Tabela de Caixa (Financeiro)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS financeiro (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tipo TEXT NOT NULL, -- 'entrada' ou 'saida'
+                descricao TEXT NOT NULL,
+                valor REAL NOT NULL,
+                data TEXT NOT NULL
+            )
+        ''')
+        
+        # Inserir alguns dados iniciais para a loja não ficar vazia
+        cursor.executemidly = [
+            ('Encordoamento Nylon', 'Acessórios', 45.00, 10),
+            ('Palheta Tradicional', 'Acessórios', 5.00, 50),
+            ('Cabo P10 3m', 'Acessórios', 35.00, 8)
+        ]
+        cursor.executemany('INSERT INTO produtos (nome, categoria, preco, estoque) VALUES (?, ?, ?, ?)', cursor.executemidly)
+        
+        conn.commit()
+        conn.close()
 
-# Inicializa o banco ao carregar o app
+# Inicializa o banco de dados ao rodar o app
 init_db()
 
-# --- ROTA PRINCIPAL (PAINEL DE GESTÃO) ---
 @app.route('/')
 def index():
-    conn = sqlite3.connect('escola.db')
-    cursor = conn.cursor()
+    conn = get_db_connection()
     
-    # Buscar dados para exibição nas tabelas da interface
-    cursor.execute("SELECT * FROM alunos ORDER BY id DESC")
-    alunos = cursor.fetchall()
+    alunos = conn.execute('SELECT * FROM alunos').fetchall()
+    professores = conn.execute('SELECT * FROM professores').fetchall()
+    agendamentos = conn.execute('''
+        SELECT ag.id, ag.sala_estudio, ag.data_hora, al.nome as aluno, pr.nome as professor 
+        FROM agendamentos ag
+        LEFT JOIN alunos al ON ag.aluno_id = al.id
+        LEFT JOIN professores pr ON ag.professor_id = pr.id
+    ''').fetchall()
+    produtos = conn.execute('SELECT * FROM produtos').fetchall()
+    movimentacoes = conn.execute('SELECT * FROM financeiro ORDER BY id DESC').fetchall()
     
-    cursor.execute("SELECT * FROM professores ORDER BY id DESC")
-    professores = cursor.fetchall()
-    
-    cursor.execute("SELECT id, tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes FROM agendamentos ORDER BY data ASC, horario ASC")
-    agendamentos = cursor.fetchall()
-    
-    cursor.execute("SELECT id, origem, descricao, valor, tipo_pagamento, data_lancamento, tipo FROM financeiro ORDER BY data_lancamento DESC, id DESC")
-    movimentacoes = cursor.fetchall()
-    
-    # Calcular os totais do Painel Financeiro
-    cursor.execute("SELECT SUM(valor) FROM financeiro WHERE tipo = 'ENTRADA'")
-    total_entradas = cursor.fetchone()[0] or 0.0
-    
-    cursor.execute("SELECT SUM(valor) FROM financeiro WHERE tipo = 'SAÍDA'")
-    total_saidas = cursor.fetchone()[0] or 0.0
-    
+    # Cálculos do Financeiro
+    total_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()[0] or 0.0
+    total_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()[0] or 0.0
     saldo_caixa = total_entradas - total_saidas
+    
     conn.close()
     
-    # saldo_atual mapeia diretamente para o index.html antigo evitando UndefinedError
-    return render_template('index.html', alunos=alunos, professores=professores, 
-                           agendamentos=agendamentos, movimentacoes=movimentacoes, 
-                           total_entradas=total_entradas, total_saidas=total_saidas, 
-                           saldo_caixa=saldo_caixa, saldo_atual=saldo_caixa)
+    return render_template(
+        'index.html', 
+        alunos=alunos, 
+        professores=professores,
+        agendamentos=agendamentos, 
+        produtos=produtos,
+        movimentacoes=movimentacoes,
+        total_entradas=total_entradas, 
+        total_saidas=total_saidas,
+        saldo_caixa=saldo_caixa
+    )
 
-# --- ROTAS DE CADASTRO ---
 @app.route('/cadastrar_aluno', methods=['POST'])
 def cadastrar_aluno():
     nome = request.form.get('nome')
-    email = request.form.get('email')
-    telefone = request.form.get('telefone')
     instrumento = request.form.get('instrumento')
-    data_matricula = request.form.get('data_matricula') or datetime.now().strftime('%Y-%m-%d')
+    telefone = request.form.get('telefone')
+    data = request.form.get('data') or datetime.now().strftime('%Y-%m-%d')
     
-    conn = sqlite3.connect('escola.db')
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO alunos (nome, email, telefone, instrumento, data_matricula) VALUES (?, ?, ?, ?, ?)",
-                   (nome, email, telefone, instrumento, data_matricula))
+    conn = get_db_connection()
+    conn.execute('INSERT INTO alunos (nome, instrumento, telefone, data_matricula) VALUES (?, ?, ?, ?)',
+                 (nome, instrumento, telefone, data))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
@@ -123,149 +139,43 @@ def cadastrar_aluno():
 @app.route('/cadastrar_professor', methods=['POST'])
 def cadastrar_professor():
     nome = request.form.get('nome')
-    email = request.form.get('email')
-    telefone = request.form.get('telefone')
     especialidade = request.form.get('especialidade')
+    telefone = request.form.get('telefone')
     
-    conn = sqlite3.connect('escola.db')
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO professores (nome, email, telefone, especialidade) VALUES (?, ?, ?, ?, ?)",
-                   (nome, email, telefone, especialidade))
+    conn = get_db_connection()
+    conn.execute('INSERT INTO professores (nome, especialidade, telefone) VALUES (?, ?, ?)',
+                 (nome, especialidade, telefone))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
 
-# --- ROTAS DE ESTÚDIO E LOCAÇÕES ---
-@app.route('/agendar_studio', methods=['POST'])
-def agendar_studio():
-    tipo_agenda = request.form.get('tipo_agenda')
-    cliente_aluno_nome = request.form.get('cliente_aluno_nome')
-    data = request.form.get('data')
-    horario = request.form.get('horario')
-    horario_termino = request.form.get('horario_termino')
-    valor_total = request.form.get('valor_total')
-    observacoes = request.form.get('observacoes', '')
+@app.route('/agendar_estudio', methods=['POST'])
+def agendar_estudio():
+    sala = request.form.get('sala_estudio')
+    aluno_id = request.form.get('aluno_id')
+    professor_id = request.form.get('professor_id')
+    data_hora = request.form.get('data_hora')
     
-    valor_total = float(valor_total) if valor_total else 0.0
-    
-    conn = sqlite3.connect('escola.db')
-    cursor = conn.cursor()
-    
-    # 1. Salva o agendamento
-    cursor.execute('''
-        INSERT INTO agendamentos (tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes)
-        VALUES (?, ?, ?, ?, ?, ?, 'Agendado', ?)
-    ''', (tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, observacoes))
-    
-    # 2. Lança automaticamente no Fluxo de Caixa como entrada
-    descricao_financeiro = f"Locação Estúdio: {tipo_agenda.capitalize()} - {cliente_aluno_nome}"
-    cursor.execute('''
-        INSERT INTO financeiro (origem, descricao, valor, tipo_pagamento, data_lancamento, tipo)
-        VALUES ('ESTUDIO', ?, ?, 'A definir', ?, 'ENTRADA')
-    ''', (descricao_financeiro, valor_total, data))
-    
+    conn = get_db_connection()
+    conn.execute('INSERT INTO agendamentos (sala_estudio, aluno_id, professor_id, data_hora) VALUES (?, ?, ?, ?)',
+                 (sala, aluno_id, professor_id, data_hora))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
 
-@app.route('/atualizar_status_agendamento/<int:id>', methods=['POST'])
-def atualizar_status_agendamento(id):
-    novo_status = request.form.get('status')
-    observacoes = request.form.get('observacoes', '')
-    
-    conn = sqlite3.connect('escola.db')
-    cursor = conn.cursor()
-    cursor.execute("UPDATE agendamentos SET status = ?, observacoes = ? WHERE id = ?", (novo_status, observacoes, id))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-# --- ROTAS FINANCEIRAS / FLUXO MANUAL ---
-@app.route('/lancar_financeiro', methods=['POST'])
-def lancar_financeiro():
-    tipo = request.form.get('tipo')  # ENTRADA ou SAÍDA
-    origem = request.form.get('origem')
+@app.route('/registrar_financeiro', methods=['POST'])
+def registrar_financeiro():
+    tipo = request.form.get('tipo')
     descricao = request.form.get('descricao')
-    valor = float(request.form.get('valor', 0.0))
-    tipo_pagamento = request.form.get('tipo_pagamento', 'Dinheiro/Pix')
-    data_lancamento = request.form.get('data_lancamento') or datetime.now().strftime('%Y-%m-%d')
+    valor = float(request.form.get('valor') or 0)
+    data = datetime.now().strftime('%Y-%m-%d %H:%M')
     
-    conn = sqlite3.connect('escola.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO financeiro (origem, descricao, valor, tipo_pagamento, data_lancamento, tipo)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (origem, descricao, valor, tipo_pagamento, data_lancamento, tipo))
+    conn = get_db_connection()
+    conn.execute('INSERT INTO financeiro (tipo, descricao, valor, data) VALUES (?, ?, ?, ?)',
+                 (tipo, descricao, valor, data))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
-
-@app.route('/reverter_movimentacao/<int:id>', methods=['POST'])
-def reverter_movimentacao(id):
-    conn = sqlite3.connect('escola.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT tipo FROM financeiro WHERE id = ?", (id,))
-    row = cursor.fetchone()
-    if row:
-        novo_tipo = 'SAÍDA' if row[0] == 'ENTRADA' else 'ENTRADA'
-        cursor.execute("UPDATE financeiro SET tipo = ? WHERE id = ?", (novo_tipo, id))
-        conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/deletar_movimentacao/<int:id>', methods=['POST'])
-def deletar_movimentacao(id):
-    conn = sqlite3.connect('escola.db')
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM financeiro WHERE id = ?", (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-# --- EXPORTAÇÃO DE RELATÓRIOS EM CSV ---
-@app.route('/exportar_caixa_dia', methods=['GET'])
-def exportar_caixa_dia():
-    data_hoje = datetime.now().strftime('%Y-%m-%d')
-    conn = sqlite3.connect('escola.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT data_lancamento, tipo, origem, descricao, valor, tipo_pagamento FROM financeiro WHERE data_lancamento = ?", (data_hoje,))
-    linhas = cursor.fetchall()
-    conn.close()
-    
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['Data', 'Tipo', 'Origem', 'Descrição', 'Valor (R$)', 'Forma Pagamento'])
-    for row in linhas:
-        writer.writerow(row)
-        
-    output.seek(0)
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename=fechamento_diario_{data_hoje}.csv"}
-    )
-
-@app.route('/exportar_fechamento_mes', methods=['GET'])
-def exportar_fechamento_mes():
-    mes_atual = datetime.now().strftime('%Y-%m')
-    conn = sqlite3.connect('escola.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT data_lancamento, tipo, origem, descricao, valor, tipo_pagamento FROM financeiro WHERE data_lancamento LIKE ?", (f"{mes_atual}%",))
-    linhas = cursor.fetchall()
-    conn.close()
-    
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['Data', 'Tipo', 'Origem', 'Descrição', 'Valor (R$)', 'Forma Pagamento'])
-    for row in linhas:
-        writer.writerow(row)
-        
-    output.seek(0)
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename=fechamento_mensal_{mes_atual}.csv"}
-    )
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True)
