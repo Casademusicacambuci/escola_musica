@@ -1,39 +1,113 @@
-🎵 Casa de Música Cambuci — Sistema de Gestão
-Rede Local Ativa
-🏛️ Recepção & Matrículas
-🎙️ Agendas dos Estúdios
-🎸 Loja & Acessórios
-💰 Caixa & Financeiro
-Matricular Novo Aluno
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Casa de Música Cambuci — Sistema de Gestão</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <style>
+        body { background-color: #f8f9fa; font-family: sans-serif; }
+        .navbar-brand { font-weight: bold; }
+        .card { margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">🎵 Casa de Música Cambuci — Sistema de Gestão</span>
+            <span class="badge bg-success">Rede Local Ativa</span>
+        </div>
+    </nav>
 
+    <div class="container">
+        <!-- Menu Rápido -->
+        <div class="row text-center mb-4">
+            <div class="col"><button class="btn btn-outline-primary w-100">🏛️ Recepção & Matrículas</button></div>
+            <div class="col"><button class="btn btn-outline-primary w-100">🎙️ Agendas dos Estúdios</button></div>
+            <div class="col"><button class="btn btn-outline-primary w-100">🎸 Loja & Acessórios</button></div>
+            <div class="col"><button class="btn btn-outline-primary w-100">💰 Caixa & Financeiro</button></div>
+        </div>
 
+        <div class="row">
+            <!-- Formulário Aluno -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">Matricular Novo Aluno</div>
+                    <div class="card-body">
+                        <form method="POST" action="/cadastrar_aluno">
+                            <div class="mb-3"><input type="text" name="nome" class="form-control" placeholder="Nome do Aluno" required></div>
+                            <div class="mb-3"><input type="text" name="instrumento" class="form-control" placeholder="Instrumento" required></div>
+                            <div class="mb-3"><input type="text" name="telefone" class="form-control" placeholder="Telefone" required></div>
+                            <div class="mb-3"><label class="form-label text-muted small">Data de Matrícula</label><input type="date" name="data" class="form-control" required></div>
+                            <button type="submit" class="btn btn-primary w-100">Confirmar Matrícula</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
 
+            <!-- Formulário Professor -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">Cadastrar Novo Professor</div>
+                    <div class="card-body">
+                        <form method="POST" action="/cadastrar_professor">
+                            <div class="mb-3"><input type="text" name="nome" class="form-control" placeholder="Nome do Professor" required></div>
+                            <div class="mb-3"><input type="text" name="especialidade" class="form-control" placeholder="Especialidade" required></div>
+                            <div class="mb-3"><input type="text" name="telefone" class="form-control" placeholder="Telefone" required></div>
+                            <button type="submit" class="btn btn-secondary w-100">Cadastrar Professor</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-Data de Matrícula
-Confirmar Matrícula 
-Cadastrar Novo Professor
+        <!-- Tabela Alunos -->
+        <div class="card mt-4">
+            <div class="card-header bg-dark text-white">Alunos Matriculados</div>
+            <div class="card-body table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr><th>ID</th><th>Nome</th><th>Instrumento</th><th>Telefone</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for aluno in alunos %}
+                        <tr>
+                            <td>{{ aluno[0] }}</td>
+                            <td>{{ aluno[1] }}</td>
+                            <td>{{ aluno[4] }}</td>
+                            <td>{{ aluno[3] }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-center text-muted">Nenhum aluno matriculado ainda.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-
-
-
-Cadastrar Professor 
-Alunos Matriculados
-{% for aluno in alunos %} {% endfor %}
-ID
-Nome
-Instrumento
-Telefone
-{{ aluno[0] }}
-{{ aluno[1] }}
-{{ aluno[4] }}
-{{ aluno[3] }}
-Corpo Docente (Professores)
-{% for prof in professores %} {% endfor %}
-ID
-Nome
-Especialidade
-Telefone
-{{ prof[0] }}
-{{ prof[1] }}
-{{ prof[4] }}
-{{ prof[3] }}
+        <!-- Tabela Professores -->
+        <div class="card mt-4">
+            <div class="card-header bg-dark text-white">Corpo Docente (Professores)</div>
+            <div class="card-body table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr><th>ID</th><th>Nome</th><th>Especialidade</th><th>Telefone</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for prof in professores %}
+                        <tr>
+                            <td>{{ prof[0] }}</td>
+                            <td>{{ prof[1] }}</td>
+                            <td>{{ prof[4] }}</td>
+                            <td>{{ prof[3] }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-center text-muted">Nenhum professor cadastrado ainda.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
