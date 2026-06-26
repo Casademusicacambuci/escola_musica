@@ -1,273 +1,181 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Casa de Música Cambuci — Sistema de Gestão</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
-    <style>
-        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .navbar-brand { font-weight: 700; letter-spacing: 0.5px; }
-        .card { border: none; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
-        .card-header { font-weight: 600; border-top-left-radius: 10px !important; border-top-right-radius: 10px !important; }
-        .nav-sections { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-dark bg-dark mb-4 sticky-top shadow-sm">
-        <div class="container">
-            <span class="navbar-brand mb-0 h1">🎵 Casa de Música Cambuci — Sistema de Gestão</span>
-            <span class="badge bg-success px-3 py-2">Rede Ativa</span>
-        </div>
-    </nav>
+import os
+import sqlite3
+from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for, flash
 
-    <div class="container">
-        <!-- 1. BLOCO FINANCEIRO (RESUMO RÁPIDO) -->
-        <div class="row mb-4 text-center">
-            <div class="col-md-4 mb-2">
-                <div class="card bg-success text-white p-3 m-0">
-                    <small>Total Entradas</small>
-                    <h3>R$ {{ "%.2f"|format(total_entradas) }}</h3>
-                </div>
-            </div>
-            <div class="col-md-4 mb-2">
-                <div class="card bg-danger text-white p-3 m-0">
-                    <small>Total Saídas</small>
-                    <h3>R$ {{ "%.2f"|format(total_saidas) }}</h3>
-                </div>
-            </div>
-            <div class="col-md-4 mb-2">
-                <div class="card bg-primary text-white p-3 m-0">
-                    <small>Saldo em Caixa</small>
-                    <h3>R$ {{ "%.2f"|format(saldo_caixa) }}</h3>
-                </div>
-            </div>
-        </div>
+app = Flask(__name__)
+app.secret_key = "chave_secreta_cambuci"
+DATABASE = "escola.db"
 
-        <!-- 2. MÓDULO: RECEPÇÃO & MATRÍCULAS -->
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">🏛️ Matricular Novo Aluno</div>
-                    <div class="card-body">
-                        <form method="POST" action="/cadastrar_aluno">
-                            <div class="mb-3"><input type="text" name="nome" class="form-control" placeholder="Nome do Aluno" required></div>
-                            <div class="mb-3"><input type="text" name="instrumento" class="form-control" placeholder="Instrumento (ex: Violão Nylon, Piano)" required></div>
-                            <div class="mb-3"><input type="text" name="telefone" class="form-control" placeholder="Telefone de Contato" required></div>
-                            <div class="mb-3"><label class="form-label text-muted small">Data de Matrícula</label><input type="date" name="data" class="form-control"></div>
-                            <button type="submit" class="btn btn-primary w-100">Confirmar Matrícula</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
+def get_db_connection():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-secondary text-white">👨‍🏫 Cadastrar Novo Professor</div>
-                    <div class="card-body">
-                        <form method="POST" action="/cadastrar_professor">
-                            <div class="mb-3"><input type="text" name="nome" class="form-control" placeholder="Nome do Professor" required></div>
-                            <div class="mb-3"><input type="text" name="especialidade" class="form-control" placeholder="Especialidade / Instrumento" required></div>
-                            <div class="mb-3"><input type="text" name="telefone" class="form-control" placeholder="Telefone" required></div>
-                            <button type="submit" class="btn btn-secondary w-100">Cadastrar Professor</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
+def init_db():
+    """Cria o banco de dados e as tabelas automaticamente se não existirem."""
+    if not os.path.exists(DATABASE):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Tabela de Alunos
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS alunos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                instrumento TEXT NOT NULL,
+                telefone TEXT,
+                data_matricula TEXT
+            )
+        ''')
+        
+        # Tabela de Professores
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS professores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                especialidade TEXT NOT NULL,
+                telefone TEXT
+            )
+        ''')
+        
+        # Tabela de Agendamentos (Estúdios)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS agendamentos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sala_estudio TEXT NOT NULL,
+                professor_id INTEGER,
+                aluno_id INTEGER,
+                data_hora TEXT NOT NULL,
+                FOREIGN KEY(professor_id) REFERENCES professores(id),
+                FOREIGN KEY(aluno_id) REFERENCES alunos(id)
+            )
+        ''')
+        
+        # Tabela de Loja (Produtos e Instrumentos)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS produtos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                categoria TEXT,
+                preco REAL NOT NULL,
+                estoque INTEGER NOT NULL
+            )
+        ''')
+        
+        # Tabela de Caixa (Financeiro)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS financeiro (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tipo TEXT NOT NULL, -- 'entrada' ou 'saida'
+                descricao TEXT NOT NULL,
+                valor REAL NOT NULL,
+                data TEXT NOT NULL
+            )
+        ''')
+        
+        # Inserir alguns dados iniciais para a loja não ficar vazia
+        itens_iniciais = [
+            ('Encordoamento Nylon', 'Acessórios', 45.00, 10),
+            ('Palheta Tradicional', 'Acessórios', 5.00, 50),
+            ('Cabo P10 3m', 'Acessórios', 35.00, 8)
+        ]
+        cursor.executemany('INSERT INTO produtos (nome, categoria, preco, estoque) VALUES (?, ?, ?, ?)', itens_iniciais)
+        
+        conn.commit()
+        conn.close()
 
-        <!-- 3. MÓDULO: AGENDAS DOS ESTÚDIOS -->
-        <div class="card">
-            <div class="card-header bg-info text-white">🎙️ Reservar Sala / Estúdio de Ensaio</div>
-            <div class="card-body">
-                <form method="POST" action="/agendar_estudio" class="row g-3">
-                    <div class="col-md-3">
-                        <select name="sala_estudio" class="form-select" required>
-                            <option value="">Escolha o Estúdio...</option>
-                            <option value="Estúdio de Gravação">Estúdio de Gravação</option>
-                            <option value="Estúdio de Ensaio A">Estúdio de Ensaio A</option>
-                            <option value="Sala de Aula Prática">Sala de Aula Prática</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <select name="aluno_id" class="form-select">
-                            <option value="">Selecione o Aluno (Opcional)...</option>
-                            {% for aluno in alunos %}
-                            <option value="{{ aluno.id }}">{{ aluno.nome }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <select name="professor_id" class="form-select">
-                            <option value="">Selecione o Professor (Opcional)...</option>
-                            {% for prof in professores %}
-                            <option value="{{ prof.id }}">{{ prof.nome }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <input type="datetime-local" name="data_hora" class="form-control" required>
-                    </div>
-                    <div class="col-12">
-                        <button type="submit" class="btn btn-info text-white w-100">Confirmar Agendamento</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+# Inicializa o banco de dados ao rodar o app
+init_db()
 
-        <!-- 4. MÓDULO: CAIXA & FINANCEIRO (LANÇAMENTOS) -->
-        <div class="card">
-            <div class="card-header bg-warning text-dark">💰 Registrar Movimentação de Caixa</div>
-            <div class="card-body">
-                <form method="POST" action="/registrar_financeiro" class="row g-3">
-                    <div class="col-md-3">
-                        <select name="tipo" class="form-select" required>
-                            <option value="entrada">📈 Entrada (Matrícula, Mensalidade, Venda)</option>
-                            <option value="saida">📉 Saída (Contas, Manutenção, Pagamentos)</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <input type="text" name="descricao" class="form-control" placeholder="Descrição do Lançamento (ex: Mensalidade Aluno X, Compra de Cordas)" required>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="input-group">
-                            <span class="input-group-text">R$</span>
-                            <input type="number" step="0.01" name="valor" class="form-control" placeholder="0.00" required>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <button type="submit" class="btn btn-warning w-100">Lançar no Caixa</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <hr class="my-5">
-
-        <!-- TABELAS DE DADOS EXIBIDOS -->
-        <h2 class="mb-4">📋 Painel de Consultas</h2>
-
-        <div class="row">
-            <!-- Alunos -->
-            <div class="col-md-6">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-dark text-white">Alunos Cadastrados</div>
-                    <div class="card-body table-responsive p-0" style="max-height: 300px;">
-                        <table class="table table-hover table-striped mb-0">
-                            <thead><tr><th>Nome</th><th>Instrumento</th><th>Telefone</th></tr></thead>
-                            <tbody>
-                                {% for aluno in alunos %}
-                                <tr><td>{{ aluno.nome }}</td><td>{{ aluno.instrumento }}</td><td>{{ aluno.telefone }}</td></tr>
-                                {% else %}
-                                <tr><td colspan="3" class="text-center text-muted py-3">Nenhum aluno cadastrado.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Professores -->
-            <div class="col-md-6">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-dark text-white">Corpo Docente</div>
-                    <div class="card-body table-responsive p-0" style="max-height: 300px;">
-                        <table class="table table-hover table-striped mb-0">
-                            <thead><tr><th>Nome</th><th>Especialidade</th><th>Telefone</th></tr></thead>
-                            <tbody>
-                                {% for prof in professores %}
-                                <tr><td>{{ prof.nome }}</td><td>{{ prof.especialidade }}</td><td>{{ prof.telefone }}</td></tr>
-                                {% else %}
-                                <tr><td colspan="3" class="text-center text-muted py-3">Nenhum professor cadastrado.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <!-- Agenda -->
-            <div class="col-md-6">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-dark text-white">Próximos Agendamentos (Estúdios)</div>
-                    <div class="card-body table-responsive p-0" style="max-height: 300px;">
-                        <table class="table table-hover table-striped mb-0">
-                            <thead><tr><th>Sala</th><th>Data/Hora</th><th>Detalhes</th></tr></thead>
-                            <tbody>
-                                {% for ag in agendamentos %}
-                                <tr>
-                                    <td>{{ ag.sala_estudio }}</td>
-                                    <td>{{ ag.data_hora }}</td>
-                                    <td><small>Al: {{ ag.aluno or '-' }} | Prof: {{ ag.professor or '-' }}</small></td>
-                                </tr>
-                                {% else %}
-                                <tr><td colspan="3" class="text-center text-muted py-3">Nenhum agendamento marcado.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Loja e Acessórios -->
-            <div class="col-md-6">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-dark text-white">🎸 Vitrine da Loja & Acessórios</div>
-                    <div class="card-body table-responsive p-0" style="max-height: 300px;">
-                        <table class="table table-hover table-striped mb-0">
-                            <thead><tr><th>Item</th><th>Categoria</th><th>Preço</th><th>Estoque</th></tr></thead>
-                            <tbody>
-                                {% for prod in produtos %}
-                                <tr>
-                                    <td>{{ prod.nome }}</td>
-                                    <td><span class="badge bg-light text-dark">{{ prod.categoria }}</span></td>
-                                    <td>R$ {{ "%.2f"|format(prod.preco) }}</td>
-                                    <td>{{ prod.estoque }} un</td>
-                                </tr>
-                                {% else %}
-                                <tr><td colspan="4" class="text-center text-muted py-3">Nenhum item na vitrine.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Extrato Financeiro -->
-        <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">🧾 Fluxo de Caixa Recente</div>
-            <div class="card-body table-responsive p-0" style="max-height: 300px;">
-                <table class="table table-hover table-striped mb-0">
-                    <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Valor</th></tr></thead>
-                    <tbody>
-                        {% for mov in movimentacoes %}
-                        <tr>
-                            <td>{{ mov.data }}</td>
-                            <td>
-                                <span class="badge {% if mov.tipo == 'entrada' %}bg-success{% else %}bg-danger{% endif %}">
-                                    {{ mov.tipo|upper }}
-                                </span>
-                            </td>
-                            <td>{{ mov.descricao }}</td>
-                            <td class="{% if mov.tipo == 'entrada' %}text-success{% else %}text-danger{% endif %} font-weight-bold">
-                                R$ {{ "%.2f"|format(mov.valor) }}
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr><td colspan="4" class="text-center text-muted py-3">Nenhuma movimentação financeira registrada.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-    </div>
+@app.route('/')
+def index():
+    conn = get_db_connection()
     
-    <footer class="text-center text-muted my-5">
-        <small>© 2026 Casa de Música Cambuci. Todos os direitos reservados.</small>
-    </footer>
-</body>
-</html>
+    alunos = conn.execute('SELECT * FROM alunos').fetchall()
+    professores = conn.execute('SELECT * FROM professores').fetchall()
+    agendamentos = conn.execute('''
+        SELECT ag.id, ag.sala_estudio, ag.data_hora, al.nome as aluno, pr.nome as professor 
+        FROM agendamentos ag
+        LEFT JOIN alunos al ON ag.aluno_id = al.id
+        LEFT JOIN professores pr ON ag.professor_id = pr.id
+    ''').fetchall()
+    produtos = conn.execute('SELECT * FROM produtos').fetchall()
+    movimentacoes = conn.execute('SELECT * FROM financeiro ORDER BY id DESC').fetchall()
+    
+    # Cálculos do Financeiro
+    total_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()[0] or 0.0
+    total_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()[0] or 0.0
+    saldo_caixa = total_entradas - total_saidas
+    
+    conn.close()
+    
+    return render_template(
+        'index.html', 
+        alunos=alunos, 
+        professores=professores,
+        agendamentos=agendamentos, 
+        produtos=produtos,
+        movimentacoes=movimentacoes,
+        total_entradas=total_entradas, 
+        total_saidas=total_saidas,
+        saldo_caixa=saldo_caixa
+    )
+
+@app.route('/cadastrar_aluno', methods=['POST'])
+def cadastrar_aluno():
+    nome = request.form.get('nome')
+    instrumento = request.form.get('instrumento')
+    telefone = request.form.get('telefone')
+    data = request.form.get('data') or datetime.now().strftime('%Y-%m-%d')
+    
+    conn = get_db_connection()
+    conn.execute('INSERT INTO alunos (nome, instrumento, telefone, data_matricula) VALUES (?, ?, ?, ?)',
+                 (nome, instrumento, telefone, data))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/cadastrar_professor', methods=['POST'])
+def cadastrar_professor():
+    nome = request.form.get('nome')
+    especialidade = request.form.get('especialidade')
+    telefone = request.form.get('telefone')
+    
+    conn = get_db_connection()
+    conn.execute('INSERT INTO professores (nome, especialidade, telefone) VALUES (?, ?, ?)',
+                 (nome, especialidade, telefone))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/agendar_estudio', methods=['POST'])
+def agendar_estudio():
+    sala = request.form.get('sala_estudio')
+    aluno_id = request.form.get('aluno_id')
+    professor_id = request.form.get('professor_id')
+    data_hora = request.form.get('data_hora')
+    
+    conn = get_db_connection()
+    conn.execute('INSERT INTO agendamentos (sala_estudio, aluno_id, professor_id, data_hora) VALUES (?, ?, ?, ?)',
+                 (sala, aluno_id, professor_id, data_hora))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/registrar_financeiro', methods=['POST'])
+def registrar_financeiro():
+    tipo = request.form.get('tipo')
+    descricao = request.form.get('descricao')
+    valor = float(request.form.get('valor') or 0)
+    data = datetime.now().strftime('%Y-%m-%d %H:%M')
+    
+    conn = get_db_connection()
+    conn.execute('INSERT INTO financeiro (tipo, descricao, valor, data) VALUES (?, ?, ?, ?)',
+                 (tipo, descricao, valor, data))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
