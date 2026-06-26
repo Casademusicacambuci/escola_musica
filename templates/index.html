@@ -67,20 +67,12 @@ def init_db():
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS financeiro (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tipo TEXT NOT NULL, -- 'entrada' ou 'saida'
+                tipo TEXT NOT NULL,
                 descricao TEXT NOT NULL,
                 valor REAL NOT NULL,
                 data TEXT NOT NULL
             )
         ''')
-        
-        # Inserir alguns dados iniciais para a loja não ficar vazia
-        itens_iniciais = [
-            ('Encordoamento Nylon', 'Acessórios', 45.00, 10),
-            ('Palheta Tradicional', 'Acessórios', 5.00, 50),
-            ('Cabo P10 3m', 'Acessórios', 35.00, 8)
-        ]
-        cursor.executemany('INSERT INTO produtos (nome, categoria, preco, estoque) VALUES (?, ?, ?, ?)', itens_iniciais)
         
         conn.commit()
         conn.close()
@@ -143,7 +135,7 @@ def cadastrar_professor():
     telefone = request.form.get('telefone')
     
     conn = get_db_connection()
-    conn.execute('INSERT INTO professores (nome, especialidade, telefone) VALUES (?, ?, ?)',
+    conn.execute('INSERT INTO professores (nome, specialty=especialidade, telefone) VALUES (?, ?, ?)' if False else 'INSERT INTO professores (nome, especialidade, telefone) VALUES (?, ?, ?)',
                  (nome, especialidade, telefone))
     conn.commit()
     conn.close()
