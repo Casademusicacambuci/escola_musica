@@ -24,24 +24,17 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Garante a existência das outras tabelas
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS alunos (
             id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, rg TEXT, cpf TEXT, 
             endereco TEXT, comprovante_anexo TEXT, telefone TEXT, curso TEXT, data_matricula TEXT
         )
     ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS professores (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, rg TEXT, cpf TEXT, 
-            endereco TEXT, comprovante_anexo TEXT, telefone TEXT, curso TEXT
-        )
-    ''')
     cursor.execute('CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, categoria TEXT NOT NULL, preco REAL NOT NULL, estoque INTEGER NOT NULL)')
     cursor.execute('CREATE TABLE IF NOT EXISTS financeiro (id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT NOT NULL, categoria_fluxo TEXT NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, data TEXT NOT NULL)')
     cursor.execute('CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT UNIQUE NOT NULL, senha TEXT NOT NULL, perfil TEXT NOT NULL)')
     
-    # RECRIAÇÃO DA TABELA AGENDA COM TODOS OS REQUISITOS DE SEGURANÇA E FINANCEIRO
+    # RECRIAÇÃO DA TABELA AGENDA INCLUINDO O CAMPO DO TÉCNICO
     cursor.execute('DROP TABLE IF EXISTS agenda')
     cursor.execute('''
         CREATE TABLE agenda (
@@ -57,7 +50,8 @@ def init_db():
             hora_inicio TEXT NOT NULL,
             hora_fim TEXT NOT NULL,
             valor_reserva REAL DEFAULT 0.0,
-            status TEXT NOT NULL,           -- 'A pagar', 'Pago', 'Concluído'
+            status TEXT NOT NULL,
+            tecnico TEXT,                 -- Campo específico para o controle de cachês
             observacoes TEXT
         )
     ''')
@@ -103,7 +97,6 @@ def index():
     
     conn = get_db_connection()
     alunos = conn.execute('SELECT * FROM alunos').fetchall()
-    professores = conn.execute('SELECT * FROM professores').fetchall()
     produtos = conn.execute('SELECT * FROM produtos').fetchall()
     movimentacoes = conn.execute('SELECT * FROM financeiro ORDER BY id DESC').fetchall()
     compromissos = conn.execute('SELECT * FROM agenda ORDER BY data_compromisso ASC, hora_inicio ASC').fetchall()
@@ -113,7 +106,7 @@ def index():
     saldo_caixa = total_entradas - total_saidas
     conn.close()
     
-    return render_template('index.html', alunos=alunos, professores=professores, produtos=produtos, movimentacoes=movimentacoes, compromissos=compromissos, total_entradas=total_entradas, total_saidas=total_saidas, saldo_caixa=saldo_caixa)
+    return render_template('index.html', alunos=alunos, produtos=produtos, movimentacoes=movimentacoes, compromissos=compromissos, total_entradas=total_entradas, total_saidas=total_saidas, saldo_caixa=saldo_caixa)
 
 @app.route('/agendar', methods=['POST'])
 def agendar():
@@ -128,9 +121,9 @@ def agendar():
     hora_fim = request.form.get('hora_fim')
     valor_reserva = float(request.form.get('valor_reserva') or 0.0)
     status = request.form.get('status')
+    tecnico = request.form.get('tecnico') or "Não designado"
     observacoes = request.form.get('observacoes')
     
-    # Tratamento do arquivo anexo de comprovante de residência do cliente
     filename = ""
     file = request.files.get('comprovante')
     if file and allowed_file(file.filename):
@@ -139,11 +132,10 @@ def agendar():
 
     conn = get_db_connection()
     conn.execute('''
-        INSERT INTO agenda (tipo_agendamento, nome_responsavel, rg, cpf, endereco, comprovante_anexo, telefone, data_compromisso, hora_inicio, hora_fim, valor_reserva, status, observacoes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (tipo, nome, rg, cpf, endereco, filename, telefone, data_compromisso, hora_inicio, hora_fim, valor_reserva, status, observacoes))
+        INSERT INTO agenda (tipo_agendamento, nome_responsavel, rg, cpf, endereco, comprovante_anexo, telefone, data_compromisso, hora_inicio, hora_fim, valor_reserva, status, tecnico, observacoes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (tipo, nome, rg, cpf, endereco, filename, telefone, data_compromisso, hora_inicio, hora_fim, valor_reserva, status, tecnico, observacoes))
     
-    # SE FOI MARCADO COMO PAGO NO ATO DO AGENDAMENTO, LANÇA DIRETO NO CAIXA FINANCEIRO
     if status == 'Pago' and valor_reserva > 0:
         descricao_financeiro = f"Reserva {tipo} - Cli: {nome}"
         conn.execute('''
@@ -162,7 +154,6 @@ def atualizar_status_agenda(id, novo_status):
     
     if compromisso:
         status_anterior = compromisso['status']
-        # Se mudou para 'Pago' agora, e ainda não tinha sido computado no financeiro
         if novo_status == 'Pago' and status_anterior != 'Pago' and compromisso['valor_reserva'] > 0:
             descricao_financeiro = f"Pgto {compromisso['tipo_agendamento']} - Cli: {compromisso['nome_responsavel']}"
             conn.execute('''
@@ -186,24 +177,6 @@ def cadastrar_aluno():
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
     conn = get_db_connection()
     conn.execute('INSERT INTO alunos (nome, rg, cpf, endereco, comprovante_anexo, telefone, curso, data_matricula) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (nome, rg, cpf, endereco, filename, telefone, curso, datetime.now().strftime('%Y-%m-%d')))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/registrar_financeiro', methods=['POST'])
-def registrar_financeiro():
-    tipo, categoria, descricao, valor = request.form.get('tipo'), request.form.get('categoria_fluxo'), request.form.get('descricao'), float(request.form.get('valor') or 0)
-    conn = get_db_connection()
-    conn.execute('INSERT INTO financeiro (tipo, categoria_fluxo, descricao, valor, data) VALUES (?, ?, ?, ?, ?)', (tipo, categoria, descricao, valor, datetime.now().strftime('%Y-%m-%d %H:%M')))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/cadastrar_produto', methods=['POST'])
-def cadastrar_produto():
-    nome, categoria, preco, estoque = request.form.get('nome'), request.form.get('categoria'), float(request.form.get('preco') or 0), int(request.form.get('estoque') or 0)
-    conn = get_db_connection()
-    conn.execute('INSERT INTO produtos (nome, categoria, preco, estoque) VALUES (?, ?, ?, ?)', (nome, categoria, preco, estoque))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
