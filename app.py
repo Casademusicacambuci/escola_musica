@@ -24,7 +24,7 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Mantém as tabelas anteriores e adiciona por segurança
+    # Garante a existência das outras tabelas
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS alunos (
             id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, rg TEXT, cpf TEXT, 
@@ -41,15 +41,24 @@ def init_db():
     cursor.execute('CREATE TABLE IF NOT EXISTS financeiro (id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT NOT NULL, categoria_fluxo TEXT NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, data TEXT NOT NULL)')
     cursor.execute('CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT UNIQUE NOT NULL, senha TEXT NOT NULL, perfil TEXT NOT NULL)')
     
-    # NOVA TABELA: Agenda Integrada (Aulas e Estúdios)
+    # RECRIAÇÃO DA TABELA AGENDA COM TODOS OS REQUISITOS DE SEGURANÇA E FINANCEIRO
+    cursor.execute('DROP TABLE IF EXISTS agenda')
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS agenda (
+        CREATE TABLE agenda (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tipo_agendamento TEXT NOT NULL, -- 'Aula' ou 'Estúdio'
-            nome_responsavel TEXT NOT NULL, -- Nome do Aluno ou Cliente do Estúdio
-            profissional TEXT,          -- Nome do Professor (se for Aula)
-            data_hora TEXT NOT NULL,       -- Data e Horário combinados
-            status TEXT NOT NULL           -- 'Agendado' ou 'Concluído'
+            tipo_agendamento TEXT NOT NULL,
+            nome_responsavel TEXT NOT NULL,
+            rg TEXT,
+            cpf TEXT,
+            endereco TEXT,
+            comprovante_anexo TEXT,
+            telefone TEXT,
+            data_compromisso TEXT NOT NULL,
+            hora_inicio TEXT NOT NULL,
+            hora_fim TEXT NOT NULL,
+            valor_reserva REAL DEFAULT 0.0,
+            status TEXT NOT NULL,           -- 'A pagar', 'Pago', 'Concluído'
+            observacoes TEXT
         )
     ''')
     
@@ -97,9 +106,7 @@ def index():
     professores = conn.execute('SELECT * FROM professores').fetchall()
     produtos = conn.execute('SELECT * FROM produtos').fetchall()
     movimentacoes = conn.execute('SELECT * FROM financeiro ORDER BY id DESC').fetchall()
-    
-    # Puxa os compromissos agendados por ordem de data
-    compromissos = conn.execute('SELECT * FROM agenda ORDER BY data_hora ASC').fetchall()
+    compromissos = conn.execute('SELECT * FROM agenda ORDER BY data_compromisso ASC, hora_inicio ASC').fetchall()
     
     total_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()[0] or 0.0
     total_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()[0] or 0.0
@@ -112,71 +119,73 @@ def index():
 def agendar():
     tipo = request.form.get('tipo_agendamento')
     nome = request.form.get('nome_responsavel')
-    profissional = request.form.get('profissional') or "N/A"
-    data_hora = request.form.get('data_hora')
+    rg = request.form.get('rg')
+    cpf = request.form.get('cpf')
+    endereco = request.form.get('endereco')
+    telefone = request.form.get('telefone')
+    data_compromisso = request.form.get('data_compromisso')
+    hora_inicio = request.form.get('hora_inicio')
+    hora_fim = request.form.get('hora_fim')
+    valor_reserva = float(request.form.get('valor_reserva') or 0.0)
+    status = request.form.get('status')
+    observacoes = request.form.get('observacoes')
     
-    # Trata formatação da data vinda do navegador para exibição amigável
-    if data_hora:
-        dt = datetime.strptime(data_hora, '%Y-%m-%dT%H:%M')
-        data_hora_formatada = dt.strftime('%d/%m/%Y %H:%M')
-    else:
-        data_hora_formatada = datetime.now().strftime('%d/%m/%Y %H:%M')
+    # Tratamento do arquivo anexo de comprovante de residência do cliente
+    filename = ""
+    file = request.files.get('comprovante')
+    if file and allowed_file(file.filename):
+        filename = secure_filename(f"agenda_{cpf if cpf else 'cliente'}_{file.filename}")
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
     conn = get_db_connection()
-    conn.execute('INSERT INTO agenda (tipo_agendamento, nome_responsavel, profissional, data_hora, status) VALUES (?, ?, ?, ?, ?)',
-                 (tipo, nome, profissional, data_hora_formatada, 'Agendado'))
+    conn.execute('''
+        INSERT INTO agenda (tipo_agendamento, nome_responsavel, rg, cpf, endereco, comprovante_anexo, telefone, data_compromisso, hora_inicio, hora_fim, valor_reserva, status, observacoes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (tipo, nome, rg, cpf, endereco, filename, telefone, data_compromisso, hora_inicio, hora_fim, valor_reserva, status, observacoes))
+    
+    # SE FOI MARCADO COMO PAGO NO ATO DO AGENDAMENTO, LANÇA DIRETO NO CAIXA FINANCEIRO
+    if status == 'Pago' and valor_reserva > 0:
+        descricao_financeiro = f"Reserva {tipo} - Cli: {nome}"
+        conn.execute('''
+            INSERT INTO financeiro (tipo, categoria_fluxo, descricao, valor, data)
+            VALUES (?, ?, ?, ?, ?)
+        ''', ('entrada', 'Estúdios', descricao_financeiro, valor_reserva, datetime.now().strftime('%Y-%m-%d %H:%M')))
+
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
 
-@app.route('/concluir_agenda/<int:id>')
-def concluir_agenda(id):
+@app.route('/atualizar_status_agenda/<int:id>/<string:novo_status>')
+def atualizar_status_agenda(id, novo_status):
     conn = get_db_connection()
-    conn.execute("UPDATE agenda SET status='Concluído' WHERE id=?", (id,))
-    conn.commit()
+    compromisso = conn.execute('SELECT * FROM agenda WHERE id = ?', (id,)).fetchone()
+    
+    if compromisso:
+        status_anterior = compromisso['status']
+        # Se mudou para 'Pago' agora, e ainda não tinha sido computado no financeiro
+        if novo_status == 'Pago' and status_anterior != 'Pago' and compromisso['valor_reserva'] > 0:
+            descricao_financeiro = f"Pgto {compromisso['tipo_agendamento']} - Cli: {compromisso['nome_responsavel']}"
+            conn.execute('''
+                INSERT INTO financeiro (tipo, categoria_fluxo, descricao, valor, data)
+                VALUES (?, ?, ?, ?, ?)
+            ''', ('entrada', 'Estúdios', descricao_financeiro, compromisso['valor_reserva'], datetime.now().strftime('%Y-%m-%d %H:%M')))
+            
+        conn.execute('UPDATE agenda SET status = ? WHERE id = ?', (novo_status, id))
+        conn.commit()
+        
     conn.close()
     return redirect(url_for('index'))
 
 @app.route('/cadastrar_aluno', methods=['POST'])
 def cadastrar_aluno():
-    nome = request.form.get('nome')
-    rg = request.form.get('rg')
-    cpf = request.form.get('cpf')
-    endereco = request.form.get('endereco')
-    telefone = request.form.get('telefone')
-    curso = request.form.get('curso')
-    
+    nome, rg, cpf, endereco, telefone, curso = request.form.get('nome'), request.form.get('rg'), request.form.get('cpf'), request.form.get('endereco'), request.form.get('telefone'), request.form.get('curso')
     filename = ""
     file = request.files.get('comprovante')
     if file and allowed_file(file.filename):
         filename = secure_filename(f"aluno_{cpf}_{file.filename}")
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-
     conn = get_db_connection()
-    conn.execute('INSERT INTO alunos (nome, rg, cpf, endereco, comprovante_anexo, telefone, curso, data_matricula) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                 (nome, rg, cpf, endereco, filename, telefone, curso, datetime.now().strftime('%Y-%m-%d')))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/cadastrar_professor', methods=['POST'])
-def cadastrar_professor():
-    nome = request.form.get('nome')
-    rg = request.form.get('rg')
-    cpf = request.form.get('cpf')
-    endereco = request.form.get('endereco')
-    telefone = request.form.get('telefone')
-    curso = request.form.get('curso')
-    
-    filename = ""
-    file = request.files.get('comprovante')
-    if file and allowed_file(file.filename):
-        filename = secure_filename(f"prof_{cpf}_{file.filename}")
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-
-    conn = get_db_connection()
-    conn.execute('INSERT INTO profesores (nome, rg, cpf, endereco, comprovante_anexo, telefone, curso) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                 (nome, rg, cpf, endereco, filename, telefone, curso))
+    conn.execute('INSERT INTO alunos (nome, rg, cpf, endereco, comprovante_anexo, telefone, curso, data_matricula) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (nome, rg, cpf, endereco, filename, telefone, curso, datetime.now().strftime('%Y-%m-%d')))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
