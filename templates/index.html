@@ -10,6 +10,16 @@
         body { background-color: #f8f9fa; }
         .card { margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         #calendar { background: #fff; padding: 15px; border-radius: 8px; }
+        
+        /* Força a exibição do ícone de calendário e relógio de forma elegante */
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            background-color: #fff;
+            padding: 5px;
+            cursor: pointer;
+            border-radius: 3px;
+            border: 1px solid #ced4da;
+        }
     </style>
 </head>
 <body>
@@ -58,7 +68,7 @@
                                     <input type="text" name="curso" class="form-control mb-2" placeholder="Curso/Instrumento" required>
                                     <textarea name="endereco" class="form-control mb-2" placeholder="Endereço Completo" rows="2" required></textarea>
                                     <div class="mb-2">
-                                        <label class="form-label" style="font-size:0.85rem;">Comprovante de Endereço (Anexo)</label>
+                                        <label class="form-label" style="font-size:0.85rem;">Comprovante de Endereço</label>
                                         <input type="file" name="comprovante" class="form-control" required>
                                     </div>
                                     <button type="submit" class="btn btn-primary w-100">Efetivar Matrícula</button>
@@ -88,9 +98,7 @@
                 <div class="row mb-4">
                     <div class="col-12">
                         <div class="card">
-                            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">🗓️ Calendário Mensal e Horários de Ocupação (24h)</h5>
-                            </div>
+                            <div class="card-header bg-dark text-white"><h5>🗓️ Calendário Mensal e Horários de Ocupação (24h)</h5></div>
                             <div class="card-body"><div id="calendar"></div></div>
                         </div>
                     </div>
@@ -118,11 +126,23 @@
                                     <input type="text" name="telefone" class="form-control mb-2" placeholder="Telefone" required>
                                     <textarea name="endereco" class="form-control mb-2" placeholder="Endereço" rows="2" required></textarea>
                                     <input type="file" name="comprovante" class="form-control mb-2" required>
-                                    <input type="date" name="data_compromisso" class="form-control mb-2" required>
-                                    <div class="row mb-2">
-                                        <div class="col-6"><label class="small">Início</label><input type="time" name="hora_inicio" class="form-control" required></div>
-                                        <div class="col-6"><label class="small">Fim</label><input type="time" name="hora_fim" class="form-control" required></div>
+                                    
+                                    <div class="mb-2">
+                                        <label class="form-label small">Data do Compromisso</label>
+                                        <input type="date" name="data_compromisso" class="form-control" required>
                                     </div>
+                                    
+                                    <div class="row mb-2">
+                                        <div class="col-6">
+                                            <label class="small">Início</label>
+                                            <input type="time" name="hora_inicio" class="form-control" required>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="small">Fim</label>
+                                            <input type="time" name="hora_fim" class="form-control" required>
+                                        </div>
+                                    </div>
+                                    
                                     <input type="number" step="0.01" name="valor_reserva" class="form-control mb-2" placeholder="Valor Cobrado R$" required>
                                     <select name="status" class="form-select mb-2">
                                         <option value="A pagar">A pagar</option>
@@ -163,6 +183,7 @@
                                                     <div class="btn-group btn-group-sm">
                                                         {% if comp.status == 'A pagar' %}
                                                             <a href="/atualizar_status_agenda/{{ comp.id }}/Pago" class="btn btn-success text-white">Pago</a>
+                                                            <a href="/atualizar_status_agenda/{{ comp.id }}/Concluído" class="btn btn-dark text-white">Concluir</a>
                                                         {% elif comp.status == 'Pago' %}
                                                             <a href="/atualizar_status_agenda/{{ comp.id }}/Concluído" class="btn btn-dark text-white">Concluir</a>
                                                         {% endif %}
