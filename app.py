@@ -97,14 +97,45 @@ def index():
     alunos = conn.execute('SELECT * FROM alunos').fetchall()
     produtos = conn.execute('SELECT * FROM produtos').fetchall()
     movimentacoes = conn.execute('SELECT * FROM financeiro ORDER BY id DESC').fetchall()
-    compromissos = conn.execute('SELECT * FROM agenda ORDER BY data_compromisso ASC, hora_inicio ASC').fetchall()
+    
+    # Busca os compromissos ordenados cronologicamente por Data e Hora de início
+    compromissos_raw = conn.execute('SELECT * FROM agenda ORDER BY data_compromisso ASC, hora_inicio ASC').fetchall()
     
     total_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()[0] or 0.0
     total_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()[0] or 0.0
     saldo_caixa = total_entradas - total_saidas
     conn.close()
     
-    return render_template('index.html', alunos=alunos, produtos=produtos, movimentacoes=movimentacoes, compromissos=compromissos, total_entradas=total_entradas, total_saidas=total_saidas, saldo_caixa=saldo_caixa)
+    # Mapeamento de meses em português para o cabeçalho visual
+    meses_pt = {
+        "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril",
+        "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto",
+        "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro"
+    }
+    
+    # Agrupando os compromissos por Mês e Dia dinamicamente para o template HTML
+    compromissos_agrupados = {}
+    for comp in compromissos_raw:
+        try:
+            dt = datetime.strptime(comp['data_compromisso'], '%Y-%m-%d')
+            ano_mes = dt.strftime('%Y-%m')
+            nome_mes = f"{meses_pt.get(dt.strftime('%m'), 'Mês')} / {dt.strftime('%Y')}"
+            dia_formatado = dt.strftime('%d/%m (%a)').replace('Mon', 'Seg').replace('Tue', 'Ter').replace('Wed', 'Qua').replace('Thu', 'Qui').replace('Fri', 'Sex').replace('Sat', 'Sáb').replace('Sun', 'Dom')
+        except:
+            ano_mes = "Sem Data"
+            nome_mes = "Agendamentos Sem Data Definida"
+            dia_formatado = comp['data_compromisso']
+            
+        if nome_mes not in compromissos_agrupados:
+            compromissos_agrupados[nome_mes] = {}
+        if dia_formatado not in compromissos_agrupados[nome_mes]:
+            compromissos_agrupados[nome_mes][dia_formatado] = []
+            
+        compromissos_agrupados[nome_mes][dia_formatado].append(comp)
+    
+    return render_template('index.html', alunos=alunos, produtos=produtos, movimentacoes=movimentacoes, 
+                           compromissos_agrupados=compromissos_agrupados, compromissos_raw=compromissos_raw,
+                           total_entradas=total_entradas, total_saidas=total_saidas, saldo_caixa=saldo_caixa)
 
 @app.route('/agendar', methods=['POST'])
 def agendar():
@@ -148,7 +179,8 @@ def agendar():
     ''', (tipo, nome, rg, cpf, endereco, filename, telefone, data_compromisso, hora_inicio, hora_fim, valor_reserva, status, tecnico, observacoes))
     
     if status == 'Pago' and valor_reserva > 0:
-        descricao_financeiro = f"Reserva {tipo} - Cli: {nome}"
+        # Envia descrição rica no primeiro cadastro caso venha como Pago
+        descricao_financeiro = f"Reserva {tipo} | Cli: {nome} | Téc: {tecnico} | Data: {data_compromisso} ({hora_inicio}-{hora_fim})"
         conn.execute('''
             INSERT INTO financeiro (tipo, categoria_fluxo, descricao, valor, data)
             VALUES (?, ?, ?, ?, ?)
@@ -202,9 +234,9 @@ def atualizar_status_agenda(id, novo_status):
     
     if compromisso:
         status_anterior = compromisso['status']
-        # Lógica corrigida: Envia para o financeiro se for Concluído ou Pago partindo de "A pagar"
         if novo_status in ['Pago', 'Concluído'] and status_anterior == 'A pagar' and compromisso['valor_reserva'] > 0:
-            descricao_financeiro = f"Pgto Recebido ({novo_status}) - {compromisso['tipo_agendamento']} - Cli: {compromisso['nome_responsavel']}"
+            # INCLUSÃO COMPLETA DE DADOS ENVIADOS AO FINANCEIRO (Incluso o Técnico)
+            descricao_financeiro = f"Pgto Recebido ({novo_status}) - {compromisso['tipo_agendamento']} | Cli: {compromisso['nome_responsavel']} | Téc: {compromisso['tecnico']} | Data: {compromisso['data_compromisso']}"
             conn.execute('''
                 INSERT INTO financeiro (tipo, categoria_fluxo, descricao, valor, data)
                 VALUES (?, ?, ?, ?, ?)
