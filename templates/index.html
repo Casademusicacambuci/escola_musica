@@ -10,8 +10,9 @@
         body { background-color: #f8f9fa; }
         .card { margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         #calendar { background: #fff; padding: 15px; border-radius: 8px; }
+        .header-mes { background-color: #343a40; color: #fff; padding: 8px 15px; font-weight: bold; border-radius: 4px; margin-top: 15px; }
+        .header-dia { background-color: #e9ecef; color: #495057; padding: 5px 12px; font-weight: bold; font-size: 0.9rem; border-left: 4px solid #ffc107; }
         
-        /* CSS para garantir a exibição perfeita dos ícones de calendário e relógio */
         input[type="date"]::-webkit-calendar-picker-indicator,
         input[type="time"]::-webkit-calendar-picker-indicator {
             background-color: #f8f9fa;
@@ -39,7 +40,7 @@
             {% for category, message in messages %}
               <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                 <strong>{{ message }}</strong>
-                <button type="button" class="btn-close" data-bs-alert="close" data-bs-dismiss="alert"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
               </div>
             {% endfor %}
           {% endif %}
@@ -54,7 +55,6 @@
         </ul>
 
         <div class="tab-content" id="conteudoAbas">
-            <!-- ABA SECRETARIA -->
             <div class="tab-pane fade show active" id="secretaria" role="tabpanel">
                 <div class="row">
                     <div class="col-md-4">
@@ -95,7 +95,6 @@
                 </div>
             </div>
 
-            <!-- ABA AGENDA -->
             <div class="tab-pane fade" id="agenda" role="tabpanel">
                 <div class="row mb-4">
                     <div class="col-12">
@@ -160,50 +159,62 @@
                     <div class="col-md-8">
                         <div class="card">
                             <div class="card-header bg-dark text-white"><h5>Controle Técnico e Financeiro dos Estúdios</h5></div>
-                            <div class="card-body p-0">
-                                <div class="table-responsive">
-                                    <table class="table table-striped align-middle mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th>Horário</th>
-                                                <th>Estúdio</th>
-                                                <th>Técnico</th>
-                                                <th>Cliente</th>
-                                                <th>Financeiro</th>
-                                                <th>Ações</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for comp in compromissos %}
-                                            <tr>
-                                                <td><strong>{{ comp.data_compromisso }}</strong><br><small>{{ comp.hora_inicio }} - {{ comp.hora_fim }}</small></td>
-                                                <td><span class="badge bg-purple" style="background-color: #6f42c1;">{{ comp.tipo_agendamento }}</span></td>
-                                                <td><small>🎛️ {{ comp.tecnico }}</small></td>
-                                                <td><strong>{{ comp.nome_responsavel }}</strong></td>
-                                                <td>R$ {{ "%.2f"|format(comp.valor_reserva) }}<br><span class="badge {{ 'bg-success' if comp.status == 'Pago' else 'bg-danger' if comp.status == 'A pagar' else 'bg-secondary' }}">{{ comp.status }}</span></td>
-                                                <td>
-                                                    <div class="btn-group btn-group-sm">
-                                                        {% if comp.status == 'A pagar' %}
-                                                            <a href="/atualizar_status_agenda/{{ comp.id }}/Pago" class="btn btn-success text-white">Pago</a>
-                                                            <a href="/atualizar_status_agenda/{{ comp.id }}/Concluído" class="btn btn-dark text-white">Concluir</a>
-                                                        {% elif comp.status == 'Pago' %}
-                                                            <a href="/atualizar_status_agenda/{{ comp.id }}/Concluído" class="btn btn-dark text-white">Concluir</a>
-                                                        {% endif %}
-                                                        <button type="button" class="btn btn-outline-secondary" onclick="abrirModalEdicao('{{ comp.id }}', '{{ comp.tipo_agendamento }}', '{{ comp.nome_responsavel }}', '{{ comp.tecnico }}', '{{ comp.data_compromisso }}', '{{ comp.hora_inicio }}', '{{ comp.hora_fim }}', '{{ comp.valor_reserva }}', '{{ comp.observacoes }}')">Editar</button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <div class="card-body p-3">
+                                
+                                {% for mes, dias in compromissos_agrupados.items() %}
+                                    <div class="header-mes text-center my-2">{{ mes }}</div>
+                                    
+                                    {% for dia, lista in dias.items() %}
+                                        <div class="header-dia mt-2 mb-1">{{ dia }}</div>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-hover align-middle mb-3 border">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th style="width: 15%;">Horário</th>
+                                                        <th style="width: 25%;">Estúdio / Espaço</th>
+                                                        <th style="width: 20%;">Equipe / Técnico</th>
+                                                        <th style="width: 20%;">Cliente</th>
+                                                        <th style="width: 20%;">Financeiro & Ações</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for comp in lista %}
+                                                    <tr>
+                                                        <td><span class="badge bg-outline-dark text-dark border">{{ comp.hora_inicio }} - {{ comp.hora_fim }}</span></td>
+                                                        <td><span class="badge bg-purple" style="background-color: #6f42c1;">{{ comp.tipo_agendamento }}</span></td>
+                                                        <td><small>🎛️ {{ comp.tecnico }}</small></td>
+                                                        <td><strong>{{ comp.nome_responsavel }}</strong></td>
+                                                        <td>
+                                                            <div class="d-flex flex-column gap-1">
+                                                                <div>
+                                                                    <small class="fw-bold">R$ {{ "%.2f"|format(comp.valor_reserva) }}</small>
+                                                                    <span class="badge {{ 'bg-success' if comp.status == 'Pago' else 'bg-danger' if comp.status == 'A pagar' else 'bg-secondary' }}">{{ comp.status }}</span>
+                                                                </div>
+                                                                <div class="btn-group btn-group-sm w-100">
+                                                                    {% if comp.status == 'A pagar' %}
+                                                                        <a href="/atualizar_status_agenda/{{ comp.id }}/Pago" class="btn btn-success btn-sm text-white">Pago</a>
+                                                                        <a href="/atualizar_status_agenda/{{ comp.id }}/Concluído" class="btn btn-dark btn-sm text-white">Concluir</a>
+                                                                    {% elif comp.status == 'Pago' %}
+                                                                        <a href="/atualizar_status_agenda/{{ comp.id }}/Concluído" class="btn btn-dark btn-sm text-white">Concluir</a>
+                                                                    {% endif %}
+                                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="abrirModalEdicao('{{ comp.id }}', '{{ comp.tipo_agendamento }}', '{{ comp.nome_responsavel }}', '{{ comp.tecnico }}', '{{ comp.data_compromisso }}', '{{ comp.hora_inicio }}', '{{ comp.hora_fim }}', '{{ comp.valor_reserva }}', '{{ comp.observacoes }}')">Editar</button>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% endfor %}
+                                {% endfor %}
+
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ABA FINANCEIRO -->
             <div class="tab-pane fade" id="financeiro" role="tabpanel">
                 <div class="row text-center mb-4">
                     <div class="col-4"><div class="p-3 bg-success text-white rounded">Entradas<br><h4>R$ {{ "%.2f"|format(total_entradas) }}</h4></div></div>
@@ -214,7 +225,6 @@
         </div>
     </div>
 
-    <!-- MODAL DE EDIÇÃO -->
     <div class="modal fade" id="modalEdicao" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <form action="/editar_agenda" method="POST" class="modal-content">
@@ -252,7 +262,7 @@
                 headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
                 buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', day: 'Dia' },
                 events: [
-                    {% for comp in compromissos %}
+                    {% for comp in compromissos_raw %}
                     {
                         title: '{{ comp.tipo_agendamento }} - {{ comp.nome_responsavel }}',
                         start: '{{ comp.data_compromisso }}T{{ comp.hora_inicio }}',
