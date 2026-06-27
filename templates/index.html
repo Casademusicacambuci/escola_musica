@@ -11,13 +11,13 @@
         .card { margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         #calendar { background: #fff; padding: 15px; border-radius: 8px; }
         
-        /* Força a exibição do ícone de calendário e relógio de forma elegante */
+        /* CSS para garantir a exibição perfeita dos ícones de calendário e relógio */
         input[type="date"]::-webkit-calendar-picker-indicator,
         input[type="time"]::-webkit-calendar-picker-indicator {
-            background-color: #fff;
-            padding: 5px;
+            background-color: #f8f9fa;
+            padding: 4px;
             cursor: pointer;
-            border-radius: 3px;
+            border-radius: 4px;
             border: 1px solid #ced4da;
         }
     </style>
@@ -39,7 +39,7 @@
             {% for category, message in messages %}
               <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                 <strong>{{ message }}</strong>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-alert="close" data-bs-dismiss="alert"></button>
               </div>
             {% endfor %}
           {% endif %}
@@ -54,6 +54,7 @@
         </ul>
 
         <div class="tab-content" id="conteudoAbas">
+            <!-- ABA SECRETARIA -->
             <div class="tab-pane fade show active" id="secretaria" role="tabpanel">
                 <div class="row">
                     <div class="col-md-4">
@@ -94,6 +95,7 @@
                 </div>
             </div>
 
+            <!-- ABA AGENDA -->
             <div class="tab-pane fade" id="agenda" role="tabpanel">
                 <div class="row mb-4">
                     <div class="col-12">
@@ -128,17 +130,17 @@
                                     <input type="file" name="comprovante" class="form-control mb-2" required>
                                     
                                     <div class="mb-2">
-                                        <label class="form-label small">Data do Compromisso</label>
+                                        <label class="form-label small fw-bold">Data do Compromisso</label>
                                         <input type="date" name="data_compromisso" class="form-control" required>
                                     </div>
                                     
                                     <div class="row mb-2">
                                         <div class="col-6">
-                                            <label class="small">Início</label>
+                                            <label class="small fw-bold">Início</label>
                                             <input type="time" name="hora_inicio" class="form-control" required>
                                         </div>
                                         <div class="col-6">
-                                            <label class="small">Fim</label>
+                                            <label class="small fw-bold">Fim</label>
                                             <input type="time" name="hora_fim" class="form-control" required>
                                         </div>
                                     </div>
@@ -201,6 +203,7 @@
                 </div>
             </div>
 
+            <!-- ABA FINANCEIRO -->
             <div class="tab-pane fade" id="financeiro" role="tabpanel">
                 <div class="row text-center mb-4">
                     <div class="col-4"><div class="p-3 bg-success text-white rounded">Entradas<br><h4>R$ {{ "%.2f"|format(total_entradas) }}</h4></div></div>
@@ -211,6 +214,7 @@
         </div>
     </div>
 
+    <!-- MODAL DE EDIÇÃO -->
     <div class="modal fade" id="modalEdicao" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <form action="/editar_agenda" method="POST" class="modal-content">
