@@ -8,7 +8,6 @@ app = Flask(__name__)
 app.secret_key = "chave_secreta_cambuci_2026"
 DATABASE = "cambuci.db"
 
-# Configuração para upload de comprovantes de endereço
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -25,40 +24,34 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Recria tabelas de alunos e professores com os campos novos da secretaria
-    cursor.execute('DROP TABLE IF EXISTS alunos')
-    cursor.execute('DROP TABLE IF EXISTS professores')
-    
+    # Mantém as tabelas anteriores e adiciona por segurança
     cursor.execute('''
-        CREATE TABLE alunos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            nome TEXT NOT NULL, 
-            rg TEXT, 
-            cpf TEXT, 
-            endereco TEXT, 
-            comprovante_anexo TEXT, 
-            telefone TEXT, 
-            curso TEXT, 
-            data_matricula TEXT
+        CREATE TABLE IF NOT EXISTS alunos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, rg TEXT, cpf TEXT, 
+            endereco TEXT, comprovante_anexo TEXT, telefone TEXT, curso TEXT, data_matricula TEXT
         )
     ''')
-    
     cursor.execute('''
-        CREATE TABLE professores (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
-            nome TEXT NOT NULL, 
-            rg TEXT, 
-            cpf TEXT, 
-            endereco TEXT, 
-            comprovante_anexo TEXT, 
-            telefone TEXT, 
-            curso TEXT
+        CREATE TABLE IF NOT EXISTS professores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, rg TEXT, cpf TEXT, 
+            endereco TEXT, comprovante_anexo TEXT, telefone TEXT, curso TEXT
         )
     ''')
-    
     cursor.execute('CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, categoria TEXT NOT NULL, preco REAL NOT NULL, estoque INTEGER NOT NULL)')
     cursor.execute('CREATE TABLE IF NOT EXISTS financeiro (id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT NOT NULL, categoria_fluxo TEXT NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, data TEXT NOT NULL)')
     cursor.execute('CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT UNIQUE NOT NULL, senha TEXT NOT NULL, perfil TEXT NOT NULL)')
+    
+    # NOVA TABELA: Agenda Integrada (Aulas e Estúdios)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS agenda (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo_agendamento TEXT NOT NULL, -- 'Aula' ou 'Estúdio'
+            nome_responsavel TEXT NOT NULL, -- Nome do Aluno ou Cliente do Estúdio
+            profissional TEXT,          -- Nome do Professor (se for Aula)
+            data_hora TEXT NOT NULL,       -- Data e Horário combinados
+            status TEXT NOT NULL           -- 'Agendado' ou 'Concluído'
+        )
+    ''')
     
     cursor.execute("INSERT OR IGNORE INTO usuarios (usuario, senha, perfil) VALUES ('admin', 'admin123', 'administrador')")
     cursor.execute("INSERT OR IGNORE INTO usuarios (usuario, senha, perfil) VALUES ('caixa', 'caixa123', 'caixa')")
@@ -105,12 +98,44 @@ def index():
     produtos = conn.execute('SELECT * FROM produtos').fetchall()
     movimentacoes = conn.execute('SELECT * FROM financeiro ORDER BY id DESC').fetchall()
     
+    # Puxa os compromissos agendados por ordem de data
+    compromissos = conn.execute('SELECT * FROM agenda ORDER BY data_hora ASC').fetchall()
+    
     total_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()[0] or 0.0
     total_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()[0] or 0.0
     saldo_caixa = total_entradas - total_saidas
     conn.close()
     
-    return render_template('index.html', alunos=alunos, professores=professores, produtos=produtos, movimentacoes=movimentacoes, total_entradas=total_entradas, total_saidas=total_saidas, saldo_caixa=saldo_caixa)
+    return render_template('index.html', alunos=alunos, professores=professores, produtos=produtos, movimentacoes=movimentacoes, compromissos=compromissos, total_entradas=total_entradas, total_saidas=total_saidas, saldo_caixa=saldo_caixa)
+
+@app.route('/agendar', methods=['POST'])
+def agendar():
+    tipo = request.form.get('tipo_agendamento')
+    nome = request.form.get('nome_responsavel')
+    profissional = request.form.get('profissional') or "N/A"
+    data_hora = request.form.get('data_hora')
+    
+    # Trata formatação da data vinda do navegador para exibição amigável
+    if data_hora:
+        dt = datetime.strptime(data_hora, '%Y-%m-%dT%H:%M')
+        data_hora_formatada = dt.strftime('%d/%m/%Y %H:%M')
+    else:
+        data_hora_formatada = datetime.now().strftime('%d/%m/%Y %H:%M')
+
+    conn = get_db_connection()
+    conn.execute('INSERT INTO agenda (tipo_agendamento, nome_responsavel, profissional, data_hora, status) VALUES (?, ?, ?, ?, ?)',
+                 (tipo, nome, profissional, data_hora_formatada, 'Agendado'))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/concluir_agenda/<int:id>')
+def concluir_agenda(id):
+    conn = get_db_connection()
+    conn.execute("UPDATE agenda SET status='Concluído' WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
 
 @app.route('/cadastrar_aluno', methods=['POST'])
 def cadastrar_aluno():
@@ -128,10 +153,8 @@ def cadastrar_aluno():
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
     conn = get_db_connection()
-    conn.execute('''
-        INSERT INTO alunos (nome, rg, cpf, endereco, comprovante_anexo, telefone, curso, data_matricula) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (nome, rg, cpf, endereco, filename, telefone, curso, datetime.now().strftime('%Y-%m-%d')))
+    conn.execute('INSERT INTO alunos (nome, rg, cpf, endereco, comprovante_anexo, telefone, curso, data_matricula) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                 (nome, rg, cpf, endereco, filename, telefone, curso, datetime.now().strftime('%Y-%m-%d')))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
@@ -152,10 +175,8 @@ def cadastrar_professor():
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
     conn = get_db_connection()
-    conn.execute('''
-        INSERT INTO professores (nome, rg, cpf, endereco, comprovante_anexo, telefone, curso) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (nome, rg, cpf, endereco, filename, telefone, curso))
+    conn.execute('INSERT INTO profesores (nome, rg, cpf, endereco, comprovante_anexo, telefone, curso) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                 (nome, rg, cpf, endereco, filename, telefone, curso))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
