@@ -34,10 +34,9 @@ def init_db():
     cursor.execute('CREATE TABLE IF NOT EXISTS financeiro (id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT NOT NULL, categoria_fluxo TEXT NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, data TEXT NOT NULL)')
     cursor.execute('CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT UNIQUE NOT NULL, senha TEXT NOT NULL, perfil TEXT NOT NULL)')
     
-    # RECRIAÇÃO DA TABELA AGENDA INCLUINDO O CAMPO DO TÉCNICO
-    cursor.execute('DROP TABLE IF EXISTS agenda')
+    # Criar a tabela de agenda de forma resiliente
     cursor.execute('''
-        CREATE TABLE agenda (
+        CREATE TABLE IF NOT EXISTS agenda (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tipo_agendamento TEXT NOT NULL,
             nome_responsavel TEXT NOT NULL,
@@ -51,7 +50,7 @@ def init_db():
             hora_fim TEXT NOT NULL,
             valor_reserva REAL DEFAULT 0.0,
             status TEXT NOT NULL,
-            tecnico TEXT,                 -- Campo específico para o controle de cachês
+            tecnico TEXT,
             observacoes TEXT
         )
     ''')
@@ -124,13 +123,27 @@ def agendar():
     tecnico = request.form.get('tecnico') or "Não designado"
     observacoes = request.form.get('observacoes')
     
+    conn = get_db_connection()
+    
+    # 3. VALIDAÇÃO DE CONCORRÊNCIA (IMPEDIR DOIS AGENDAMENTOS NO MESMO ESPAÇO E HORÁRIO)
+    conflito = conn.execute('''
+        SELECT * FROM agenda 
+        WHERE tipo_agendamento = ? 
+        AND data_compromisso = ? 
+        AND NOT (hora_fim <= ? OR hora_inicio >= ?)
+    ''', (tipo, data_compromisso, hora_inicio, hora_fim)).fetchone()
+    
+    if conflito:
+        conn.close()
+        flash(f'ALERTA: O {tipo} já está ocupado neste dia entre {conflito["hora_inicio"]} e {conflito["hora_fim"]}!', 'danger')
+        return redirect(url_for('index'))
+    
     filename = ""
     file = request.files.get('comprovante')
     if file and allowed_file(file.filename):
         filename = secure_filename(f"agenda_{cpf if cpf else 'cliente'}_{file.filename}")
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
-    conn = get_db_connection()
     conn.execute('''
         INSERT INTO agenda (tipo_agendamento, nome_responsavel, rg, cpf, endereco, comprovante_anexo, telefone, data_compromisso, hora_inicio, hora_fim, valor_reserva, status, tecnico, observacoes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -145,6 +158,44 @@ def agendar():
 
     conn.commit()
     conn.close()
+    flash('Agendamento fixado com sucesso!', 'success')
+    return redirect(url_for('index'))
+
+@app.route('/editar_agenda', methods=['POST'])
+def editar_agenda():
+    agenda_id = request.form.get('id')
+    tipo = request.form.get('tipo_agendamento')
+    nome = request.form.get('nome_responsavel')
+    tecnico = request.form.get('tecnico')
+    data_compromisso = request.form.get('data_compromisso')
+    hora_inicio = request.form.get('hora_inicio')
+    hora_fim = request.form.get('hora_fim')
+    valor_reserva = float(request.form.get('valor_reserva') or 0.0)
+    observacoes = request.form.get('observacoes')
+    
+    conn = get_db_connection()
+    
+    # Valida conflito ignorando o próprio agendamento que está sendo editado
+    conflito = conn.execute('''
+        SELECT * FROM agenda 
+        WHERE tipo_agendamento = ? 
+        AND data_compromisso = ? 
+        AND id != ?
+        AND NOT (hora_fim <= ? OR hora_inicio >= ?)
+    ''', (tipo, data_compromisso, agenda_id, hora_inicio, hora_fim)).fetchone()
+    
+    if conflito:
+        conn.close()
+        flash(f'Erro na Edição: {tipo} já ocupado das {conflito["hora_inicio"]} às {conflito["hora_fim"]}!', 'danger')
+        return redirect(url_for('index'))
+        
+    conn.execute('''
+        UPDATE agenda SET tipo_agendamento=?, nome_responsavel=?, tecnico=?, data_compromisso=?, hora_inicio=?, hora_fim=?, valor_reserva=?, observacoes=?
+        WHERE id=?
+    ''', (tipo, nome, tecnico, data_compromisso, hora_inicio, hora_fim, valor_reserva, observacoes, agenda_id))
+    conn.commit()
+    conn.close()
+    flash('Agendamento atualizado com sucesso!', 'success')
     return redirect(url_for('index'))
 
 @app.route('/atualizar_status_agenda/<int:id>/<string:novo_status>')
@@ -154,8 +205,9 @@ def atualizar_status_agenda(id, novo_status):
     
     if compromisso:
         status_anterior = compromisso['status']
-        if novo_status == 'Pago' and status_anterior != 'Pago' and compromisso['valor_reserva'] > 0:
-            descricao_financeiro = f"Pgto {compromisso['tipo_agendamento']} - Cli: {compromisso['nome_responsavel']}"
+        # 1. FLUXO FINANCEIRO GARANTIDO: Se mudou para Pago OU Concluído e não havia sido pago antes, injeta no livro caixa
+        if novo_status in ['Pago', 'Concluído'] and status_anterior == 'A pagar' and compromisso['valor_reserva'] > 0:
+            descricao_financeiro = f"Pgto Efetuado ({novo_status}) {compromisso['tipo_agendamento']} - Cli: {compromisso['nome_responsavel']}"
             conn.execute('''
                 INSERT INTO financeiro (tipo, categoria_fluxo, descricao, valor, data)
                 VALUES (?, ?, ?, ?, ?)
