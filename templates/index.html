@@ -26,6 +26,7 @@
 
         <ul class="nav nav-tabs mb-4" id="painelAbas" role="tablist">
             <li class="nav-item"><button class="nav-link active" id="sec-tab" data-bs-toggle="tab" data-bs-target="#secretaria" type="button" role="tab">📁 Secretaria (Matrículas)</button></li>
+            <li class="nav-item"><button class="nav-link" id="agenda-tab" data-bs-toggle="tab" data-bs-target="#agenda" type="button" role="tab">📅 Agenda (Aulas e Estúdios)</button></li>
             <li class="nav-item"><button class="nav-link" id="fin-tab" data-bs-toggle="tab" data-bs-target="#financeiro" type="button" role="tab">💰 Financeiro & Estoque</button></li>
         </ul>
 
@@ -48,25 +49,6 @@
                                         <input type="file" name="comprovante" class="form-control" required>
                                     </div>
                                     <button type="submit" class="btn btn-primary w-100">Efetivar Matrícula</button>
-                                </form>
-                            </div>
-                        </div>
-
-                        <div class="card">
-                            <div class="card-header bg-success text-white"><h5>Cadastrar Professor</h5></div>
-                            <div class="card-body">
-                                <form action="/cadastrar_professor" method="POST" enctype="multipart/form-data">
-                                    <input type="text" name="nome" class="form-control mb-2" placeholder="Nome do Professor" required>
-                                    <input type="text" name="rg" class="form-control mb-2" placeholder="RG" required>
-                                    <input type="text" name="cpf" class="form-control mb-2" placeholder="CPF" required>
-                                    <input type="text" name="telefone" class="form-control mb-2" placeholder="Telefone" required>
-                                    <input type="text" name="curso" class="form-control mb-2" placeholder="Curso/Especialidade" required>
-                                    <textarea name="endereco" class="form-control mb-2" placeholder="Endereço Completo" rows="2" required></textarea>
-                                    <div class="mb-2">
-                                        <label class="form-label" style="font-size:0.85rem;">Comprovante de Endereço (Anexo)</label>
-                                        <input type="file" name="comprovante" class="form-control" required>
-                                    </div>
-                                    <button type="submit" class="btn btn-success w-100">Cadastrar Professor</button>
                                 </form>
                             </div>
                         </div>
@@ -98,27 +80,59 @@
                                 </table>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
 
+            <div class="tab-pane fade" id="agenda" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-4">
                         <div class="card">
-                            <div class="card-header bg-dark text-white"><h5>Corpo Docente (Professores)</h5></div>
+                            <div class="card-header bg-warning text-dark"><h5>Marcar Horário</h5></div>
+                            <div class="card-body">
+                                <form action="/agendar" method="POST">
+                                    <div class="mb-2">
+                                        <label class="form-label">Tipo de Agendamento</label>
+                                        <select name="tipo_agendamento" class="form-select" required>
+                                            <option value="Aula">Aula Regular</option>
+                                            <option value="Estúdio">Locação de Estúdio</option>
+                                        </select>
+                                    </div>
+                                    <input type="text" name="nome_responsavel" class="form-control mb-2" placeholder="Nome do Aluno / Cliente" required>
+                                    <input type="text" name="profissional" class="form-control mb-2" placeholder="Professor / Técnico (Opcional)">
+                                    <div class="mb-2">
+                                        <label class="form-label">Data e Hora</label>
+                                        <input type="datetime-local" name="data_hora" class="form-control" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-warning w-100 text-darkfw-bold">Fixar na Agenda</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header bg-dark text-white"><h5>Compromissos Agendados</h5></div>
                             <div class="card-body p-0">
                                 <table class="table table-striped mb-0">
-                                    <thead><tr><th>Nome</th><th>Especialidade</th><th>Telefone</th><th>Documentos</th></tr></thead>
+                                    <thead><tr><th>Data/Hora</th><th>Tipo</th><th>Responsável</th><th>Profissional</th><th>Ações</th></tr></thead>
                                     <tbody>
-                                        {% for prof in professores %}
+                                        {% for comp in compromissos %}
                                         <tr>
-                                            <td><strong>{{ prof.nome }}</strong></td>
-                                            <td>{{ prof.curso }}</td>
-                                            <td>{{ prof.telefone }}</td>
+                                            <td><strong>{{ comp.data_hora }}</strong></td>
+                                            <td><span class="badge {{ 'bg-primary' if comp.tipo_agendamento == 'Aula' else 'bg-purple text-white' }}" style="background-color: #6f42c1 if comp.tipo_agendamento != 'Aula' else '';">{{ comp.tipo_agendamento }}</span></td>
+                                            <td>{{ comp.nome_responsavel }}</td>
+                                            <td>{{ comp.profissional }}</td>
                                             <td>
-                                                <small>CPF: {{ prof.cpf }}</small><br>
-                                                {% if prof.comprovante_anexo %}
-                                                    <a href="/static/uploads/{{ prof.comprovante_anexo }}" target="_blank" class="badge bg-info text-dark text-decoration-none">Ver Comprovante 📄</a>
+                                                {% if comp.status == 'Agendado' %}
+                                                    <a href="/concluir_agenda/{{ comp.id }}" class="btn btn-sm btn-outline-success">Concluir</a>
+                                                {% else %}
+                                                    <span class="badge bg-success">Concluído ✓</span>
                                                 {% endif %}
                                             </td>
                                         </tr>
                                         {% else %}
-                                        <tr><td colspan="4" class="text-center text-muted p-3">Nenhum professor cadastrado.</td></tr>
+                                        <tr><td colspan="5" class="text-center text-muted p-3">Nenhum compromisso marcado.</td></tr>
                                         {% endfor %}
                                     </tbody>
                                 </table>
