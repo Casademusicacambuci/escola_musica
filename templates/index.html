@@ -4,13 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Casa de Música Cambuci - Gestão Integrada</title>
-    <!-- Bootstrap e Folha de Estilos do Calendário -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; }
         .card { margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        #calendar { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        #calendar { background: #fff; padding: 15px; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -25,6 +24,17 @@
     </nav>
 
     <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                <strong>{{ message }}</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
         <h1 class="text-center mb-4">Módulo Secretaria & Administração</h1>
 
         <ul class="nav nav-tabs mb-4" id="painelAbas" role="tablist">
@@ -34,7 +44,6 @@
         </ul>
 
         <div class="tab-content" id="conteudoAbas">
-            <!-- ABA SECRETARIA -->
             <div class="tab-pane fade show active" id="secretaria" role="tabpanel">
                 <div class="row">
                     <div class="col-md-4">
@@ -65,11 +74,7 @@
                                     <thead><tr><th>Nome</th><th>Curso</th><th>Telefone</th></tr></thead>
                                     <tbody>
                                         {% for al in alunos %}
-                                        <tr>
-                                            <td><strong>{{ al.nome }}</strong></td>
-                                            <td>{{ al.curso }}</td>
-                                            <td>{{ al.telefone }}</td>
-                                        </tr>
+                                        <tr><td><strong>{{ al.nome }}</strong></td><td>{{ al.curso }}</td><td>{{ al.telefone }}</td></tr>
                                         {% endfor %}
                                     </tbody>
                                 </table>
@@ -79,25 +84,19 @@
                 </div>
             </div>
 
-            <!-- ABA AGENDA ROBUSTA COM CALENDÁRIO MENSAL INTEGRADO -->
             <div class="tab-pane fade" id="agenda" role="tabpanel">
                 <div class="row mb-4">
-                    <!-- Calendário Central Dinâmico -->
                     <div class="col-12">
                         <div class="card">
                             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">🗓️ Calendário Mensal e Horários de Ocupação (24h)</h5>
-                                <span class="badge bg-light text-dark">Legenda: Azul = Aulas | Roxo = Estúdios</span>
                             </div>
-                            <div class="card-body">
-                                <div id="calendar"></div>
-                            </div>
+                            <div class="card-body"><div id="calendar"></div></div>
                         </div>
                     </div>
                 </div>
 
                 <div class="row">
-                    <!-- Formulário de Agendamento Seguro -->
                     <div class="col-md-4">
                         <div class="card">
                             <div class="card-header bg-warning text-dark"><h5>Nova Reserva Segura</h5></div>
@@ -112,69 +111,42 @@
                                             <option value="Aula Regular">Aula Regular</option>
                                         </select>
                                     </div>
-                                    
                                     <input type="text" name="nome_responsavel" class="form-control mb-2" placeholder="Nome do Cliente / Aluno" required>
                                     <input type="text" name="tecnico" class="form-control mb-2" placeholder="Técnico Responsável (Cachê)">
-                                    <input type="text" name="rg" class="form-control mb-2" placeholder="RG do Responsável" required>
-                                    <input type="text" name="cpf" class="form-control mb-2" placeholder="CPF do Responsável" required>
-                                    <input type="text" name="telefone" class="form-control mb-2" placeholder="Telefone / WhatsApp" required>
-                                    <textarea name="endereco" class="form-control mb-2" placeholder="Endereço Completo do Cliente" rows="2" required></textarea>
-                                    
-                                    <div class="mb-3">
-                                        <label class="form-label" style="font-size:0.85rem;">Comprovante de Endereço</label>
-                                        <input type="file" name="comprovante" class="form-control" required>
-                                    </div>
-
-                                    <div class="mb-2">
-                                        <label class="form-label">Data do Agendamento</label>
-                                        <input type="date" name="data_compromisso" class="form-control" required>
-                                    </div>
-
+                                    <input type="text" name="rg" class="form-control mb-2" placeholder="RG" required>
+                                    <input type="text" name="cpf" class="form-control mb-2" placeholder="CPF" required>
+                                    <input type="text" name="telefone" class="form-control mb-2" placeholder="Telefone" required>
+                                    <textarea name="endereco" class="form-control mb-2" placeholder="Endereço" rows="2" required></textarea>
+                                    <input type="file" name="comprovante" class="form-control mb-2" required>
+                                    <input type="date" name="data_compromisso" class="form-control mb-2" required>
                                     <div class="row mb-2">
-                                        <div class="col-6">
-                                            <label class="form-label">Início (24h)</label>
-                                            <input type="time" name="hora_inicio" class="form-control" required>
-                                        </div>
-                                        <div class="col-6">
-                                            <label class="form-label">Fim (24h)</label>
-                                            <input type="time" name="hora_fim" class="form-control" required>
-                                        </div>
+                                        <div class="col-6"><label class="small">Início</label><input type="time" name="hora_inicio" class="form-control" required></div>
+                                        <div class="col-6"><label class="small">Fim</label><input type="time" name="hora_fim" class="form-control" required></div>
                                     </div>
-
-                                    <div class="mb-2">
-                                        <label class="form-label">Valor cobrado (R$)</label>
-                                        <input type="number" step="0.01" name="valor_reserva" class="form-control" placeholder="0.00" required>
-                                    </div>
-
-                                    <div class="mb-2">
-                                        <label class="form-label">Status Inicial</label>
-                                        <select name="status" class="form-select">
-                                            <option value="A pagar">A pagar</option>
-                                            <option value="Pago">Pago (Lança no Financeiro)</option>
-                                        </select>
-                                    </div>
-
-                                    <textarea name="observacoes" class="form-control mb-2" placeholder="Observações..." rows="2"></textarea>
-
-                                    <button type="submit" class="btn btn-warning w-100 text-dark fw-bold mt-2">Salvar na Agenda</button>
+                                    <input type="number" step="0.01" name="valor_reserva" class="form-control mb-2" placeholder="Valor Cobrado R$" required>
+                                    <select name="status" class="form-select mb-2">
+                                        <option value="A pagar">A pagar</option>
+                                        <option value="Pago">Pago (Lança no Financeiro)</option>
+                                    </select>
+                                    <textarea name="observacoes" class="form-control mb-2" placeholder="Observações..."></textarea>
+                                    <button type="submit" class="btn btn-warning w-100 text-dark fw-bold">Salvar na Agenda</button>
                                 </form>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Quadro de Horários Operacionais -->
                     <div class="col-md-8">
                         <div class="card">
                             <div class="card-header bg-dark text-white"><h5>Controle Técnico e Financeiro dos Estúdios</h5></div>
                             <div class="card-body p-0">
                                 <div class="table-responsive">
-                                    <table class="table table-striped align-middle mb-0" style="font-size: 0.9rem;">
+                                    <table class="table table-striped align-middle mb-0">
                                         <thead>
                                             <tr>
                                                 <th>Horário</th>
                                                 <th>Estúdio</th>
                                                 <th>Técnico</th>
-                                                <th>Cliente / Dados</th>
+                                                <th>Cliente</th>
                                                 <th>Financeiro</th>
                                                 <th>Ações</th>
                                             </tr>
@@ -182,28 +154,20 @@
                                         <tbody>
                                             {% for comp in compromissos %}
                                             <tr>
-                                                <td>
-                                                    <span class="fw-bold">{{ comp.data_compromisso }}</span><br>
-                                                    <small class="text-muted">{{ comp.hora_inicio }} - {{ comp.hora_fim }}</small>
-                                                </td>
+                                                <td><strong>{{ comp.data_compromisso }}</strong><br><small>{{ comp.hora_inicio }} - {{ comp.hora_fim }}</small></td>
                                                 <td><span class="badge bg-purple" style="background-color: #6f42c1;">{{ comp.tipo_agendamento }}</span></td>
-                                                <td><span class="badge bg-secondary">🎛️ {{ comp.tecnico }}</span></td>
+                                                <td><small>🎛️ {{ comp.tecnico }}</small></td>
+                                                <td><strong>{{ comp.nome_responsavel }}</strong></td>
+                                                <td>R$ {{ "%.2f"|format(comp.valor_reserva) }}<br><span class="badge {{ 'bg-success' if comp.status == 'Pago' else 'bg-danger' if comp.status == 'A pagar' else 'bg-secondary' }}">{{ comp.status }}</span></td>
                                                 <td>
-                                                    <strong>{{ comp.nome_responsavel }}</strong><br>
-                                                    {% if comp.comprovante_anexo %}
-                                                        <a href="/static/uploads/{{ comp.comprovante_anexo }}" target="_blank" class="badge bg-light text-dark border text-decoration-none">Ver Doc 📄</a>
-                                                    {% endif %}
-                                                </td>
-                                                <td>
-                                                    <span class="fw-bold">R$ {{ "%.2f"|format(comp.valor_reserva) }}</span><br>
-                                                    <span class="badge {{ 'bg-success' if comp.status == 'Pago' else 'bg-danger' if comp.status == 'A pagar' else 'bg-secondary' }}">{{ comp.status }}</span>
-                                                </td>
-                                                <td>
-                                                    {% if comp.status == 'A pagar' %}
-                                                        <a href="/atualizar_status_agenda/{{ comp.id }}/Pago" class="btn btn-sm btn-success">Pago</a>
-                                                    {% elif comp.status == 'Pago' %}
-                                                        <a href="/atualizar_status_agenda/{{ comp.id }}/Concluído" class="btn btn-sm btn-dark">Concluir</a>
-                                                    {% endif %}
+                                                    <div class="btn-group btn-group-sm">
+                                                        {% if comp.status == 'A pagar' %}
+                                                            <a href="/atualizar_status_agenda/{{ comp.id }}/Pago" class="btn btn-success text-white">Pago</a>
+                                                        {% elif comp.status == 'Pago' %}
+                                                            <a href="/atualizar_status_agenda/{{ comp.id }}/Concluído" class="btn btn-dark text-white">Concluir</a>
+                                                        {% endif %}
+                                                        <button type="button" class="btn btn-outline-secondary" onclick="abrirModalEdicao('{{ comp.id }}', '{{ comp.tipo_agendamento }}', '{{ comp.nome_responsavel }}', '{{ comp.tecnico }}', '{{ comp.data_compromisso }}', '{{ comp.hora_inicio }}', '{{ comp.hora_fim }}', '{{ comp.valor_reserva }}', '{{ comp.observacoes }}')">Editar</button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                             {% endfor %}
@@ -216,7 +180,6 @@
                 </div>
             </div>
 
-            <!-- ABA FINANCEIRO -->
             <div class="tab-pane fade" id="financeiro" role="tabpanel">
                 <div class="row text-center mb-4">
                     <div class="col-4"><div class="p-3 bg-success text-white rounded">Entradas<br><h4>R$ {{ "%.2f"|format(total_entradas) }}</h4></div></div>
@@ -227,7 +190,31 @@
         </div>
     </div>
 
-    <!-- Scripts do Bootstrap e Motor do Calendário -->
+    <div class="modal fade" id="modalEdicao" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form action="/editar_agenda" method="POST" class="modal-content">
+                <div class="modal-header"><h5>Alterar Agendamento</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="edit_id">
+                    <label class="small mt-2">Espaço</label>
+                    <select name="tipo_agendamento" id="edit_tipo" class="form-select" required>
+                        <option value="Estúdio de Gravação">Estúdio de Gravação</option>
+                        <option value="Estúdio de Ensaio">Estúdio de Ensaio</option>
+                        <option value="Estúdio de Videoclipe">Estúdio de Videoclipe</option>
+                        <option value="Aula Regular">Aula Regular</option>
+                    </select>
+                    <label class="small mt-2">Cliente / Aluno</label><input type="text" name="nome_responsavel" id="edit_nome" class="form-control" required>
+                    <label class="small mt-2">Técnico</label><input type="text" name="tecnico" id="edit_tecnico" class="form-control">
+                    <label class="small mt-2">Data</label><input type="date" name="data_compromisso" id="edit_data" class="form-control" required>
+                    <div class="row"><div class="col-6"><label class="small">Início</label><input type="time" name="hora_inicio" id="edit_inicio" class="form-control" required></div><div class="col-6"><label class="small">Fim</label><input type="time" name="hora_fim" id="edit_fim" class="form-control" required></div></div>
+                    <label class="small mt-2">Valor (R$)</label><input type="number" step="0.01" name="valor_reserva" id="edit_valor" class="form-control" required>
+                    <label class="small mt-2">Observações</label><textarea name="observacoes" id="edit_obs" class="form-control"></textarea>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-success">Salvar Mudanças</button></div>
+            </form>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
     
@@ -237,17 +224,8 @@
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 locale: 'pt-br',
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                },
-                buttonText: {
-                    today: 'Hoje',
-                    month: 'Mês',
-                    week: 'Semana',
-                    day: 'Dia'
-                },
+                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
+                buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', day: 'Dia' },
                 events: [
                     {% for comp in compromissos %}
                     {
@@ -260,16 +238,26 @@
                 ]
             });
             
-            // Corrige renderização quando troca de aba
             var triggerTabList = [].slice.call(document.querySelectorAll('#painelAbas button'))
             triggerTabList.forEach(function (triggerEl) {
                 triggerEl.addEventListener('shown.bs.tab', function (event) {
-                    if (event.target.id === 'agenda-tab') {
-                        calendar.render();
-                    }
+                    if (event.target.id === 'agenda-tab') { calendar.render(); }
                 })
             });
         });
+
+        function abrirModalEdicao(id, tipo, nome, tecnico, data, inicio, fim, valor, obs) {
+            document.getElementById('edit_id').value = id;
+            document.getElementById('edit_tipo').value = tipo;
+            document.getElementById('edit_nome').value = nome;
+            document.getElementById('edit_tecnico').value = tecnico;
+            document.getElementById('edit_data').value = data;
+            document.getElementById('edit_inicio').value = inicio;
+            document.getElementById('edit_fim').value = fim;
+            document.getElementById('edit_valor').value = valor;
+            document.getElementById('edit_obs').value = obs;
+            new bootstrap.Modal(document.getElementById('modalEdicao')).show();
+        }
     </script>
 </body>
 </html>
