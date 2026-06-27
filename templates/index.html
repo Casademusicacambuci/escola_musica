@@ -24,6 +24,7 @@
     <div class="container mt-4">
         <h1 class="text-center mb-4">Módulo Secretaria & Administração</h1>
 
+        <!-- Abas para Organização dos Setores -->
         <ul class="nav nav-tabs mb-4" id="painelAbas" role="tablist">
             <li class="nav-item"><button class="nav-link active" id="sec-tab" data-bs-toggle="tab" data-bs-target="#secretaria" type="button" role="tab">📁 Secretaria (Matrículas)</button></li>
             <li class="nav-item"><button class="nav-link" id="agenda-tab" data-bs-toggle="tab" data-bs-target="#agenda" type="button" role="tab">📅 Agenda (Aulas e Estúdios)</button></li>
@@ -31,8 +32,10 @@
         </ul>
 
         <div class="tab-content" id="conteudoAbas">
+            <!-- ABA SECRETARIA -->
             <div class="tab-pane fade show active" id="secretaria" role="tabpanel">
                 <div class="row">
+                    <!-- Formulários de Matrícula -->
                     <div class="col-md-4">
                         <div class="card">
                             <div class="card-header bg-primary text-white"><h5>Matricular Aluno</h5></div>
@@ -54,6 +57,7 @@
                         </div>
                     </div>
 
+                    <!-- Listagens -->
                     <div class="col-md-8">
                         <div class="card">
                             <div class="card-header bg-dark text-white"><h5>Alunos Matriculados</h5></div>
@@ -84,18 +88,22 @@
                 </div>
             </div>
 
+            <!-- ABA AGENDA ATUALIZADA -->
             <div class="tab-pane fade" id="agenda" role="tabpanel">
                 <div class="row">
+                    <!-- Agendador -->
                     <div class="col-md-4">
                         <div class="card">
                             <div class="card-header bg-warning text-dark"><h5>Marcar Horário</h5></div>
                             <div class="card-body">
                                 <form action="/agendar" method="POST">
                                     <div class="mb-2">
-                                        <label class="form-label">Tipo de Agendamento</label>
+                                        <label class="form-label">Tipo / Espaço de Destino</label>
                                         <select name="tipo_agendamento" class="form-select" required>
-                                            <option value="Aula">Aula Regular</option>
-                                            <option value="Estúdio">Locação de Estúdio</option>
+                                            <option value="Aula Regular">Aula Regular</option>
+                                            <option value="Estúdio de Gravação">Estúdio de Gravação</option>
+                                            <option value="Estúdio de Ensaio">Estúdio de Ensaio</option>
+                                            <option value="Estúdio de Videoclipe">Estúdio de Videoclipe</option>
                                         </select>
                                     </div>
                                     <input type="text" name="nome_responsavel" class="form-control mb-2" placeholder="Nome do Aluno / Cliente" required>
@@ -104,23 +112,30 @@
                                         <label class="form-label">Data e Hora</label>
                                         <input type="datetime-local" name="data_hora" class="form-control" required>
                                     </div>
-                                    <button type="submit" class="btn btn-warning w-100 text-darkfw-bold">Fixar na Agenda</button>
+                                    <button type="submit" class="btn btn-warning w-100 text-dark fw-bold">Fixar na Agenda</button>
                                 </form>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Quadro de Horários -->
                     <div class="col-md-8">
                         <div class="card">
                             <div class="card-header bg-dark text-white"><h5>Compromissos Agendados</h5></div>
                             <div class="card-body p-0">
                                 <table class="table table-striped mb-0">
-                                    <thead><tr><th>Data/Hora</th><th>Tipo</th><th>Responsável</th><th>Profissional</th><th>Ações</th></tr></thead>
+                                    <thead><tr><th>Data/Hora</th><th>Espaço/Tipo</th><th>Responsável</th><th>Profissional</th><th>Ações</th></tr></thead>
                                     <tbody>
                                         {% for comp in compromissos %}
                                         <tr>
                                             <td><strong>{{ comp.data_hora }}</strong></td>
-                                            <td><span class="badge {{ 'bg-primary' if comp.tipo_agendamento == 'Aula' else 'bg-purple text-white' }}" style="background-color: #6f42c1 if comp.tipo_agendamento != 'Aula' else '';">{{ comp.tipo_agendamento }}</span></td>
+                                            <td>
+                                                {% if "Aula" in comp.tipo_agendamento %}
+                                                    <span class="badge bg-primary">{{ comp.tipo_agendamento }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-purple text-white" style="background-color: #6f42c1;">{{ comp.tipo_agendamento }}</span>
+                                                {% endif %}
+                                            </td>
                                             <td>{{ comp.nome_responsavel }}</td>
                                             <td>{{ comp.profissional }}</td>
                                             <td>
@@ -142,6 +157,7 @@
                 </div>
             </div>
 
+            <!-- ABA FINANCEIRO -->
             <div class="tab-pane fade" id="financeiro" role="tabpanel">
                 <div class="row text-center mb-4">
                     <div class="col-4"><div class="p-3 bg-success text-white rounded">Entradas<br><h4>R$ {{ "%.2f"|format(total_entradas) }}</h4></div></div>
