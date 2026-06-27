@@ -13,7 +13,6 @@
     </style>
 </head>
 <body>
-    <!-- Barra de Navegação -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="#">🎵 Casa de Música Cambuci</a>
@@ -27,7 +26,6 @@
     <div class="container mt-4">
         <h1 class="mb-4 text-center">Módulo 01: Financeiro e Administração</h1>
         
-        <!-- Bloco de Resumo de Caixa -->
         <div class="row text-center mb-4">
             <div class="col-4"><div class="p-3 bg-success text-white rounded shadow-sm">Entradas Totais<br><h4>R$ {{ "%.2f"|format(total_entradas) }}</h4></div></div>
             <div class="col-4"><div class="p-3 bg-danger text-white rounded shadow-sm">Saídas Totais<br><h4>R$ {{ "%.2f"|format(total_saidas) }}</h4></div></div>
@@ -35,9 +33,7 @@
         </div>
 
         <div class="row">
-            <!-- COLUNA DE LANÇAMENTOS E CADASTROS -->
             <div class="col-md-4">
-                <!-- Registro de Movimentação Financeira -->
                 <div class="card">
                     <div class="card-header bg-dark text-white"><h5>Lançamento de Fluxo de Caixa</h5></div>
                     <div class="card-body">
@@ -60,7 +56,7 @@
                                 </select>
                             </div>
                             <div class="mb-2">
-                                <input type="text" name="descricao" class="form-control" placeholder="Descrição (ex: Conta de Luz, Venda Cordas)" required>
+                                <input type="text" name="descricao" class="form-control" placeholder="Descrição" required>
                             </div>
                             <div class="mb-2">
                                 <input type="number" step="0.01" name="valor" class="form-control" placeholder="Valor (R$)" required>
@@ -70,13 +66,12 @@
                     </div>
                 </div>
 
-                <!-- Controle e Cadastro de Estoque -->
                 <div class="card">
                     <div class="card-header bg-secondary text-white"><h5>Cadastrar Produto / Insumo</h5></div>
                     <div class="card-body">
                         <form action="/cadastrar_produto" method="POST">
                             <div class="mb-2">
-                                <input type="text" name="nome" class="form-control" placeholder="Nome do Item (ex: Café em Grão, Palheta)" required>
+                                <input type="text" name="nome" class="form-control" placeholder="Nome do Item" required>
                             </div>
                             <div class="mb-2">
                                 <select name="categoria" class="form-select" required>
@@ -85,10 +80,10 @@
                                 </select>
                             </div>
                             <div class="mb-2">
-                                <input type="number" step="0.01" name="preco" class="form-control" placeholder="Preço de Venda / Custo (R$)" required>
+                                <input type="number" step="0.01" name="preco" class="form-control" placeholder="Preço (R$)" required>
                             </div>
                             <div class="mb-2">
-                                <input type="number" name="estoque" class="form-control" placeholder="Quantidade Inicial em Estoque" required>
+                                <input type="number" name="estoque" class="form-control" placeholder="Estoque Inicial" required>
                             </div>
                             <button type="submit" class="btn btn-secondary w-100 mt-2">Adicionar ao Estoque</button>
                         </form>
@@ -96,13 +91,9 @@
                 </div>
             </div>
 
-            <!-- COLUNA DE VISUALIZAÇÃO DE DADOS -->
             <div class="col-md-8">
-                <!-- Tabela de Controle de Estoque -->
                 <div class="card">
-                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Inventário de Estoque Atual</h5>
-                    </div>
+                    <div class="card-header bg-dark text-white"><h5>Inventário de Estoque Atual</h5></div>
                     <div class="card-body p-0">
                         <table class="table table-striped mb-0">
                             <thead>
@@ -114,53 +105,52 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for prod in produtos %}
-                                <tr>
-                                    <td><strong>{{ prod.nome }}</strong></td>
-                                    <td><span class="badge bg-light text-dark">{{ prod.categoria }}</span></td>
-                                    <td>R$ {{ "%.2f"|format(prod.preco) }}</td>
-                                    <td>
-                                        <span class="badge bg-{{ 'success' if prod.estoque > 5 else 'danger' }}">
-                                            {{ prod.estoque }} un
-                                        </span>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr><td colspan="4" class="text-center text-muted p-3">Nenhum produto cadastrado no inventário.</td></tr>
-                                {% endfor %}
+                                {% if produtos %}
+                                    {% for prod in produtos %}
+                                    <tr>
+                                        <td><strong>{{ prod.nome }}</strong></td>
+                                        <td><span class="badge bg-light text-dark">{{ prod.categoria }}</span></td>
+                                        <td>R$ {{ "%.2f"|format(prod.preco) }}</td>
+                                        <td><span class="badge bg-success">{{ prod.estoque }} un</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr><td colspan="4" class="text-center text-muted p-3">Nenhum produto cadastrado no inventário.</td></tr>
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                <!-- Tabela de Movimentações Recentes -->
                 <div class="card">
-                    <div class="card-header bg-dark text-white"><h5>Livro Caixa - Fluxo de Movimentações</h5></div>
+                    <div class="card-header bg-dark text-white"><h5>Livro Caixa - Movimentações</h5></div>
                     <div class="card-body p-0">
                         <table class="table table-striped mb-0">
                             <thead>
                                 <tr>
-                                    <th>Data / Hora</th>
+                                    <th>Data</th>
                                     <th>Origem</th>
                                     <th>Descrição</th>
                                     <th>Valor</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for mov in movimentacoes %}
-                                <tr>
-                                    <td style="font-size: 0.85rem;">{{ mov.data }}</td>
-                                    <td><span class="badge bg-secondary">{{ mov.categoria_fluxo }}</span></td>
-                                    <td>{{ mov.descricao }}</td>
-                                    <td>
-                                        <span class="text-{{ 'success' if mov.tipo == 'entrada' else 'danger' }} fw-bold">
-                                            {{ '+' if mov.tipo == 'entrada' else '-' }} R$ {{ "%.2f"|format(mov.valor) }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr><td colspan="4" class="text-center text-muted p-3">Nenhuma movimentação financeira registrada hoje.</td></tr>
-                                {% endfor %}
+                                {% if movimentacoes %}
+                                    {% for mov in movimentacoes %}
+                                    <tr>
+                                        <td style="font-size: 0.85rem;">{{ mov.data }}</td>
+                                        <td><span class="badge bg-secondary">{{ mov.categoria_fluxo }}</span></td>
+                                        <td>{{ mov.descricao }}</td>
+                                        <td>
+                                            <span class="text-{{ 'success' if mov.tipo == 'entrada' else 'danger' }} fw-bold">
+                                                {{ '+' if mov.tipo == 'entrada' else '-' }} R$ {{ "%.2f"|format(mov.valor) }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr><td colspan="4" class="text-center text-muted p-3">Nenhuma movimentação registrada hoje.</td></tr>
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
