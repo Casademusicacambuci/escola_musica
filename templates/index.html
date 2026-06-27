@@ -3,102 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Casa de Música Cambuci - Gestão</title>
+    <title>Casa de Música Cambuci - Módulo Financeiro</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; }
         .navbar-brand { font-weight: bold; }
         .card { margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .perfil-badge { font-size: 0.85rem; padding: 5px 10px; border-radius: 20px; }
     </style>
 </head>
 <body>
+    <!-- Barra de Navegação -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="#">🎵 Casa de Música Cambuci</a>
+            <div class="d-flex align-items-center">
+                <span class="badge bg-danger perfil-badge me-3">Perfil: {{ session['perfil']|upper }}</span>
+                <a href="/logout" class="btn btn-outline-light btn-sm">Sair</a>
+            </div>
         </div>
     </nav>
 
     <div class="container mt-4">
-        <h1 class="mb-4 text-center">Painel de Controlo e Gestão</h1>
+        <h1 class="mb-4 text-center">Módulo 01: Financeiro e Administração</h1>
         
+        <!-- Bloco de Resumo de Caixa -->
+        <div class="row text-center mb-4">
+            <div class="col-4"><div class="p-3 bg-success text-white rounded shadow-sm">Entradas Totais<br><h4>R$ {{ "%.2f"|format(total_entradas) }}</h4></div></div>
+            <div class="col-4"><div class="p-3 bg-danger text-white rounded shadow-sm">Saídas Totais<br><h4>R$ {{ "%.2f"|format(total_saidas) }}</h4></div></div>
+            <div class="col-4"><div class="p-3 bg-info text-dark rounded shadow-sm">Saldo Geral<br><h4>R$ {{ "%.2f"|format(saldo_caixa) }}</h4></div></div>
+        </div>
+
         <div class="row">
+            <!-- COLUNA DE LANÇAMENTOS E CADASTROS -->
             <div class="col-md-4">
+                <!-- Registro de Movimentação Financeira -->
                 <div class="card">
-                    <div class="card-header bg-primary text-white"><h5>Cadastrar Aluno</h5></div>
-                    <div class="card-body">
-                        <form action="/cadastrar_aluno" method="POST">
-                            <div class="mb-2"><input type="text" name="nome" class="form-control" placeholder="Nome do Aluno" required></div>
-                            <div class="mb-2"><input type="text" name="instrumento" class="form-control" placeholder="Instrumento (ex: Violão)" required></div>
-                            <div class="mb-2"><input type="text" name="telefone" class="form-control" placeholder="Telefone"></div>
-                            <button type="submit" class="btn btn-primary w-100">Adicionar</button>
-                        </form>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-header bg-success text-white"><h5>Cadastrar Professor</h5></div>
-                    <div class="card-body">
-                        <form action="/cadastrar_professor" method="POST">
-                            <div class="mb-2"><input type="text" name="nome" class="form-control" placeholder="Nome do Professor" required></div>
-                            <div class="mb-2"><input type="text" name="especialidade" class="form-control" placeholder="Especialidade" required></div>
-                            <div class="mb-2"><input type="text" name="telefone" class="form-control" placeholder="Telefone"></div>
-                            <button type="submit" class="btn btn-success w-100">Adicionar</button>
-                        </form>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-header bg-warning text-dark"><h5>Registrar Movimentação</h5></div>
+                    <div class="card-header bg-dark text-white"><h5>Lançamento de Fluxo de Caixa</h5></div>
                     <div class="card-body">
                         <form action="/registrar_financeiro" method="POST">
                             <div class="mb-2">
+                                <label class="form-label">Operação</label>
                                 <select name="tipo" class="form-select" required>
                                     <option value="entrada">Entrada (Recebimento)</option>
                                     <option value="saida">Saída (Pagamento)</option>
                                 </select>
                             </div>
-                            <div class="mb-2"><input type="text" name="descricao" class="form-control" placeholder="Descrição (ex: Mensalidade)" required></div>
-                            <div class="mb-2"><input type="number" step="0.01" name="valor" class="form-control" placeholder="Valor (R$)" required></div>
-                            <button type="submit" class="btn btn-warning w-100">Registrar</button>
+                            <div class="mb-2">
+                                <label class="form-label">Categoria</label>
+                                <select name="categoria_fluxo" class="form-select" required>
+                                    <option value="Mensalidades">Mensalidades</option>
+                                    <option value="Loja">Loja (Instrumentos/Acessórios)</option>
+                                    <option value="Café">Café</option>
+                                    <option value="Estúdios">Estúdios</option>
+                                    <option value="Diversos">Diversos / Despesas</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <input type="text" name="descricao" class="form-control" placeholder="Descrição (ex: Conta de Luz, Venda Cordas)" required>
+                            </div>
+                            <div class="mb-2">
+                                <input type="number" step="0.01" name="valor" class="form-control" placeholder="Valor (R$)" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 mt-2">Registrar Movimentação</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Controle e Cadastro de Estoque -->
+                <div class="card">
+                    <div class="card-header bg-secondary text-white"><h5>Cadastrar Produto / Insumo</h5></div>
+                    <div class="card-body">
+                        <form action="/cadastrar_produto" method="POST">
+                            <div class="mb-2">
+                                <input type="text" name="nome" class="form-control" placeholder="Nome do Item (ex: Café em Grão, Palheta)" required>
+                            </div>
+                            <div class="mb-2">
+                                <select name="categoria" class="form-select" required>
+                                    <option value="Loja">Loja de Instrumentos</option>
+                                    <option value="Café">Insumos do Café</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <input type="number" step="0.01" name="preco" class="form-control" placeholder="Preço de Venda / Custo (R$)" required>
+                            </div>
+                            <div class="mb-2">
+                                <input type="number" name="estoque" class="form-control" placeholder="Quantidade Inicial em Estoque" required>
+                            </div>
+                            <button type="submit" class="btn btn-secondary w-100 mt-2">Adicionar ao Estoque</button>
                         </form>
                     </div>
                 </div>
             </div>
 
+            <!-- COLUNA DE VISUALIZAÇÃO DE DADOS -->
             <div class="col-md-8">
-                <div class="row text-center mb-3">
-                    <div class="col-4"><div class="p-2 bg-success text-white rounded">Entradas<br><strong>R$ {{ "%.2f"|format(total_entradas) }}</strong></div></div>
-                    <div class="col-4"><div class="p-2 bg-danger text-white rounded">Saídas<br><strong>R$ {{ "%.2f"|format(total_saidas) }}</strong></div></div>
-                    <div class="col-4"><div class="p-2 bg-info text-dark rounded">Saldo<br><strong>R$ {{ "%.2f"|format(saldo_caixa) }}</strong></div></div>
-                </div>
-
+                <!-- Tabela de Controle de Estoque -->
                 <div class="card">
-                    <div class="card-header bg-dark text-white"><h5>Alunos Matriculados</h5></div>
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Inventário de Estoque Atual</h5>
+                    </div>
                     <div class="card-body p-0">
                         <table class="table table-striped mb-0">
-                            <thead><tr><th>Nome</th><th>Instrumento</th><th>Telefone</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th>Item / Produto</th>
+                                    <th>Setor</th>
+                                    <th>Preço</th>
+                                    <th>Qtd. Estoque</th>
+                                </tr>
+                            </thead>
                             <tbody>
-                                {% for aluno in alunos %}
-                                <tr><td>{{ aluno.nome }}</td><td>{{ aluno.instrumento }}</td><td>{{ aluno.telefone or '-' }}</td></tr>
+                                {% for prod in produtos %}
+                                <tr>
+                                    <td><strong>{{ prod.nome }}</strong></td>
+                                    <td><span class="badge bg-light text-dark">{{ prod.categoria }}</span></td>
+                                    <td>R$ {{ "%.2f"|format(prod.preco) }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if prod.estoque > 5 else 'danger' }}">
+                                            {{ prod.estoque }} un
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center text-muted p-3">Nenhum produto cadastrado no inventário.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                 </div>
 
+                <!-- Tabela de Movimentações Recentes -->
                 <div class="card">
-                    <div class="card-header bg-dark text-white"><h5>Fluxo de Caixa Reais</h5></div>
+                    <div class="card-header bg-dark text-white"><h5>Livro Caixa - Fluxo de Movimentações</h5></div>
                     <div class="card-body p-0">
                         <table class="table table-striped mb-0">
-                            <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Valor</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th>Data / Hora</th>
+                                    <th>Origem</th>
+                                    <th>Descrição</th>
+                                    <th>Valor</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {% for mov in movimentacoes %}
                                 <tr>
-                                    <td>{{ mov.data }}</td>
-                                    <td><span class="badge bg-{{ 'success' if mov.tipo == 'entrada' else 'danger' }}">{{ mov.tipo }}</span></td>
+                                    <td style="font-size: 0.85rem;">{{ mov.data }}</td>
+                                    <td><span class="badge bg-secondary">{{ mov.categoria_fluxo }}</span></td>
                                     <td>{{ mov.descricao }}</td>
-                                    <td>R$ {{ "%.2f"|format(mov.valor) }}</td>
+                                    <td>
+                                        <span class="text-{{ 'success' if mov.tipo == 'entrada' else 'danger' }} fw-bold">
+                                            {{ '+' if mov.tipo == 'entrada' else '-' }} R$ {{ "%.2f"|format(mov.valor) }}
+                                        </span>
+                                    </td>
                                 </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center text-muted p-3">Nenhuma movimentação financeira registrada hoje.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
