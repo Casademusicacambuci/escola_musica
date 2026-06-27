@@ -5,7 +5,9 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 
 app = Flask(__name__)
 app.secret_key = "chave_secreta_cambuci_2026"
-DATABASE = "escola.db"
+
+# Mudamos o nome do banco para forçar a criação correta de todas as tabelas novas
+DATABASE = "cambuci.db"
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
@@ -16,18 +18,20 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Criação das Tabelas Atualizadas com suporte ao Módulo Financeiro e Estoque
+    # 1. Estrutura de Alunos e Professores
     cursor.execute('CREATE TABLE IF NOT EXISTS alunos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, instrumento TEXT NOT NULL, telefone TEXT, data_matricula TEXT)')
     cursor.execute('CREATE TABLE IF NOT EXISTS professores (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, especialidade TEXT NOT NULL, telefone TEXT)')
+    
+    # 2. Estrutura de Produtos/Insumos (Módulo 01)
     cursor.execute('CREATE TABLE IF NOT EXISTS produtos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, categoria TEXT NOT NULL, preco REAL NOT NULL, estoque INTEGER NOT NULL)')
     
-    # Criar tabela de financeiro garantindo a coluna categoria_fluxo
+    # 3. Estrutura Financeira com Categoria de Fluxo (Módulo 01)
     cursor.execute('CREATE TABLE IF NOT EXISTS financeiro (id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT NOT NULL, categoria_fluxo TEXT NOT NULL, descricao TEXT NOT NULL, valor REAL NOT NULL, data TEXT NOT NULL)')
     
-    # Criar tabela de usuários para controle de acessos por módulo
+    # 4. Estrutura de Autenticação por Perfis/Módulos
     cursor.execute('CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT UNIQUE NOT NULL, senha TEXT NOT NULL, perfil TEXT NOT NULL)')
     
-    # Inserção dos Logins Iniciais se não existirem
+    # Criação dos utilizadores iniciais de teste
     cursor.execute("INSERT OR IGNORE INTO usuarios (usuario, senha, perfil) VALUES ('admin', 'admin123', 'administrador')")
     cursor.execute("INSERT OR IGNORE INTO usuarios (usuario, senha, perfil) VALUES ('caixa', 'caixa123', 'caixa')")
     cursor.execute("INSERT OR IGNORE INTO usuarios (usuario, senha, perfil) VALUES ('secretaria', 'sec123', 'secretaria')")
@@ -35,7 +39,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Executa a verificação/ajuste das tabelas
+# Executa e constrói o novo banco estável
 init_db()
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -71,7 +75,7 @@ def index():
     produtos = conn.execute('SELECT * FROM produtos').fetchall()
     movimentacoes = conn.execute('SELECT * FROM financeiro ORDER BY id DESC').fetchall()
     
-    # Cálculos dinâmicos do caixa diário/mensal por categorias
+    # Cálculos analíticos do Painel Administrativo
     total_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()[0] or 0.0
     total_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()[0] or 0.0
     saldo_caixa = total_entradas - total_saidas
