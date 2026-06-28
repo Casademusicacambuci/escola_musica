@@ -80,7 +80,8 @@ def init_db():
             hora_inicio TEXT NOT NULL,
             hora_fim TEXT NOT NULL,
             valor_reserva REAL DEFAULT 0.0,
-            status TEXT NOT NULL,
+            status TEXT NOT NULL,          -- 'A pagar' ou 'Pago'
+            status_servico TEXT DEFAULT 'Pendente', -- 'Pendente' ou 'Concluido'
             tecnico TEXT,
             observacoes TEXT
         )
@@ -92,6 +93,18 @@ def init_db():
     conn.close()
 
 init_db()
+
+# --- ATUALIZAÇÃO DO BANCO DE DADOS (Caso a coluna status_servico não exista) ---
+def atualizar_estrutura_banco():
+    conn = get_db_connection()
+    try:
+        conn.execute('ALTER TABLE agenda ADD COLUMN status_servico TEXT DEFAULT "Pendente"')
+        conn.commit()
+    except:
+        pass
+    conn.close()
+
+atualizar_estrutura_banco()
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -129,31 +142,9 @@ def index():
     saldo_caixa = total_entradas - total_saidas
     conn.close()
     
-    meses_pt = {
-        "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril",
-        "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto",
-        "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro"
-    }
-    
-    compromissos_agrupados = {}
-    for comp in compromissos_raw:
-        try:
-            dt = datetime.strptime(comp['data_compromisso'], '%Y-%m-%d')
-            nome_mes = f"{meses_pt.get(dt.strftime('%m'), 'Mes')} / {dt.strftime('%Y')}"
-            dia_formatado = dt.strftime('%d/%m (%a)').replace('Mon', 'Seg').replace('Tue', 'Ter').replace('Wed', 'Qua').replace('Thu', 'Qui').replace('Fri', 'Sex').replace('Sat', 'Sab').replace('Sun', 'Dom')
-        except:
-            nome_mes = "Agendamentos Sem Data Definida"
-            dia_formatado = comp['data_compromisso']
-            
-        if nome_mes not in compromissos_agrupados:
-            compromissos_agrupados[nome_mes] = {}
-        if dia_formatado not in compromissos_agrupados[nome_mes]:
-            compromissos_agrupados[nome_mes][dia_formatado] = []
-        compromissos_agrupados[nome_mes][dia_formatado].append(comp)
-    
     return render_template('index.html', alunos=alunos, produtos=produtos, movimentacoes=movimentacoes, 
-                           compromissos_agrupados=compromissos_agrupados, compromissos_raw=compromissos_raw,
-                           total_entradas=total_entradas, total_saidas=total_saidas, saldo_caixa=saldo_caixa)
+                           compromissos_raw=compromissos_raw, total_entradas=total_entradas, 
+                           total_saidas=total_saidas, saldo_caixa=saldo_caixa)
 
 @app.route('/cadastrar_aluno', methods=['POST'])
 def cadastrar_aluno():
@@ -192,17 +183,6 @@ def agendar():
     observacoes = request.form.get('observacoes')
     
     conn = get_db_connection()
-    conflito = conn.execute('''
-        SELECT * FROM agenda 
-        WHERE tipo_agendamento = ? 
-        AND data_compromisso = ? 
-        AND NOT (hora_fim <= ? OR hora_inicio >= ?)
-    ''', (tipo, data_compromisso, hora_inicio, hora_fim)).fetchone()
-    
-    if conflito:
-        conn.close()
-        flash(f'ALERTA: O {tipo} ja esta ocupado neste dia!', 'danger')
-        return redirect(url_for('index'))
     
     filename = ""
     file = request.files.get('comprovante')
@@ -211,12 +191,12 @@ def agendar():
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
     conn.execute('''
-        INSERT INTO agenda (tipo_agendamento, nome_responsavel, rg, cpf, endereco, comprovante_anexo, telefone, data_compromisso, hora_inicio, hora_fim, valor_reserva, status, tecnico, observacoes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agenda (tipo_agendamento, nome_responsavel, rg, cpf, endereco, comprovante_anexo, telefone, data_compromisso, hora_inicio, hora_fim, valor_reserva, status, status_servico, tecnico, observacoes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendente', ?, ?)
     ''', (tipo, nome, rg, cpf, endereco, filename, telefone, data_compromisso, hora_inicio, hora_fim, valor_reserva, status, tecnico, observacoes))
     
     if status == 'Pago' and valor_reserva > 0:
-        descricao_financeiro = f"Reserva {tipo} | Cli: {nome} | Tec: {tecnico} | Data: {data_compromisso} ({hora_inicio}-{hora_fim})"
+        descricao_financeiro = f"Faturamento Antecipado - {tipo} | Cli: {nome} | Tec: {tecnico} | Data: {data_compromisso} ({hora_inicio}-{hora_fim})"
         conn.execute('''
             INSERT INTO financeiro (tipo, categoria_fluxo, descricao, valor, data)
             VALUES (?, ?, ?, ?, ?)
@@ -240,19 +220,6 @@ def editar_agenda():
     observacoes = request.form.get('observacoes')
     
     conn = get_db_connection()
-    conflito = conn.execute('''
-        SELECT * FROM agenda 
-        WHERE tipo_agendamento = ? 
-        AND data_compromisso = ? 
-        AND id != ?
-        AND NOT (hora_fim <= ? OR hora_inicio >= ?)
-    ''', (tipo, data_compromisso, agenda_id, hora_inicio, hora_fim)).fetchone()
-    
-    if conflito:
-        conn.close()
-        flash(f'Erro na Edicao: {tipo} ja ocupado!', 'danger')
-        return redirect(url_for('index'))
-        
     conn.execute('''
         UPDATE agenda SET tipo_agendamento=?, nome_responsavel=?, tecnico=?, data_compromisso=?, hora_inicio=?, hora_fim=?, valor_reserva=?, observacoes=?
         WHERE id=?
@@ -262,34 +229,40 @@ def editar_agenda():
     flash('Agendamento atualizado com sucesso!', 'success')
     return redirect(url_for('index'))
 
-@app.route('/atualizar_status_agenda/<int:id>/<string:novo_status>')
-def atualizar_status_agenda(id, novo_status):
+# --- ROTAS NOVAS SEPARADAS PARA FINANCEIRO E TÉCNICO ---
+
+@app.route('/marcar_pago_agenda/<int:id>')
+def marcar_pago_agenda(id):
+    """Acionado pelo Caixa. Muda o status financeiro para 'Pago' e lança no caixa."""
     conn = get_db_connection()
     compromisso = conn.execute('SELECT * FROM agenda WHERE id = ?', (id,)).fetchone()
     
-    if compromisso:
-        status_anterior = compromisso['status']
+    if compromisso and compromisso['status'] == 'A pagar':
         valor = compromisso['valor_reserva']
+        tecnico_nome = compromisso['tecnico'] if compromisso['tecnico'] else "Nao designado"
         
-        if novo_status in ['Pago', 'Concluido'] and status_anterior == 'A pagar' and valor > 0:
-            tecnico_nome = compromisso['tecnico'] if compromisso['tecnico'] else "Nao designado"
-            cliente_nome = compromisso['nome_responsavel']
-            tipo_espaco = compromisso['tipo_agendamento']
-            data_compromisso = compromisso['data_compromisso']
-            horarios = f"{compromisso['hora_inicio']}-{compromisso['hora_fim']}"
-            
-            descricao_financeiro = f"Faturamento ({novo_status}) - {tipo_espaco} | Cli: {cliente_nome} | Tec: {tecnico_nome} | Data: {data_compromisso} ({horarios})"
-            
+        descricao_financeiro = f"Faturamento Caixa - {compromisso['tipo_agendamento']} | Cli: {compromisso['nome_responsavel']} | Tec: {tecnico_nome} | Data: {compromisso['data_compromisso']} ({compromisso['hora_inicio']}-{compromisso['hora_fim']})"
+        
+        if valor > 0:
             conn.execute('''
                 INSERT INTO financeiro (tipo, categoria_fluxo, descricao, valor, data)
                 VALUES (?, ?, ?, ?, ?)
             ''', ('entrada', 'Estudios', descricao_financeiro, valor, datetime.now().strftime('%Y-%m-%d %H:%M')))
             
-        conn.execute('UPDATE agenda SET status = ? WHERE id = ?', (novo_status, id))
+        conn.execute('UPDATE agenda SET status = "Pago" WHERE id = ?', (id,))
         conn.commit()
-        
+        flash('Pagamento processado e lancado no financeiro!', 'success')
     conn.close()
-    flash(f'Agendamento atualizado com sucesso.', 'success')
+    return redirect(url_for('index'))
+
+@app.route('/concluir_servico_agenda/<int:id>')
+def concluir_servico_agenda(id):
+    """Acionado pelo Técnico ao terminar o ensaio/gravação."""
+    conn = get_db_connection()
+    conn.execute('UPDATE agenda SET status_servico = "Concluido" WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    flash('Servico marcado como CONCLUÍDO pelo tecnico!', 'success')
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
