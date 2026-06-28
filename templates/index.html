@@ -244,7 +244,7 @@
                                     </table>
                                     
                                     <div id="edit_{{ agenda['id'] }}" class="edit-row-panel">
-                                        <form action="/editar_agenda" method="POST">
+                                        <form action="/editar_agenda" method="POST" style="margin-bottom: 15px;">
                                             <input type="hidden" name="id" value="{{ agenda['id'] }}">
                                             <h3 style="margin-top:0; font-size:14px; color:#d97706;">Alterar Reserva de {{ agenda['nome_responsavel'] }}</h3>
                                             <div class="form-row">
@@ -291,9 +291,15 @@
                                             </div>
                                             <div style="display:flex; gap:10px;">
                                                 <button type="submit" style="background-color: #d97706; padding:8px;">Salvar Alterações</button>
-                                                <button type="button" style="background-color: #94a3b8; padding:8px;" onclick="toggleEditPanel('edit_{{ agenda['id'] }}')">Cancelar</button>
+                                                <button type="button" style="background-color: #94a3b8; padding:8px;" onclick="toggleEditPanel('edit_{{ agenda['id'] }}')">Fechar</button>
                                             </div>
                                         </form>
+
+                                        <div style="border-top: 1px solid #cbd5e1; padding-top: 10px; display: flex; justify-content: flex-end;">
+                                            <form action="/excluir_agenda/{{ agenda['id'] }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir permanentemente o agendamento de {{ agenda['nome_responsavel'] }}?');">
+                                                <button type="submit" style="background-color: #e71d36; padding: 6px 12px; font-size: 11px; width: auto;">❌ Excluir / Cancelar Reserva</button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
