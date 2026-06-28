@@ -115,22 +115,55 @@ init_db()
 
 # --- ROTAS DE ACESSO (LOGIN/LOGOUT) ---
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        usuario = request.form.get('usuario')
-        senha = request.form.get('senha')
-        conn = get_db_connection()
-        user = conn.execute('SELECT * FROM usuarios WHERE usuario = ? AND senha = ?', (usuario, senha)).fetchone()
-        conn.close()
-        if user:
-            session['logged_in'] = True
-            session['usuario'] = user['usuario']
-            session['perfil'] = user['perfil']
-            return redirect(url_for('index'))
-        else:
-            flash('Usuário ou senha incorretos!', 'danger')
-    return render_template('login.html')
+@app.route('/atualizar_status_agenda/<int:id>/<string:novo_status>')
+def atualizar_status_agenda(id, novo_status):
+    """
+    Função unificada para atualizar o status da agenda e, quando necessário,
+    gerar o lançamento financeiro DETALHADO.
+    """
+    conn = get_db_connection()
+    compromisso = conn.execute('SELECT * FROM agenda WHERE id = ?', (id,)).fetchone()
+    
+    if compromisso:
+        status_anterior = compromisso['status']
+        valor = compromisso['valor_reserva']
+        
+        # Só gera o lançamento financeiro se o agendamento estiver mudando 
+        # para um status pago ('Pago' ou 'Concluído'), vindo de 'A pagar' 
+        # e houver valor.
+        if novo_status in ['Pago', 'Concluído'] and status_anterior == 'A pagar' and valor > 0:
+            
+            # --- COLETA DE DADOS RICOS DO AGENDAMENTO ---
+            # Para evitar erros de 'NoneType', garantimos um valor padrão para o técnico
+            tecnico_nome = compromisso['tecnico'] if compromisso['tecnico'] else "Não designado"
+            cliente_nome = compromisso['nome_responsavel']
+            tipo_espaco = compromisso['tipo_agendamento']
+            data_str = compromisso['data_compromisso']
+            horarios = f"{compromisso['hora_inicio']}-{compromisso['hora_fim']}"
+            
+            # --- MONTAGEM DA DESCRIÇÃO RICA E DETALHADA ---
+            # Esta linha cria a descrição exatamente como você validou no protótipo visual.
+            descricao_financeiro = f"Faturamento ({novo_status}) - {tipo_espaco} | Cli: {cliente_nome} | Téc: {tecnico_nome} | Data: {data_str} ({horarios})"
+            
+            # --- LANÇAMENTO NO FLUXO DE CAIXA (Tabela financeiro) ---
+            conn.execute('''
+                INSERT INTO financeiro (tipo, categoria_fluxo, descricao, valor, data)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (
+                'entrada',                                      # Tipo: Entrada de dinheiro
+                'Estúdios',                                     # Categoria para relatórios
+                descricao_financeiro,                          # Descrição completa e detalhada
+                valor,                                          # Valor da reserva
+                datetime.now().strftime('%Y-%m-%d %H:%M')      # Data/Hora do lançamento
+            ))
+            
+        # --- ATUALIZAÇÃO DO STATUS NA TABELA DA AGENDA ---
+        conn.execute('UPDATE agenda SET status = ? WHERE id = ?', (novo_status, id))
+        conn.commit()
+        
+    conn.close()
+    flash(f'Agendamento {id} atualizado para {novo_status} com sucesso e financeiro processado.', 'success')
+    return redirect(url_for('index'))
 
 @app.route('/logout')
 def logout():
