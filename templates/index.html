@@ -41,18 +41,18 @@
         .badge-entrada { background-color: #e8f5e9; color: #2e7d32; }
         .badge-saida { background-color: #ffebee; color: #c62828; }
         
-        .btn-action { background-color: #4f46e5; color: white; text-decoration: none; padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: bold; width: auto; text-align: center; border: none; }
+        .btn-action { background-color: #4f46e5; color: white; text-decoration: none; padding: 5px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: bold; border: none; }
         .btn-action:hover { background-color: #4338ca; }
-        .btn-success-action { background-color: #16a34a; color: white; text-decoration: none; padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: bold; width: auto; text-align: center; }
+        .btn-success-action { background-color: #16a34a; color: white; text-decoration: none; padding: 5px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: bold; border: none; margin-left: 2px; }
         .btn-success-action:hover { background-color: #15803d; }
-        .btn-edit-action { background-color: #f59e0b; color: white; text-decoration: none; padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: bold; width: auto; text-align: center; border: none; margin-left: 2px;}
+        .btn-edit-action { background-color: #f59e0b; color: white; text-decoration: none; padding: 5px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: bold; border: none; margin-left: 2px;}
         .btn-edit-action:hover { background-color: #d97706; }
         
-        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; }
-        .status-agendado { background-color: #e3f2fd; color: #0d47a1; }
+        .status-badge { padding: 4px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; }
         .status-concluido { background-color: #e8f5e9; color: #1b5e20; }
         .status-pago { background-color: #e8f8f5; color: #117a65; font-weight: 900; border: 1px solid #117a65; }
         .status-apagar { background-color: #fff3e0; color: #e65100; }
+        .status-pendente { background-color: #f1f5f9; color: #475569; }
         
         .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
         .badge-gravacao { background-color: #ffeaa7; color: #d63031; }
@@ -201,31 +201,43 @@
                 <div class="list-section" style="margin-bottom: 0;">
                     <h2>Próximas Reservas nos Estúdios</h2>
                     <table>
-                        <thead><tr><th>Espaço</th><th>Cliente / Técnico</th><th>Data / Horário</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
+                        <thead><tr><th>Espaço</th><th>Cliente / Técnico</th><th>Data / Horário</th><th>Valor</th><th>Caixa</th><th>Estúdio</th><th>Ações</th></tr></thead>
                         <tbody>
                             {% for agenda in compromissos_raw %}
                             <tr>
-                                <td colspan="6" style="padding: 0; border: none;">
+                                <td colspan="7" style="padding: 0; border: none;">
                                     <table style="width: 100%; margin: 0; border-collapse: collapse;">
                                         <tr>
-                                            <td style="width: 15%;">
+                                            <td style="width: 14%;">
                                                 <span class="badge badge-{{ 'gravacao' if 'Grav' in agenda['tipo_agendamento'] else 'ensaio' if 'Ens' in agenda['tipo_agendamento'] else 'videoclipe' }}">
                                                     {{ agenda['tipo_agendamento'] }}
                                                 </span>
                                             </td>
-                                            <td style="width: 25%;"><strong>{{ agenda['nome_responsavel'] }}</strong><br><small>Téc: {{ agenda['tecnico'] }}</small></td>
-                                            <td style="width: 20%;">{{ agenda['data_compromisso'] }}<br><small>{{ agenda['hora_inicio'] }} às {{ agenda['hora_fim'] }}</small></td>
-                                            <td style="width: 12%;">R$ {{ "%.2f"|format(agenda['valor_reserva']|float) }}</td>
-                                            <td style="width: 12%;">
-                                                <span class="status-badge {% if agenda['status'] == 'Pago' %}status-pago{% elif agenda['status'] == 'Concluido' %}status-concluido{% else %}status-apagar{% endif %}">
+                                            <td style="width: 22%;"><strong>{{ agenda['nome_responsavel'] }}</strong><br><small>Téc: {{ agenda['tecnico'] }}</small></td>
+                                            <td style="width: 18%;">{{ agenda['data_compromisso'] }}<br><small>{{ agenda['hora_inicio'] }} às {{ agenda['hora_fim'] }}</small></td>
+                                            <td style="width: 10%;">R$ {{ "%.2f"|format(agenda['valor_reserva']|float) }}</td>
+                                            
+                                            <td style="width: 11%;">
+                                                <span class="status-badge {% if agenda['status'] == 'Pago' %}status-pago{% else %}status-apagar{% endif %}">
                                                     {{ agenda['status'] }}
                                                 </span>
                                             </td>
-                                            <td style="width: 16%;">
+                                            
+                                            <td style="width: 11%;">
+                                                <span class="status-badge {% if agenda['status_servico'] == 'Concluido' %}status-concluido{% else %}status-pendente{% endif %}">
+                                                    {{ agenda['status_servico'] if agenda['status_servico'] else 'Pendente' }}
+                                                </span>
+                                            </td>
+                                            
+                                            <td style="width: 14%;">
                                                 {% if agenda['status'] == 'A pagar' %}
-                                                <a href="/atualizar_status_agenda/{{ agenda['id'] }}/Pago" class="btn-action">Pago</a>
-                                                <a href="/atualizar_status_agenda/{{ agenda['id'] }}/Concluido" class="btn-success-action">Fim</a>
+                                                <a href="/marcar_pago_agenda/{{ agenda['id'] }}" class="btn-action" title="Registrar Pagamento">💰 Receber</a>
                                                 {% endif %}
+                                                
+                                                {% if not agenda['status_servico'] or agenda['status_servico'] == 'Pendente' %}
+                                                <a href="/concluir_servico_agenda/{{ agenda['id'] }}" class="btn-success-action" title="Trabalho Terminado">✔️ Fim</a>
+                                                {% endif %}
+                                                
                                                 <button type="button" class="btn-edit-action" onclick="toggleEditPanel('edit_{{ agenda['id'] }}')">✏️</button>
                                             </td>
                                         </tr>
@@ -306,7 +318,7 @@
         <div id="caixa" class="tab-content">
             <div class="fin-resumo-grid">
                 <div class="fin-box entradas">
-                    <span><span>🟢 Total Entradas</span>
+                    <span>🟢 Total Entradas</span>
                     <h3>R$ {{ "%.2f"|format(total_entradas) }}</h3>
                 </div>
                 <div class="fin-box saidas">
