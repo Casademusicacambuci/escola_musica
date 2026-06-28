@@ -2,296 +2,309 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Casa de Música Cambuci - Gestão Integrada</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+    <title>Casa de Música Cambuci - ERP</title>
     <style>
-        body { background-color: #f8f9fa; }
-        .card { margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        #calendar { background: #fff; padding: 15px; border-radius: 8px; }
-        .header-mes { background-color: #343a40; color: #fff; padding: 8px 15px; font-weight: bold; border-radius: 4px; margin-top: 15px; }
-        .header-dia { background-color: #e9ecef; color: #495057; padding: 5px 12px; font-weight: bold; font-size: 0.9rem; border-left: 4px solid #ffc107; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 0; }
+        .navbar { background-color: #1e3d59; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .navbar h1 { margin: 0; font-size: 22px; font-weight: 600; }
+        .nav-tabs { display: flex; background: #e3e8f0; padding: 10px 20px 0 20px; border-bottom: 1px solid #cbd5e1; }
+        .tab-button { background: #cbd5e1; border: none; padding: 10px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px 6px 0 0; margin-right: 5px; color: #475569; transition: all 0.2s; }
+        .tab-button.active { background: white; color: #1e3d59; border-bottom: 2px solid white; position: relative; bottom: -1px; }
+        .container { max-width: 1400px; margin: 30px auto; padding: 0 20px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .grid { display: grid; grid-template-columns: 1fr 1.3fr; gap: 25px; margin-bottom: 30px; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-top: 4px solid #17b978; }
+        .card.studio { border-top-color: #6c5ce7; }
+        .card.shop { border-top-color: #ff7675; }
+        .card.financeiro-card { border-top-color: #2ecc71; }
+        h2 { color: #1e3d59; margin-top: 0; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; font-size: 18px; }
+        .form-group { margin-bottom: 15px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #475569; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        button { background-color: #17b978; color: white; border: none; padding: 12px 20px; width: 100%; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+        button:hover { background-color: #139e65; }
+        .list-section { background: white; padding: 25px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        th { background-color: #f8fafc; color: #1e3d59; font-weight: 700; }
         
-        input[type="date"]::-webkit-calendar-picker-indicator,
-        input[type="time"]::-webkit-calendar-picker-indicator {
-            background-color: #f8f9fa;
-            padding: 4px;
-            cursor: pointer;
-            border-radius: 4px;
-            border: 1px solid #ced4da;
-        }
+        .fin-resumo-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 25px; }
+        .fin-box { padding: 15px; border-radius: 6px; color: white; font-weight: bold; }
+        .fin-box.entradas { background-color: #2ec4b6; }
+        .fin-box.saidas { background-color: #e71d36; }
+        .fin-box span { display: block; font-size: 11px; text-transform: uppercase; opacity: 0.9; margin-bottom: 5px; }
+        .fin-box h3 { margin: 0; font-size: 22px; }
+        
+        .badge-fin { padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge-entrada { background-color: #e8f5e9; color: #2e7d32; }
+        .badge-saida { background-color: #ffebee; color: #c62828; }
+        
+        .btn-action { background-color: #4f46e5; color: white; text-decoration: none; padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: bold; width: auto; text-align: center; border: none; }
+        .btn-action:hover { background-color: #4338ca; }
+        .btn-success-action { background-color: #16a34a; color: white; text-decoration: none; padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: bold; width: auto; text-align: center; }
+        .btn-success-action:hover { background-color: #15803d; }
+        
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; }
+        .status-agendado { background-color: #e3f2fd; color: #0d47a1; }
+        .status-concluido { background-color: #e8f5e9; color: #1b5e20; }
+        .status-pago { background-color: #e8f8f5; color: #117a65; font-weight: 900; border: 1px solid #117a65; }
+        .status-apagar { background-color: #fff3e0; color: #e65100; }
+        
+        .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .badge-gravacao { background-color: #ffeaa7; color: #d63031; }
+        .badge-ensaio { background-color: #dff9fb; color: #0984e3; }
+        .badge-videoclipe { background-color: #e0dffb; color: #6c5ce7; }
+        
+        .alert { padding: 15px; margin-bottom: 20px; border: 1px solid transparent; border-radius: 4px; font-weight: bold; }
+        .alert-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
+        .alert-danger { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="#">🎵 Casa de Música Cambuci</a>
-            <div class="d-flex align-items-center">
-                <span class="badge bg-danger me-3">Perfil: {{ session['perfil']|upper }}</span>
-                <a href="/logout" class="btn btn-outline-light btn-sm">Sair</a>
-            </div>
-        </div>
-    </nav>
 
-    <div class="container mt-4">
+    <div class="navbar">
+        <h1>🎵 Casa de Música Cambuci — Sistema de Gestão</h1>
+        <span style="font-size: 13px; opacity: 0.8;">Perfil: ADMINISTRADOR</span>
+    </div>
+
+    <div class="nav-tabs">
+        <button class="tab-button active" onclick="switchTab('secretaria')">🏛️ Recepção & Matrículas</button>
+        <button class="tab-button" onclick="switchTab('estudios')">🎙️ Agendas dos Estúdios</button>
+        <button class="tab-button" onclick="switchTab('loja')">🎸 Loja & Acessórios</button>
+        <button class="tab-button" onclick="switchTab('caixa')">💰 Caixa & Financeiro</button>
+    </div>
+
+    <div class="container">
+        
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                <strong>{{ message }}</strong>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-              </div>
+              <div class="alert alert-{{ category }}">{{ message }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
-
-        <h1 class="text-center mb-4">Módulo Secretaria & Administração</h1>
-
-        <ul class="nav nav-tabs mb-4" id="painelAbas" role="tablist">
-            <li class="nav-item"><button class="nav-link active" id="sec-tab" data-bs-toggle="tab" data-bs-target="#secretaria" type="button" role="tab">📁 Secretaria (Matrículas)</button></li>
-            <li class="nav-item"><button class="nav-link" id="agenda-tab" data-bs-toggle="tab" data-bs-target="#agenda" type="button" role="tab">📅 Painel & Agenda de Estúdios</button></li>
-            <li class="nav-item"><button class="nav-link" id="fin-tab" data-bs-toggle="tab" data-bs-target="#financeiro" type="button" role="tab">💰 Financeiro & Estoque</button></li>
-        </ul>
-
-        <div class="tab-content" id="conteudoAbas">
-            <div class="tab-pane fade show active" id="secretaria" role="tabpanel">
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-header bg-primary text-white"><h5>Matricular Aluno</h5></div>
-                            <div class="card-body">
-                                <form action="/cadastrar_aluno" method="POST" enctype="multipart/form-data">
-                                    <input type="text" name="nome" class="form-control mb-2" placeholder="Nome Completo" required>
-                                    <input type="text" name="rg" class="form-control mb-2" placeholder="RG" required>
-                                    <input type="text" name="cpf" class="form-control mb-2" placeholder="CPF" required>
-                                    <input type="text" name="telefone" class="form-control mb-2" placeholder="Telefone" required>
-                                    <input type="text" name="curso" class="form-control mb-2" placeholder="Curso/Instrumento" required>
-                                    <textarea name="endereco" class="form-control mb-2" placeholder="Endereço Completo" rows="2" required></textarea>
-                                    <div class="mb-2">
-                                        <label class="form-label" style="font-size:0.85rem;">Comprovante de Endereço</label>
-                                        <input type="file" name="comprovante" class="form-control" required>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary w-100">Efetivar Matrícula</button>
-                                </form>
-                            </div>
+        
+        <div id="secretaria" class="tab-content active">
+            <div class="grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="card">
+                    <h2>Matricular Novo Aluno</h2>
+                    <form action="/cadastrar_aluno" method="POST" enctype="multipart/form-data">
+                        <div class="form-group"><input type="text" name="nome" placeholder="Nome Completo" required></div>
+                        <div class="form-row">
+                            <div><input type="text" name="rg" placeholder="RG"></div>
+                            <div><input type="text" name="cpf" placeholder="CPF"></div>
                         </div>
-                    </div>
-                    <div class="col-md-8">
-                        <div class="card">
-                            <div class="card-header bg-dark text-white"><h5>Alunos Matriculados</h5></div>
-                            <div class="card-body p-0">
-                                <table class="table table-striped mb-0">
-                                    <thead><tr><th>Nome</th><th>Curso</th><th>Telefone</th></tr></thead>
-                                    <tbody>
-                                        {% for al in alunos %}
-                                        <tr><td><strong>{{ al.nome }}</strong></td><td>{{ al.curso }}</td><td>{{ al.telefone }}</td></tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div class="form-group"><input type="text" name="endereco" placeholder="Endereço Residencial"></div>
+                        <div class="form-group"><input type="text" name="telefone" placeholder="Telefone / WhatsApp"></div>
+                        <div class="form-group"><input type="text" name="curso" placeholder="Curso (ex: Piano, Violão)"></div>
+                        <div class="form-group">
+                            <label>Anexar Documento/Comprovante</label>
+                            <input type="file" name="comprovante">
                         </div>
-                    </div>
+                        <button type="submit">Confirmar Matrícula</button>
+                    </form>
                 </div>
             </div>
 
-            <div class="tab-pane fade" id="agenda" role="tabpanel">
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header bg-dark text-white"><h5>🗓️ Calendário Mensal e Horários de Ocupação (24h)</h5></div>
-                            <div class="card-body"><div id="calendar"></div></div>
-                        </div>
-                    </div>
-                </div>
+            <div class="list-section">
+                <h2>Alunos Matriculados</h2>
+                <table>
+                    <thead><tr><th>ID</th><th>Nome</th><th>CPF</th><th>Curso</th><th>Telefone</th></tr></thead>
+                    <tbody>
+                        {% for aluno in alunos %}
+                        <tr>
+                            <td>{{ aluno['id'] }}</td>
+                            <td><strong>{{ aluno['nome'] }}</strong></td>
+                            <td>{{ aluno['cpf'] }}</td>
+                            <td>{{ aluno['curso'] }}</td>
+                            <td>{{ aluno['telefone'] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-header bg-warning text-dark"><h5>Nova Reserva Segura</h5></div>
-                            <div class="card-body">
-                                <form action="/agendar" method="POST" enctype="multipart/form-data">
-                                    <div class="mb-2">
-                                        <label class="form-label">Espaço / Destino</label>
-                                        <select name="tipo_agendamento" class="form-select" required>
-                                            <option value="Estúdio de Gravação">Estúdio de Gravação</option>
-                                            <option value="Estúdio de Ensaio">Estúdio de Ensaio</option>
-                                            <option value="Estúdio de Videoclipe">Estúdio de Videoclipe</option>
-                                            <option value="Aula Regular">Aula Regular</option>
-                                        </select>
-                                    </div>
-                                    <input type="text" name="nome_responsavel" class="form-control mb-2" placeholder="Nome do Cliente / Aluno" required>
-                                    <input type="text" name="tecnico" class="form-control mb-2" placeholder="Técnico Responsável (Cachê)">
-                                    <input type="text" name="rg" class="form-control mb-2" placeholder="RG" required>
-                                    <input type="text" name="cpf" class="form-control mb-2" placeholder="CPF" required>
-                                    <input type="text" name="telefone" class="form-control mb-2" placeholder="Telefone" required>
-                                    <textarea name="endereco" class="form-control mb-2" placeholder="Endereço" rows="2" required></textarea>
-                                    <input type="file" name="comprovante" class="form-control mb-2" required>
-                                    
-                                    <div class="mb-2">
-                                        <label class="form-label small fw-bold">Data do Compromisso</label>
-                                        <input type="date" name="data_compromisso" class="form-control" required>
-                                    </div>
-                                    
-                                    <div class="row mb-2">
-                                        <div class="col-6">
-                                            <label class="small fw-bold">Início</label>
-                                            <input type="time" name="hora_inicio" class="form-control" required>
-                                        </div>
-                                        <div class="col-6">
-                                            <label class="small fw-bold">Fim</label>
-                                            <input type="time" name="hora_fim" class="form-control" required>
-                                        </div>
-                                    </div>
-                                    
-                                    <input type="number" step="0.01" name="valor_reserva" class="form-control mb-2" placeholder="Valor Cobrado R$" required>
-                                    <select name="status" class="form-select mb-2">
-                                        <option value="A pagar">A pagar</option>
-                                        <option value="Pago">Pago (Lança no Financeiro)</option>
-                                    </select>
-                                    <textarea name="observacoes" class="form-control mb-2" placeholder="Observações..."></textarea>
-                                    <button type="submit" class="btn btn-warning w-100 text-dark fw-bold">Salvar na Agenda</button>
-                                </form>
+        <div id="estudios" class="tab-content">
+            <div class="grid">
+                <div class="card studio">
+                    <h2>Novo Agendamento de Estúdio</h2>
+                    <form action="/agendar" method="POST" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label>Selecione o Espaço</label>
+                            <select name="tipo_agendamento" required>
+                                <option value="Gravação">🎙️ Estúdio de Gravação</option>
+                                <option value="Ensaio">🎸 Estúdio de Ensaio</option>
+                                <option value="Videoclipe">🎥 Estúdio de Videoclipe</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <input type="text" name="nome_responsavel" placeholder="Nome do Cliente / Banda / Aluno" required>
+                        </div>
+                        <div class="form-row">
+                            <div><input type="text" name="rg" placeholder="RG"></div>
+                            <div><input type="text" name="cpf" placeholder="CPF"></div>
+                        </div>
+                        <div class="form-group"><input type="text" name="endereco" placeholder="Endereço"></div>
+                        <div class="form-group"><input type="text" name="telefone" placeholder="Telefone"></div>
+                        <div class="form-group"><input type="text" name="tecnico" placeholder="Nome do Técnico de Áudio"></div>
+                        
+                        <div class="form-row">
+                            <div>
+                                <label>Data</label>
+                                <input type="date" name="data_compromisso" required>
+                            </div>
+                            <div>
+                                <label>Status Inicial</label>
+                                <select name="status">
+                                    <option value="A pagar">🟠 A pagar</option>
+                                    <option value="Pago">💰 Pago</option>
+                                </select>
                             </div>
                         </div>
-                    </div>
+                        
+                        <div class="form-row">
+                            <div>
+                                <label>Horário de Início</label>
+                                <input type="time" name="hora_inicio" required>
+                            </div>
+                            <div>
+                                <label>Horário de Término</label>
+                                <input type="time" name="hora_fim" required>
+                            </div>
+                        </div>
 
-                    <div class="col-md-8">
-                        <div class="card">
-                            <div class="card-header bg-dark text-white"><h5>Controle Técnico e Financeiro dos Estúdios</h5></div>
-                            <div class="card-body p-3">
-                                
-                                {% for mes, dias in compromissos_agrupados.items() %}
-                                    <div class="header-mes text-center my-2">{{ mes }}</div>
-                                    
-                                    {% for dia, lista in dias.items() %}
-                                        <div class="header-dia mt-2 mb-1">{{ dia }}</div>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-hover align-middle mb-3 border">
-                                                <thead class="table-light">
-                                                    <tr>
-                                                        <th style="width: 15%;">Horário</th>
-                                                        <th style="width: 25%;">Estúdio / Espaço</th>
-                                                        <th style="width: 20%;">Equipe / Técnico</th>
-                                                        <th style="width: 20%;">Cliente</th>
-                                                        <th style="width: 20%;">Financeiro & Ações</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {% for comp in lista %}
-                                                    <tr>
-                                                        <td><span class="badge bg-outline-dark text-dark border">{{ comp.hora_inicio }} - {{ comp.hora_fim }}</span></td>
-                                                        <td><span class="badge bg-purple" style="background-color: #6f42c1;">{{ comp.tipo_agendamento }}</span></td>
-                                                        <td><small>🎛️ {{ comp.tecnico }}</small></td>
-                                                        <td><strong>{{ comp.nome_responsavel }}</strong></td>
-                                                        <td>
-                                                            <div class="d-flex flex-column gap-1">
-                                                                <div>
-                                                                    <small class="fw-bold">R$ {{ "%.2f"|format(comp.valor_reserva) }}</small>
-                                                                    <span class="badge {{ 'bg-success' if comp.status == 'Pago' else 'bg-danger' if comp.status == 'A pagar' else 'bg-secondary' }}">{{ comp.status }}</span>
-                                                                </div>
-                                                                <div class="btn-group btn-group-sm w-100">
-                                                                    {% if comp.status == 'A pagar' %}
-                                                                        <a href="/atualizar_status_agenda/{{ comp.id }}/Pago" class="btn btn-success btn-sm text-white">Pago</a>
-                                                                        <a href="/atualizar_status_agenda/{{ comp.id }}/Concluído" class="btn btn-dark btn-sm text-white">Concluir</a>
-                                                                    {% elif comp.status == 'Pago' %}
-                                                                        <a href="/atualizar_status_agenda/{{ comp.id }}/Concluído" class="btn btn-dark btn-sm text-white">Concluir</a>
-                                                                    {% endif %}
-                                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="abrirModalEdicao('{{ comp.id }}', '{{ comp.tipo_agendamento }}', '{{ comp.nome_responsavel }}', '{{ comp.tecnico }}', '{{ comp.data_compromisso }}', '{{ comp.hora_inicio }}', '{{ comp.hora_fim }}', '{{ comp.valor_reserva }}', '{{ comp.observacoes }}')">Editar</button>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                    {% endfor %}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    {% endfor %}
+                        <div class="form-group">
+                            <label>Valor da Reserva (R$)</label>
+                            <input type="number" step="0.01" name="valor_reserva" placeholder="Ex: 150.00" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Anexar Comprovante/Contrato</label>
+                            <input type="file" name="comprovante">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Observações / Ocorrências</label>
+                            <textarea name="observacoes" rows="2" placeholder="Notas sobre o agendamento..."></textarea>
+                        </div>
+
+                        <button type="submit" style="background-color: #6c5ce7;">Reservar Horário & Faturar</button>
+                    </form>
+                </div>
+                
+                <div class="list-section" style="margin-bottom: 0;">
+                    <h2>Próximas Reservas nos Estúdios</h2>
+                    <table>
+                        <thead><tr><th>Espaço</th><th>Cliente / Técnico</th><th>Data / Horário</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
+                        <tbody>
+                            {% for agenda in compromissos_raw %}
+                            <tr>
+                                <td>
+                                    <span class="badge badge-{{ 'gravacao' if 'Grav' in agenda['tipo_agendamento'] else 'ensaio' if 'Ens' in agenda['tipo_agendamento'] else 'videoclipe' }}">
+                                        {{ agenda['tipo_agendamento'] }}
+                                    </span>
+                                </td>
+                                <td><strong>{{ agenda['nome_responsavel'] }}</strong><br><small>Téc: {{ agenda['tecnico'] }}</small></td>
+                                <td>{{ agenda['data_compromisso'] }}<br><small>{{ agenda['hora_inicio'] }} às {{ agenda['hora_fim'] }}</small></td>
+                                <td>R$ {{ "%.2f"|format(agenda['valor_reserva']|float) }}</td>
+                                <td>
+                                    <span class="status-badge {% if agenda['status'] == 'Pago' %}status-pago{% elif agenda['status'] == 'Concluido' %}status-concluido{% else %}status-apagar{% endif %}">
+                                        {{ agenda['status'] }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if agenda['status'] == 'A pagar' %}
+                                    <a href="/atualizar_status_agenda/{{ agenda['id'] }}/Pago" class="btn-action">Marcar Pago</a>
+                                    <a href="/atualizar_status_agenda/{{ agenda['id'] }}/Concluido" class="btn-success-action">Concluir</a>
+                                    {% else %}
+                                    <span style="color: #94a3b8; font-size: 11px;">Processado</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="loja" class="tab-content">
+            <div class="card shop" style="max-width: 600px; margin: 0 auto;">
+                <h2>Venda de Acessórios e Instrumentos (PDV)</h2>
+                <div class="form-group">
+                    <label>Código de Barras / Categoria</label>
+                    <input type="text" placeholder="Passe o leitor ou digite o código do produto...">
+                </div>
+                <button type="button" style="background-color: #ff7675;">Simular Venda Balcão</button>
+            </div>
+        </div>
+
+        <div id="caixa" class="tab-content">
+            <div class="fin-resumo-grid">
+                <div class="fin-box entradas">
+                    <span>🟢 Total Entradas</span>
+                    <h3>R$ {{ "%.2f"|format(total_entradas) }}</h3>
+                </div>
+                <div class="fin-box saidas">
+                    <span>🔴 Total Saídas</span>
+                    <h3>R$ {{ "%.2f"|format(total_saidas) }}</h3>
+                </div>
+                <div class="fin-box" style="background-color: #2ecc71;">
+                    <span>💰 Saldo de Caixa</span>
+                    <h3>R$ {{ "%.2f"|format(saldo_caixa) }}</h3>
+                </div>
+            </div>
+
+            <div class="grid" style="grid-template-columns: 1fr;">
+                <div class="list-section" style="margin-bottom: 0;">
+                    <h2>Extrato Geral de Movimentações (Histórico Detalhado)</h2>
+                    <div style="max-height: 500px; overflow-y: auto;">
+                        <table>
+                            <thead><tr><th>Data/Hora</th><th>Tipo</th><th>Categoria</th><th>Descrição do Lançamento</th><th>Valor</th></tr></thead>
+                            <tbody>
+                                {% for item in movimentacoes %}
+                                <tr>
+                                    <td><small>{{ item['data'] }}</small></td>
+                                    <td>
+                                        <span class="badge-fin {% if item['tipo'] == 'entrada' %}badge-entrada{% else %}badge-saida{% endif %}">
+                                            {{ item['tipo']|upper }}
+                                        </span>
+                                    </td>
+                                    <td><small><strong>{{ item['categoria_fluxo'] }}</strong></small></td>
+                                    <td>{{ item['descricao'] }}</td>
+                                    <td><strong style="color: {% if item['tipo'] == 'entrada' %}#2e7d32{% else %}#c62828{% endif %};">
+                                        R$ {{ "%.2f"|format(item['valor']|float) }}
+                                    </strong></td>
+                                </tr>
                                 {% endfor %}
-
-                            </div>
-                        </div>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-
-            <div class="tab-pane fade" id="financeiro" role="tabpanel">
-                <div class="row text-center mb-4">
-                    <div class="col-4"><div class="p-3 bg-success text-white rounded">Entradas<br><h4>R$ {{ "%.2f"|format(total_entradas) }}</h4></div></div>
-                    <div class="col-4"><div class="p-3 bg-danger text-white rounded">Saídas<br><h4>R$ {{ "%.2f"|format(total_saidas) }}</h4></div></div>
-                    <div class="col-4"><div class="p-3 bg-info text-dark rounded">Saldo Geral<br><h4>R$ {{ "%.2f"|format(saldo_caixa) }}</h4></div></div>
-                </div>
-            </div>
         </div>
+
     </div>
 
-    <div class="modal fade" id="modalEdicao" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <form action="/editar_agenda" method="POST" class="modal-content">
-                <div class="modal-header"><h5>Alterar Agendamento</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <input type="hidden" name="id" id="edit_id">
-                    <label class="small mt-2">Espaço</label>
-                    <select name="tipo_agendamento" id="edit_tipo" class="form-select" required>
-                        <option value="Estúdio de Gravação">Estúdio de Gravação</option>
-                        <option value="Estúdio de Ensaio">Estúdio de Ensaio</option>
-                        <option value="Estúdio de Videoclipe">Estúdio de Videoclipe</option>
-                        <option value="Aula Regular">Aula Regular</option>
-                    </select>
-                    <label class="small mt-2">Cliente / Aluno</label><input type="text" name="nome_responsavel" id="edit_nome" class="form-control" required>
-                    <label class="small mt-2">Técnico</label><input type="text" name="tecnico" id="edit_tecnico" class="form-control">
-                    <label class="small mt-2">Data</label><input type="date" name="data_compromisso" id="edit_data" class="form-control" required>
-                    <div class="row"><div class="col-6"><label class="small">Início</label><input type="time" name="hora_inicio" id="edit_inicio" class="form-control" required></div><div class="col-6"><label class="small">Fim</label><input type="time" name="hora_fim" id="edit_fim" class="form-control" required></div></div>
-                    <label class="small mt-2">Valor (R$)</label><input type="number" step="0.01" name="valor_reserva" id="edit_valor" class="form-control" required>
-                    <label class="small mt-2">Observações</label><textarea name="observacoes" id="edit_obs" class="form-control"></textarea>
-                </div>
-                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-success">Salvar Mudanças</button></div>
-            </form>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-    
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            var calendarEl = document.getElementById('calendar');
-            var calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
-                locale: 'pt-br',
-                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
-                buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', day: 'Dia' },
-                events: [
-                    {% for comp in compromissos_raw %}
-                    {
-                        title: '{{ comp.tipo_agendamento }} - {{ comp.nome_responsavel }}',
-                        start: '{{ comp.data_compromisso }}T{{ comp.hora_inicio }}',
-                        end: '{{ comp.data_compromisso }}T{{ comp.hora_fim }}',
-                        color: {% if "Aula" in comp.tipo_agendamento %}'#0d6efd'{% else %}'#6f42c1'{% endif %}
-                    },
-                    {% endfor %}
-                ]
-            });
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
             
-            var triggerTabList = [].slice.call(document.querySelectorAll('#painelAbas button'))
-            triggerTabList.forEach(function (triggerEl) {
-                triggerEl.addEventListener('shown.bs.tab', function (event) {
-                    if (event.target.id === 'agenda-tab') { calendar.render(); }
-                })
+            const targetContent = document.getElementById(tabId);
+            if(targetContent) {
+                targetContent.classList.add('active');
+            }
+            
+            const buttons = document.querySelectorAll('.tab-button');
+            buttons.forEach(btn => {
+                if(btn.getAttribute('onclick').includes(tabId)) {
+                    btn.classList.add('active');
+                }
             });
-        });
-
-        function abrirModalEdicao(id, tipo, nome, tecnico, data, inicio, fim, valor, obs) {
-            document.getElementById('edit_id').value = id;
-            document.getElementById('edit_tipo').value = tipo;
-            document.getElementById('edit_nome').value = nome;
-            document.getElementById('edit_tecnico').value = tecnico;
-            document.getElementById('edit_data').value = data;
-            document.getElementById('edit_inicio').value = inicio;
-            document.getElementById('edit_fim').value = fim;
-            document.getElementById('edit_valor').value = valor;
-            document.getElementById('edit_obs').value = obs;
-            new bootstrap.Modal(document.getElementById('modalEdicao')).show();
         }
     </script>
 </body>
