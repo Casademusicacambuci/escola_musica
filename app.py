@@ -80,8 +80,8 @@ def init_db():
             hora_inicio TEXT NOT NULL,
             hora_fim TEXT NOT NULL,
             valor_reserva REAL DEFAULT 0.0,
-            status TEXT NOT NULL,          -- 'A pagar' ou 'Pago'
-            status_servico TEXT DEFAULT 'Pendente', -- 'Pendente' ou 'Concluido'
+            status TEXT NOT NULL,
+            status_servico TEXT DEFAULT 'Pendente',
             tecnico TEXT,
             observacoes TEXT
         )
@@ -94,7 +94,6 @@ def init_db():
 
 init_db()
 
-# --- ATUALIZAÇÃO DO BANCO DE DADOS (Caso a coluna status_servico não exista) ---
 def atualizar_estrutura_banco():
     conn = get_db_connection()
     try:
@@ -216,7 +215,7 @@ def editar_agenda():
     data_compromisso = request.form.get('data_compromisso')
     hora_inicio = request.form.get('hora_inicio')
     hora_fim = request.form.get('hora_fim')
-    valor_reserva = float(request.form.get('valor_reserva') or 0.0)
+    valor_reserva = float(request.form.get('valor_reserva'] or 0.0)
     observacoes = request.form.get('observacoes')
     
     conn = get_db_connection()
@@ -229,11 +228,8 @@ def editar_agenda():
     flash('Agendamento atualizado com sucesso!', 'success')
     return redirect(url_for('index'))
 
-# --- ROTAS NOVAS SEPARADAS PARA FINANCEIRO E TÉCNICO ---
-
 @app.route('/marcar_pago_agenda/<int:id>')
 def marcar_pago_agenda(id):
-    """Acionado pelo Caixa. Muda o status financeiro para 'Pago' e lança no caixa."""
     conn = get_db_connection()
     compromisso = conn.execute('SELECT * FROM agenda WHERE id = ?', (id,)).fetchone()
     
@@ -257,12 +253,22 @@ def marcar_pago_agenda(id):
 
 @app.route('/concluir_servico_agenda/<int:id>')
 def concluir_servico_agenda(id):
-    """Acionado pelo Técnico ao terminar o ensaio/gravação."""
     conn = get_db_connection()
     conn.execute('UPDATE agenda SET status_servico = "Concluido" WHERE id = ?', (id,))
     conn.commit()
     conn.close()
     flash('Servico marcado como CONCLUÍDO pelo tecnico!', 'success')
+    return redirect(url_for('index'))
+
+# --- NOVA ROTA PARA EXCLUIR AGENDAMENTO ---
+@app.route('/excluir_agenda/<int:id>', methods=['POST'])
+def excluir_agenda(id):
+    """Remove completamente o agendamento da grade."""
+    conn = get_db_connection()
+    conn.execute('DELETE FROM agenda WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    flash('Agendamento cancelado e excluido com sucesso!', 'success')
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
