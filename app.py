@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.secret_key = "chave_secreta_cambuci_2026"
 DATABASE = "cambuci.db"
 
-# Configuração para upload de arquivos
+# Configuração para upload de arquivos (static/uploads)
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -27,7 +27,7 @@ def get_db_connection():
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# --- INICIALIZAÇÃO DO BANCO DE DADOS ---
+# --- INICIALIZAÇÃO DO BANCO DE DADOS (init_db) ---
 
 def init_db():
     conn = get_db_connection()
@@ -65,7 +65,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tipo TEXT NOT NULL,          # 'entrada' ou 'saida'
             categoria_fluxo TEXT NOT NULL, # 'Matrículas', 'Estúdios', etc.
-            descricao TEXT NOT NULL,    # A descrição "rica" que corrigimos
+            descricao TEXT NOT NULL,    # A descrição contexto que corrigimos
             valor REAL NOT NULL,
             data TEXT NOT NULL          # Data e Hora do lançamento
         )
@@ -85,7 +85,7 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS agenda (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tipo_agendamento TEXT NOT NULL, # 'Reserva Estúdio' ou 'Locação de Equipamentos'
+            tipo_agendamento TEXT NOT NULL,
             nome_responsavel TEXT NOT NULL,
             rg TEXT,
             cpf TEXT,
@@ -115,62 +115,29 @@ init_db()
 
 # --- ROTAS DE ACESSO (LOGIN/LOGOUT) ---
 
-@app.route('/atualizar_status_agenda/<int:id>/<string:novo_status>')
-def atualizar_status_agenda(id, novo_status):
-    """
-    Função unificada para atualizar o status da agenda e, quando necessário,
-    gerar o lançamento financeiro DETALHADO.
-    """
-    conn = get_db_connection()
-    compromisso = conn.execute('SELECT * FROM agenda WHERE id = ?', (id,)).fetchone()
-    
-    if compromisso:
-        status_anterior = compromisso['status']
-        valor = compromisso['valor_reserva']
-        
-        # Só gera o lançamento financeiro se o agendamento estiver mudando 
-        # para um status pago ('Pago' ou 'Concluído'), vindo de 'A pagar' 
-        # e houver valor.
-        if novo_status in ['Pago', 'Concluído'] and status_anterior == 'A pagar' and valor > 0:
-            
-            # --- COLETA DE DADOS RICOS DO AGENDAMENTO ---
-            # Para evitar erros de 'NoneType', garantimos um valor padrão para o técnico
-            tecnico_nome = compromisso['tecnico'] if compromisso['tecnico'] else "Não designado"
-            cliente_nome = compromisso['nome_responsavel']
-            tipo_espaco = compromisso['tipo_agendamento']
-            data_str = compromisso['data_compromisso']
-            horarios = f"{compromisso['hora_inicio']}-{compromisso['hora_fim']}"
-            
-            # --- MONTAGEM DA DESCRIÇÃO RICA E DETALHADA ---
-            # Esta linha cria a descrição exatamente como você validou no protótipo visual.
-            descricao_financeiro = f"Faturamento ({novo_status}) - {tipo_espaco} | Cli: {cliente_nome} | Téc: {tecnico_nome} | Data: {data_str} ({horarios})"
-            
-            # --- LANÇAMENTO NO FLUXO DE CAIXA (Tabela financeiro) ---
-            conn.execute('''
-                INSERT INTO financeiro (tipo, categoria_fluxo, descricao, valor, data)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (
-                'entrada',                                      # Tipo: Entrada de dinheiro
-                'Estúdios',                                     # Categoria para relatórios
-                descricao_financeiro,                          # Descrição completa e detalhada
-                valor,                                          # Valor da reserva
-                datetime.now().strftime('%Y-%m-%d %H:%M')      # Data/Hora do lançamento
-            ))
-            
-        # --- ATUALIZAÇÃO DO STATUS NA TABELA DA AGENDA ---
-        conn.execute('UPDATE agenda SET status = ? WHERE id = ?', (novo_status, id))
-        conn.commit()
-        
-    conn.close()
-    flash(f'Agendamento {id} atualizado para {novo_status} com sucesso e financeiro processado.', 'success')
-    return redirect(url_for('index'))
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        usuario = request.form.get('usuario')
+        senha = request.form.get('senha')
+        conn = get_db_connection()
+        user = conn.execute('SELECT * FROM usuarios WHERE usuario = ? AND senha = ?', (usuario, senha)).fetchone()
+        conn.close()
+        if user:
+            session['logged_in'] = True
+            session['usuario'] = user['usuario']
+            session['perfil'] = user['perfil']
+            return redirect(url_for('index'))
+        else:
+            flash('Usuário ou senha incorretos!', 'danger')
+    return render_template('login.html')
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# --- ROTA PRINCIPAL (INDEX) ---
+# --- ROTA PRINCIPAL (INDEX/PAINEL) ---
 
 @app.route('/')
 def index():
@@ -179,7 +146,7 @@ def index():
     
     conn = get_db_connection()
     
-    # Coleta dados para os cards
+    # Coleta dados para os cards e tabelas
     alunos = conn.execute('SELECT * FROM alunos').fetchall()
     produtos = conn.execute('SELECT * FROM produtos').fetchall()
     movimentacoes = conn.execute('SELECT * FROM financeiro ORDER BY id DESC').fetchall()
@@ -343,14 +310,14 @@ def editar_agenda():
     flash('Agendamento atualizado com sucesso!', 'success')
     return redirect(url_for('index'))
 
-# --- A FUNÇÃO QUE CORRIGIMOS ---
+# --- A FUNÇÃO QUE GEROU O ERRO, AGORA CORRIGIDA E INTEGRADA NO CÓDIGO COMPLETO ---
 
 @app.route('/atualizar_status_agenda/<int:id>/<string:novo_status>')
 def atualizar_status_agenda(id, novo_status):
     """
     Função corrigida para garantir que, ao clicar em 'Concluir' ou 'Pago',
-    todos os detalhes (Cliente, Técnico, Espaço, Data, Horários) sejam
-    enviados perfeitamente para o financeiro.
+    todos os detalhes contextuais (Cliente, Técnico, Espaço, Data/Hora, Horários) 
+    sejam enviados perfeitamente para o financeiro.
     """
     conn = get_db_connection()
     
@@ -375,7 +342,7 @@ def atualizar_status_agenda(id, novo_status):
             horarios = f"{compromisso['hora_inicio']}-{compromisso['hora_fim']}"
             
             # --- MONTAGEM DA DESCRIÇÃO RICA E DETALHADA ---
-            # Esta linha cria a descrição exatamente como você validou no protótipo visual.
+            # Esta linha cria a descrição contextual exatamente como você validou no protótipo visual.
             descricao_financeiro = f"Faturamento ({novo_status}) - {tipo_espaco} | Cli: {cliente_nome} | Téc: {tecnico_nome} | Data: {data_compromisso} ({horarios})"
             
             # --- LANÇAMENTO NO FLUXO DE CAIXA (Tabela financeiro) ---
