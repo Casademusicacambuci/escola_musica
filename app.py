@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from datetime import datetime
-from Flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
