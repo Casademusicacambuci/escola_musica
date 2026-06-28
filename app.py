@@ -1,4 +1,24 @@
-import os
+@app.route('/editar_agenda', methods=['POST'])
+def editar_agenda():
+    agenda_id = request.form.get('id')
+    tipo = request.form.get('tipo_agendamento')
+    nome = request.form.get('nome_responsavel')
+    tecnico = request.form.get('tecnico')
+    data_compromisso = request.form.get('data_compromisso')
+    hora_inicio = request.form.get('hora_inicio')
+    hora_fim = request.form.get('hora_fim')
+    valor_reserva = float(request.form.get('valor_reserva') or 0.0) # <--- Corrigido aqui! parêntese no lugar do colchete
+    observacoes = request.form.get('observacoes')
+    
+    conn = get_db_connection()
+    conn.execute('''
+        UPDATE agenda SET tipo_agendamento=?, nome_responsavel=?, tecnico=?, data_compromisso=?, hora_inicio=?, hora_fim=?, valor_reserva=?, observacoes=?
+        WHERE id=?
+    ''', (tipo, nome, tecnico, data_compromisso, hora_inicio, hora_fim, valor_reserva, observacoes, agenda_id))
+    conn.commit()
+    conn.close()
+    flash('Agendamento atualizado com sucesso!', 'success')
+    return redirect(url_for('index'))import os
 import sqlite3
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash
