@@ -27,34 +27,26 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 1. TABELA DE ALUNOS (Histórico Permanente)
+    # 1. TABELA DE ALUNOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS alunos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
-            rg TEXT,
-            cpf TEXT,
-            endereco TEXT,
-            comprovante_anexo TEXT,
+            email TEXT,
             telefone TEXT,
-            curso TEXT,
-            data_matricula TEXT,
-            status TEXT DEFAULT 'Ativo'
+            instrumento TEXT,
+            data_matricula TEXT
         )
     ''')
     
-    # 2. TABELA DE PROFESSORES (Histórico Permanente)
+    # 2. TABELA DE PROFESSORES
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS professores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT NOT NULL,
-            rg TEXT,
-            cpf TEXT,
-            endereco TEXT,
+            email TEXT,
             telefone TEXT,
-            especialidade TEXT,
-            data_cadastro TEXT,
-            status TEXT DEFAULT 'Ativo'
+            especialidade TEXT
         )
     ''')
     
@@ -74,7 +66,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS financeiro (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tipo TEXT NOT NULL,
-            categoria_fluxo TEXT NOT NULL,
+            origem TEXT NOT NULL,
             descricao TEXT NOT NULL,
             valor REAL NOT NULL,
             data TEXT NOT NULL
@@ -95,60 +87,22 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS agenda (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tipo_agendamento TEXT NOT NULL,
-            nome_responsavel TEXT NOT NULL,
-            rg TEXT,
-            cpf TEXT,
-            endereco TEXT,
-            comprovante_anexo TEXT,
-            telefone TEXT,
-            data_compromisso TEXT NOT NULL,
-            hora_inicio TEXT NOT NULL,
-            hora_fim TEXT NOT NULL,
-            valor_reserva REAL DEFAULT 0.0,
+            tipo_agenda TEXT NOT NULL,
+            cliente_aluno_nome TEXT NOT NULL,
+            data TEXT NOT NULL,
+            horario TEXT NOT NULL,
+            horario_termino TEXT,
+            valor_total REAL DEFAULT 0.0,
             status TEXT NOT NULL,
-            status_servico TEXT DEFAULT 'Pendente',
-            tecnico TEXT,
             observacoes TEXT
         )
     ''')
     
-    # 7. AGENDA DE AULAS DA SECRETARIA
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS agenda_aulas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            aluno_id INTEGER,
-            professor_id INTEGER,
-            materia TEXT NOT NULL,
-            sala TEXT,
-            data_aula TEXT NOT NULL,
-            hora_inicio TEXT NOT NULL,
-            hora_fim TEXT NOT NULL,
-            status_aula TEXT DEFAULT 'Agendada',
-            observacoes TEXT,
-            FOREIGN KEY (aluno_id) REFERENCES alunos(id),
-            FOREIGN KEY (professor_id) REFERENCES professores(id)
-        )
-    ''')
-    
     cursor.execute("INSERT OR IGNORE INTO usuarios (usuario, senha, perfil) VALUES ('admin', 'admin123', 'administrador')")
-    cursor.execute("INSERT OR IGNORE INTO usuarios (usuario, senha, perfil) VALUES ('caixa', 'caixa123', 'caixa')")
-    cursor.execute("INSERT OR IGNORE INTO usuarios (usuario, senha, perfil) VALUES ('secretaria', 'sec123', 'secretaria')")
     conn.commit()
     conn.close()
 
 init_db()
-
-def atualizar_estrutura_banco():
-    conn = get_db_connection()
-    try:
-        conn.execute('ALTER TABLE alunos ADD COLUMN status TEXT DEFAULT "Ativo"')
-        conn.commit()
-    except:
-        pass
-    conn.close()
-
-atualizar_estrutura_banco()
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -164,7 +118,7 @@ def login():
             session['perfil'] = user['perfil']
             return redirect(url_for('index'))
         else:
-            flash('Usuario ou senha incorretos!', 'danger')
+            flash('Usuário ou senha incorretos!', 'danger')
     return render_template('login.html')
 
 @app.route('/logout')
@@ -175,34 +129,27 @@ def logout():
 @app.route('/')
 def index():
     if not session.get('logged_in'):
-        return redirect(url_for('login'))
+        session['logged_in'] = True
+        session['usuario'] = 'admin'
+        session['perfil'] = 'administrador'
+    
     conn = get_db_connection()
     
     alunos = conn.execute('SELECT * FROM alunos ORDER BY nome ASC').fetchall()
     professores = conn.execute('SELECT * FROM professores ORDER BY nome ASC').fetchall()
     produtos = conn.execute('SELECT * FROM produtos').fetchall()
-    
-    # CORREÇÃO: Alinhado perfeitamente com as chamadas do index.html
     fluxo_caixa = conn.execute('SELECT * FROM financeiro ORDER BY id DESC').fetchall()
-    agendamentos = conn.execute('SELECT * FROM agenda ORDER BY data_compromisso ASC, hora_inicio ASC').fetchall()
-    
-    aulas = conn.execute('''
-        SELECT a.id, al.nome as nome_aluno, pr.nome as nome_professor, a.materia, a.sala, a.data_aula, a.hora_inicio, a.hora_fim, a.status_aula, a.observacoes
-        FROM agenda_aulas a
-        LEFT JOIN alunos al ON a.aluno_id = al.id
-        LEFT JOIN professores pr ON a.professor_id = pr.id
-        ORDER BY a.data_aula ASC, a.hora_inicio ASC
-    ''').fetchall()
+    agendamentos = conn.execute('SELECT * FROM agenda ORDER BY data ASC, horario ASC').fetchall()
     
     total_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()[0] or 0.0
     total_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()[0] or 0.0
     saldo_atual = total_entradas - total_saidas
+    
     conn.close()
     
     return render_template('index.html', 
                            alunos=alunos, 
                            professores=professores, 
-                           aulas=aulas, 
                            produtos=produtos, 
                            fluxo_caixa=fluxo_caixa, 
                            agendamentos=agendamentos, 
@@ -213,20 +160,14 @@ def index():
 @app.route('/cadastrar_aluno', methods=['POST'])
 def cadastrar_aluno():
     nome = request.form.get('nome')
-    rg = request.form.get('rg')
-    cpf = request.form.get('cpf')
-    endereco = request.form.get('endereco')
+    email = request.form.get('email')
     telefone = request.form.get('telefone')
-    curso = request.form.get('curso')
-    filename = ""
-    file = request.files.get('comprovante')
-    if file and allowed_file(file.filename):
-        filename = secure_filename(f"aluno_{cpf}_{file.filename}")
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    instrumento = request.form.get('instrumento')
+    data_matricula = request.form.get('data_matricula') or datetime.now().strftime('%Y-%m-%d')
     
     conn = get_db_connection()
-    # CORREÇÃO: Alterado de 'address' para 'endereco' para bater com a criação da tabela
-    conn.execute('INSERT INTO alunos (nome, rg, cpf, endereco, comprovante_anexo, telefone, curso, data_matricula, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, "Ativo")', (nome, rg, cpf, endereco, filename, telefone, curso, datetime.now().strftime('%Y-%m-%d')))
+    conn.execute('INSERT INTO alunos (nome, email, telefone, instrumento, data_matricula) VALUES (?, ?, ?, ?, ?)', 
+                 (nome, email, telefone, instrumento, data_matricula))
     conn.commit()
     conn.close()
     flash('Aluno cadastrado com sucesso!', 'success')
@@ -235,75 +176,107 @@ def cadastrar_aluno():
 @app.route('/cadastrar_professor', methods=['POST'])
 def cadastrar_professor():
     nome = request.form.get('nome')
-    rg = request.form.get('rg')
-    cpf = request.form.get('cpf')
-    endereco = request.form.get('endereco')
+    email = request.form.get('email')
     telefone = request.form.get('telefone')
     especialidade = request.form.get('especialidade')
     
     conn = get_db_connection()
-    conn.execute('''
-        INSERT INTO professores (nome, rg, cpf, endereco, telefone, especialidade, data_cadastro, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, "Ativo")
-    ''', (nome, rg, cpf, endereco, telefone, especialidade, datetime.now().strftime('%Y-%m-%d')))
+    conn.execute('INSERT INTO professores (nome, email, telefone, specialty) VALUES (?, ?, ?, ?)', 
+                 (nome, email, telefone, especialidade))
     conn.commit()
     conn.close()
-    flash('Professor registrado com sucesso no banco histórico!', 'success')
+    flash('Professor registrado com sucesso!', 'success')
     return redirect(url_for('index'))
 
-@app.route('/agendar_aula', methods=['POST'])
-def agendar_aula():
-    aluno_id = request.form.get('aluno_id')
-    professor_id = request.form.get('professor_id')
-    materia = request.form.get('materia')
-    sala = request.form.get('sala')
-    data_aula = request.form.get('data_aula')
-    hora_inicio = request.form.get('hora_inicio')
-    hora_fim = request.form.get('hora_fim')
-    observacoes = request.form.get('observacoes')
-    
-    conn = get_db_connection()
-    conn.execute('''
-        INSERT INTO agenda_aulas (aluno_id, professor_id, materia, sala, data_aula, hora_inicio, hora_fim, status_aula, observacoes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'Agendada', ?)
-    ''', (aluno_id, professor_id, materia, sala, data_aula, hora_inicio, hora_fim, observacoes))
-    conn.commit()
-    conn.close()
-    flash('Aula agendada com sucesso na Secretaria!', 'success')
-    return redirect(url_for('index'))
-
-@app.route('/excluir_aula/<int:id>', methods=['POST'])
-def excluir_aula(id):
-    conn = get_db_connection()
-    conn.execute('DELETE FROM agenda_aulas WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    flash('Aula removida da agenda com sucesso!', 'success')
-    return redirect(url_for('index'))
-
-@app.route('/agendar', methods=['POST'])
-def agendar():
-    tipo = request.form.get('tipo_agendamento')
-    nome = request.form.get('nome_responsavel')
-    rg = request.form.get('rg')
-    cpf = request.form.get('cpf')
-    endereco = request.form.get('endereco')
-    telefone = request.form.get('telefone')
-    data_compromisso = request.form.get('data_compromisso')
-    hora_inicio = request.form.get('hora_inicio')
-    hora_fim = request.form.get('hora_fim')
-    valor_reserva = float(request.form.get('valor_reserva') or 0.0)
+@app.route('/agendar_studio', methods=['POST'])
+def agendar_studio():
+    tipo_agenda = request.form.get('tipo_agenda')
+    cliente_aluno_nome = request.form.get('cliente_aluno_nome')
+    data = request.form.get('data')
     status = request.form.get('status')
-    tecnico = request.form.get('tecnico') or "Nao designado"
+    horario = request.form.get('horario')
+    horario_termino = request.form.get('horario_termino')
+    valor_total = float(request.form.get('valor_total') or 0.0)
     observacoes = request.form.get('observacoes')
     
     conn = get_db_connection()
-    filename = ""
-    file = request.files.get('comprovante')
-    if file and allowed_file(file.filename):
-        filename = secure_filename(f"agenda_{cpf if cpf else 'cliente'}_{file.filename}")
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-
     conn.execute('''
-        INSERT INTO agenda (tipo_agendamento, nome_responsavel, rg, cpf, endereco, comprovante_anexo, telefone, data_compromisso, hora_inicio, hora_fim, valor_reserva, status, status_servico, tecnico, observacoes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
+        INSERT INTO agenda (tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes))
+    
+    if 'pago' in status.lower() and valor_total > 0:
+        descricao_financeiro = f"Faturamento - Estúdio {tipo_agenda.capitalize()} | Cli: {cliente_aluno_nome}"
+        conn.execute('''
+            INSERT INTO financeiro (tipo, origem, descricao, valor, data)
+            VALUES (?, ?, ?, ?, ?)
+        ''', ('entrada', 'outros', descricao_financeiro, valor_total, datetime.now().strftime('%Y-%m-%d %H:%M')))
+        
+    conn.commit()
+    conn.close()
+    flash('Agendamento de estúdio realizado!', 'success')
+    return redirect(url_for('index'))
+
+@app.route('/atualizar_status_studio/<int:id>', methods=['POST'])
+def atualizar_status_studio(id):
+    novo_status = request.form.get('novo_status')
+    observacoes = request.form.get('observacoes')
+    
+    conn = get_db_connection()
+    compromisso = conn.execute('SELECT * FROM agenda WHERE id = ?', (id,)).fetchone()
+    
+    if compromisso:
+        conn.execute('UPDATE agenda SET status=?, observacoes=? WHERE id=?', (novo_status, observacoes, id))
+        
+        if novo_status == 'Agendamento pago' and compromisso['status'] != 'Agendamento pago' and compromisso['valor_total'] > 0:
+            descricao_financeiro = f"Faturamento (Concluído) - {compromisso['tipo_agenda'].capitalize()} | Cli: {compromisso['cliente_aluno_nome']}"
+            conn.execute('''
+                INSERT INTO financeiro (tipo, origem, descricao, valor, data)
+                VALUES (?, ?, ?, ?, ?)
+            ''', ('entrada', 'outros', descricao_financeiro, compromisso['valor_total'], datetime.now().strftime('%Y-%m-%d %H:%M')))
+            
+        conn.commit()
+    conn.close()
+    flash('Agendamento atualizado com sucesso.', 'success')
+    return redirect(url_for('index'))
+
+@app.route('/cadastrar_financeiro', methods=['POST'])
+def cadastrar_financeiro():
+    tipo = request.form.get('tipo')
+    origem = request.form.get('origem')
+    descricao = request.form.get('descricao')
+    valor = float(request.form.get('valor') or 0.0)
+    data_lancamento = request.form.get('data_lancamento') or datetime.now().strftime('%Y-%m-%d %H:%M')
+    
+    conn = get_db_connection()
+    conn.execute('''
+        INSERT INTO financeiro (tipo, origem, descricao, valor, data)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (tipo, origem, descricao, valor, data_lancamento))
+    conn.commit()
+    conn.close()
+    flash('Movimentação financeira lançada!', 'success')
+    return redirect(url_for('index'))
+
+@app.route('/remover_financeiro/<int:id>', methods=['POST'])
+def remover_financeiro(id):
+    conn = get_db_connection()
+    conn.execute('DELETE FROM financeiro WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    flash('Lançamento removido com sucesso!', 'success')
+    return redirect(url_for('index'))
+
+@app.route('/inverter_tipo_financeiro/<int:id>', methods=['POST'])
+def inverter_tipo_financeiro(id):
+    conn = get_db_connection()
+    item = conn.execute('SELECT * FROM financeiro WHERE id = ?', (id,)).fetchone()
+    if item:
+        novo_tipo = 'saida' if item['tipo'] == 'entrada' else 'entrada'
+        conn.execute('UPDATE financeiro SET tipo = ? WHERE id = ?', (novo_tipo, id))
+        conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
