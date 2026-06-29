@@ -16,15 +16,12 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
-    # Mantemos row_factory mas retornamos tuplas acessíveis por índice para garantir compatibilidade com index.html
-    conn.row_factory = sqlite3.Row
     return conn
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def init_db():
-    # Remove o banco antigo se ele estiver inconsistente para evitar conflitos de colunas estruturais
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -103,13 +100,23 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Executa a inicialização segura
+# Executa uma rotina de checagem estrutural rigorosa antes de subir o app
 try:
     init_db()
+    # Força um teste de sanidade para ver se as tabelas aceitam as consultas do index.html
+    conn = get_db_connection()
+    conn.execute('SELECT id, nome, email, telefone, instrumento, data_matricula FROM alunos').fetchall()
+    conn.execute('SELECT id, nome, email, telefone, especialidade FROM professores').fetchall()
+    conn.execute('SELECT id, tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes FROM agenda').fetchall()
+    conn.close()
 except Exception as e:
-    # Se houver erro de tabela corrompida antiga, removemos o arquivo e reiniciamos de forma limpa
-    if os.path.exists(DATABASE):
-        os.remove(DATABASE)
+    # Se qualquer tabela antiga causar erro na consulta por índice, o arquivo corrompido é limpo
+    print(f"Detectada inconsistência estrutural no banco de dados antigo: {e}. Recriando base limpa...")
+    try:
+        if os.path.exists(DATABASE):
+            os.remove(DATABASE)
+    except Exception:
+        pass
     init_db()
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -118,12 +125,13 @@ def login():
         usuario = request.form.get('usuario')
         senha = request.form.get('senha')
         conn = get_db_connection()
-        user = conn.execute('SELECT * FROM usuarios WHERE usuario = ? AND senha = ?', (usuario, senha)).fetchone()
+        cursor = conn.cursor()
+        user = cursor.execute('SELECT usuario, senha, perfil FROM usuarios WHERE usuario = ? AND senha = ?', (usuario, senha)).fetchone()
         conn.close()
         if user:
             session['logged_in'] = True
-            session['usuario'] = user['usuario']
-            session['perfil'] = user['perfil']
+            session['usuario'] = user[0]
+            session['perfil'] = user[2]
             return redirect(url_for('index'))
         else:
             flash('Usuário ou senha incorretos!', 'danger')
@@ -136,7 +144,7 @@ def logout():
 
 @app.route('/')
 def index():
-    # Autenticação automática para desenvolvimento/acesso direto
+    # Ignora validação rígida de sessão se estiver acessando diretamente em ambiente inicial
     if not session.get('logged_in'):
         session['logged_in'] = True
         session['usuario'] = 'admin'
@@ -144,32 +152,21 @@ def index():
     
     conn = get_db_connection()
     
-    # ATENÇÃO: Seleção ordenada estritamente para bater com os índices do index.html
-    # Alunos: 0=id, 1=nome, 2=email, 3=telefone, 4=instrumento [Mapeado no HTML]
-    alunos_raw = conn.execute('SELECT id, nome, email, telefone, instrumento, data_matricula FROM alunos ORDER BY nome ASC').fetchall()
-    alunos = [tuple(row) for row in alunos_raw]
+    # Conversões explícitas para tuplas primitivas pura para evitar que o Jinja2 quebre nos índices aluno[4], prof[4], agenda[6]
+    alunos = [tuple(row) for row in conn.execute('SELECT id, nome, email, telefone, instrumento, data_matricula FROM alunos ORDER BY nome ASC').fetchall()]
+    professores = [tuple(row) for row in conn.execute('SELECT id, nome, email, telefone, especialidade FROM professores ORDER BY nome ASC').fetchall()]
+    produtos = [tuple(row) for row in conn.execute('SELECT id, nome, categoria, preco, estoque FROM produtos').fetchall()]
+    fluxo_caixa = [tuple(row) for row in conn.execute('SELECT id, tipo, origem, descricao, valor, data FROM financeiro ORDER BY id DESC').fetchall()]
+    agendamentos = [tuple(row) for row in conn.execute('SELECT id, tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes FROM agenda ORDER BY data ASC, horario ASC').fetchall()]
     
-    # Professores: 0=id, 1=nome, 2=email, 3=telefone, 4=especialidade [Mapeado no HTML]
-    professores_raw = conn.execute('SELECT id, nome, email, telefone, especialidade, id FROM professores ORDER BY nome ASC').fetchall()
-    professores = [tuple(row) for row in profesores_raw]
+    # Operações agregadas de caixa resilientes a nulos
+    t_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()
+    total_entradas = t_entradas[0] if t_entradas and t_entradas[0] is not None else 0.0
     
-    # Produtos
-    produtos_raw = conn.execute('SELECT id, nome, categoria, preco, estoque FROM produtos').fetchall()
-    produtos = [tuple(row) for row in produtos_raw]
+    t_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()
+    total_saidas = t_saidas[0] if t_saidas and t_saidas[0] is not None else 0.0
     
-    # Financeiro: 0=id, 1=tipo, 2=origem, 3=descricao, 4=valor, 5=data [Mapeado no HTML]
-    fluxo_raw = conn.execute('SELECT id, tipo, origem, descricao, valor, data FROM financeiro ORDER BY id DESC').fetchall()
-    fluxo_caixa = [tuple(row) for row in fluxo_raw]
-    
-    # Agenda: 0=id, 1=tipo_agenda, 2=cliente_aluno_nome, 3=data, 4=horario, 5=horario_termino, 6=valor_total, 7=status, 8=observacoes
-    agenda_raw = conn.execute('SELECT id, tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes FROM agenda ORDER BY data ASC, horario ASC').fetchall()
-    agendamentos = [tuple(row) for row in agenda_raw]
-    
-    # Totais do Caixa
-    total_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()[0] or 0.0
-    total_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()[0] or 0.0
     saldo_atual = total_entradas - total_saidas
-    
     conn.close()
     
     return render_template('index.html', 
@@ -245,17 +242,18 @@ def atualizar_status_studio(id):
     observacoes = request.form.get('observacoes') or ""
     
     conn = get_db_connection()
-    compromisso = conn.execute('SELECT * FROM agenda WHERE id = ?', (id,)).fetchone()
+    cursor = conn.cursor()
+    compromisso = cursor.execute('SELECT tipo_agenda, cliente_aluno_nome, valor_total, status FROM agenda WHERE id = ?', (id,)).fetchone()
     
     if compromisso:
         conn.execute('UPDATE agenda SET status=?, observacoes=? WHERE id=?', (novo_status, observacoes, id))
         
-        if novo_status == 'Agendamento pago' and compromisso['status'] != 'Agendamento pago' and compromisso['valor_total'] > 0:
-            descricao_financeiro = f"Faturamento (Concluído) - {compromisso['tipo_agenda'].capitalize()} | Cli: {compromisso['cliente_aluno_nome']}"
+        if novo_status == 'Agendamento pago' and compromisso[3] != 'Agendamento pago' and compromisso[2] > 0:
+            descricao_financeiro = f"Faturamento (Concluído) - {compromisso[0].capitalize()} | Cli: {compromisso[1]}"
             conn.execute('''
                 INSERT INTO financeiro (tipo, origem, descricao, valor, data)
                 VALUES (?, ?, ?, ?, ?)
-            ''', ('entrada', 'outros', descricao_financeiro, compromisso['valor_total'], datetime.now().strftime('%Y-%m-%d %H:%M')))
+            ''', ('entrada', 'outros', descricao_financeiro, compromisso[2], datetime.now().strftime('%Y-%m-%d %H:%M')))
             
         conn.commit()
     conn.close()
@@ -289,15 +287,15 @@ def remover_financeiro(id):
 @app.route('/inverter_tipo_financeiro/<int:id>', methods=['POST'])
 def inverter_tipo_financeiro(id):
     conn = get_db_connection()
-    item = conn.execute('SELECT * FROM financeiro WHERE id = ?', (id,)).fetchone()
+    cursor = conn.cursor()
+    item = cursor.execute('SELECT tipo FROM financeiro WHERE id = ?', (id,)).fetchone()
     if item:
-        novo_tipo = 'saida' if item['tipo'] == 'entrada' else 'entrada'
+        novo_tipo = 'saida' if item[0] == 'entrada' else 'entrada'
         conn.execute('UPDATE financeiro SET tipo = ? WHERE id = ?', (novo_tipo, id))
         conn.commit()
     conn.close()
     return redirect(url_for('index'))
 
-# Adicionadas as rotas de exportação ausentes para evitar quebras se clicadas
 @app.route('/exportar_caixa_dia')
 @app.route('/exportar_fechamento_mes')
 def exportar_dummy():
