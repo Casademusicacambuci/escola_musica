@@ -39,7 +39,7 @@ def init_db():
         )
     ''')
     
-    # 2. TABELA DE PROFESSORES
+    # 2. TABELA DE PROFESSORES - CORRIGIDO: garante 'especialidade'
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS professores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,7 +83,9 @@ def init_db():
         )
     ''')
     
-    # 6. AGENDA DOS ESTÚDIOS
+    # 6. AGENDA DOS ESTÚDIOS - Índices rígidos para bater com o index.html:
+    # agenda[0]=id, agenda[1]=tipo_agenda, agenda[2]=cliente_aluno_nome, agenda[3]=data
+    # agenda[4]=horario, agenda[5]=horario_termino, agenda[6]=valor_total, agenda[7]=status, agenda[8]=observacoes
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS agenda (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,6 +130,7 @@ def logout():
 
 @app.route('/')
 def index():
+    # Bypass temporário de segurança para garantir a abertura imediata do painel de administração
     if not session.get('logged_in'):
         session['logged_in'] = True
         session['usuario'] = 'admin'
@@ -135,11 +138,12 @@ def index():
     
     conn = get_db_connection()
     
-    alunos = conn.execute('SELECT * FROM alunos ORDER BY nome ASC').fetchall()
-    professores = conn.execute('SELECT * FROM professores ORDER BY nome ASC').fetchall()
-    produtos = conn.execute('SELECT * FROM produtos').fetchall()
-    fluxo_caixa = conn.execute('SELECT * FROM financeiro ORDER BY id DESC').fetchall()
-    agendamentos = conn.execute('SELECT * FROM agenda ORDER BY data ASC, horario ASC').fetchall()
+    # Usando tuplas brutas para garantir compatibilidade com os índices mapeados por número no index.html (ex: aluno[4])
+    alunos = conn.execute('SELECT id, nome, email, telefone, instrumento, data_matricula FROM alunos ORDER BY nome ASC').fetchall()
+    professores = conn.execute('SELECT id, nome, email, telefone, especialidade FROM professores ORDER BY nome ASC').fetchall()
+    produtos = conn.execute('SELECT id, nome, categoria, preco, estoque FROM produtos').fetchall()
+    fluxo_caixa = conn.execute('SELECT id, tipo, origem, descricao, valor, data FROM financeiro ORDER BY id DESC').fetchall()
+    agendamentos = conn.execute('SELECT id, tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes FROM agenda ORDER BY data ASC, horario ASC').fetchall()
     
     total_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()[0] or 0.0
     total_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()[0] or 0.0
@@ -181,7 +185,8 @@ def cadastrar_professor():
     especialidade = request.form.get('especialidade')
     
     conn = get_db_connection()
-    conn.execute('INSERT INTO professores (nome, email, telefone, specialty) VALUES (?, ?, ?, ?)', 
+    # CORREÇÃO: Ajustado de 'specialty' para 'especialidade' para casar com a criação da tabela
+    conn.execute('INSERT INTO professores (nome, email, telefone, especialidade) VALUES (?, ?, ?, ?)', 
                  (nome, email, telefone, especialidade))
     conn.commit()
     conn.close()
@@ -197,7 +202,7 @@ def agendar_studio():
     horario = request.form.get('horario')
     horario_termino = request.form.get('horario_termino')
     valor_total = float(request.form.get('valor_total') or 0.0)
-    observacoes = request.form.get('observacoes')
+    observacoes = request.form.get('observacoes') or ""
     
     conn = get_db_connection()
     conn.execute('''
@@ -220,7 +225,7 @@ def agendar_studio():
 @app.route('/atualizar_status_studio/<int:id>', methods=['POST'])
 def atualizar_status_studio(id):
     novo_status = request.form.get('novo_status')
-    observacoes = request.form.get('observacoes')
+    observacoes = request.form.get('observacoes') or ""
     
     conn = get_db_connection()
     compromisso = conn.execute('SELECT * FROM agenda WHERE id = ?', (id,)).fetchone()
