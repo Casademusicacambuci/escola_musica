@@ -14,9 +14,8 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .grid { display: grid; grid-template-columns: 1fr 1.3fr; gap: 25px; margin-bottom: 30px; }
-        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-top: 4px solid #17b978; margin-bottom: 20px; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-top: 4px solid #17b978; }
         .card.studio { border-top-color: #6c5ce7; }
-        .card.school { border-top-color: #0284c7; }
         .card.shop { border-top-color: #ff7675; }
         .card.financeiro-card { border-top-color: #2ecc71; }
         h2 { color: #1e3d59; margin-top: 0; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; font-size: 18px; }
@@ -42,35 +41,37 @@
         .badge-entrada { background-color: #e8f5e9; color: #2e7d32; }
         .badge-saida { background-color: #ffebee; color: #c62828; }
         
-        .btn-action { background-color: #4f46e5; color: white; text-decoration: none; padding: 5px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: bold; border: none; }
-        .btn-action:hover { background-color: #4338ca; }
-        .btn-success-action { background-color: #16a34a; color: white; text-decoration: none; padding: 5px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: bold; border: none; margin-left: 2px; }
-        .btn-success-action:hover { background-color: #15803d; }
-        .btn-edit-action { background-color: #f59e0b; color: white; text-decoration: none; padding: 5px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: bold; border: none; margin-left: 2px;}
-        .btn-edit-action:hover { background-color: #d97706; }
+        .report-bar { display: flex; gap: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 15px; border-radius: 6px; margin-bottom: 20px; align-items: center; }
+        .btn-report { background-color: #475569; color: white; text-decoration: none; padding: 10px 15px; border-radius: 4px; font-size: 13px; font-weight: bold; display: inline-flex; align-items: center; gap: 5px; transition: background 0.2s; width: auto; }
+        .btn-report:hover { background-color: #334155; }
         
-        .status-badge { padding: 4px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; }
+        .btn-action { background: none; border: none; padding: 4px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; display: inline-block; font-weight: normal; width: auto; text-align: center; }
+        .btn-invert { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; margin-right: 4px; }
+        .btn-invert:hover { background-color: #e2e8f0; }
+        .btn-delete { background-color: #fee2e2; color: #991b1b; }
+        .btn-delete:hover { background-color: #fca5a5; }
+        
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; }
+        .status-agendado { background-color: #e3f2fd; color: #0d47a1; }
         .status-concluido { background-color: #e8f5e9; color: #1b5e20; }
         .status-pago { background-color: #e8f8f5; color: #117a65; font-weight: 900; border: 1px solid #117a65; }
         .status-apagar { background-color: #fff3e0; color: #e65100; }
-        .status-pendente { background-color: #f1f5f9; color: #475569; }
         
         .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
         .badge-gravacao { background-color: #ffeaa7; color: #d63031; }
         .badge-ensaio { background-color: #dff9fb; color: #0984e3; }
         .badge-videoclipe { background-color: #e0dffb; color: #6c5ce7; }
         
-        .alert { padding: 15px; margin-bottom: 20px; border: 1px solid transparent; border-radius: 4px; font-weight: bold; }
-        .alert-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
-        .alert-danger { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
-        .edit-row-panel { background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px dashed #f59e0b; margin-top: 10px; display: none; }
+        .inline-form { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
+        .inline-form select { padding: 4px; font-size: 12px; width: auto; }
+        .inline-form button { padding: 5px 10px; font-size: 11px; width: auto; background-color: #64748b; }
     </style>
 </head>
 <body>
 
     <div class="navbar">
         <h1>🎵 Casa de Música Cambuci — Sistema de Gestão</h1>
-        <span style="font-size: 13px; opacity: 0.8;">Perfil: ADMINISTRADOR</span>
+        <span style="font-size: 13px; opacity: 0.8;">Rede Local Ativa</span>
     </div>
 
     <div class="nav-tabs">
@@ -82,175 +83,57 @@
 
     <div class="container">
         
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alert alert-{{ category }}">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-        
         <div id="secretaria" class="tab-content active">
-            <div class="grid">
-                <div>
-                    <div class="card school">
-                        <h2>Matricular Novo Aluno (Histórico Permanente)</h2>
-                        <form action="/cadastrar_aluno" method="POST" enctype="multipart/form-data">
-                            <div class="form-group"><input type="text" name="nome" placeholder="Nome do Aluno" required></div>
-                            <div class="form-row">
-                                <div><input type="text" name="rg" placeholder="RG"></div>
-                                <div><input type="text" name="cpf" placeholder="CPF"></div>
-                            </div>
-                            <div class="form-group"><input type="text" name="endereco" placeholder="Endereço Residencial"></div>
-                            <div class="form-row">
-                                <div><input type="text" name="telefone" placeholder="WhatsApp / Celular"></div>
-                                <div><input type="text" name="curso" placeholder="Curso Inicial (Ex: Piano)"></div>
-                            </div>
-                            <div class="form-group">
-                                <label>Ficha/Contrato Anexo</label>
-                                <input type="file" name="comprovante">
-                            </div>
-                            <button type="submit" style="background-color: #0284c7;">Matricular Aluno</button>
-                        </form>
-                    </div>
-
-                    <div class="card school" style="border-top-color: #f59e0b;">
-                        <h2>Cadastrar Novo Professor (Banco Histórico)</h2>
-                        <form action="/cadastrar_professor" method="POST">
-                            <div class="form-group"><input type="text" name="nome" placeholder="Nome Completo do Professor" required></div>
-                            <div class="form-row">
-                                <div><input type="text" name="rg" placeholder="RG"></div>
-                                <div><input type="text" name="cpf" placeholder="CPF"></div>
-                            </div>
-                            <div class="form-group"><input type="text" name="endereco" placeholder="Endereço"></div>
-                            <div class="form-row">
-                                <div><input type="text" name="telefone" placeholder="Telefone"></div>
-                                <div><input type="text" name="especialidade" placeholder="Instrumento/Materia (Ex: Canto)" required></div>
-                            </div>
-                            <button type="submit" style="background-color: #f59e0b;">Registrar Professor</button>
-                        </form>
-                    </div>
+            <div class="grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="card">
+                    <h2>Matricular Novo Aluno</h2>
+                    <form action="/cadastrar_aluno" method="POST">
+                        <div class="form-group"><input type="text" name="nome" placeholder="Nome Completo" required></div>
+                        <div class="form-group"><input type="email" name="email" placeholder="E-mail"></div>
+                        <div class="form-group"><input type="text" name="telefone" placeholder="Telefone / WhatsApp"></div>
+                        <div class="form-group"><input type="text" name="instrumento" placeholder="Instrumento (ex: Piano, Violão)"></div>
+                        <div class="form-group"><label>Data de Matrícula</label><input type="date" name="data_matricula"></div>
+                        <button type="submit">Confirmar Matrícula</button>
+                    </form>
                 </div>
-
-                <div class="card school" style="border-top-color: #10b981;">
-                    <h2>📒 Marcar / Agendar Aula Regular</h2>
-                    <form action="/agendar_aula" method="POST">
-                        <div class="form-group">
-                            <label>Selecione o Aluno</label>
-                            <select name="aluno_id" required>
-                                <option value="">-- Escolha um Aluno --</option>
-                                {% for aluno in alunos %}
-                                <option value="{{ aluno['id'] }}">{{ aluno['nome'] }} ({{ aluno['curso'] }})</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Selecione o Professor</label>
-                            <select name="professor_id" required>
-                                <option value="">-- Escolha um Professor --</option>
-                                {% for prof in professores %}
-                                <option value="{{ prof['id'] }}">{{ prof['nome'] }} [{{ prof['especialidade'] }}]</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div class="form-row">
-                            <div>
-                                <label>Matéria/Instrumento</label>
-                                <input type="text" name="materia" placeholder="Ex: Teoria Musical" required>
-                            </div>
-                            <div>
-                                <label>Sala da Aula</label>
-                                <input type="text" name="sala" placeholder="Ex: Sala A - Acústica">
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div>
-                                <label>Data da Aula</label>
-                                <input type="date" name="data_aula" required>
-                            </div>
-                            <div>
-                                <label>Horário de Início</label>
-                                <input type="time" name="hora_inicio" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Horário de Término</label>
-                            <input type="time" name="hora_fim" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Observações/Conteúdo da Aula</label>
-                            <textarea name="observacoes" rows="2" placeholder="Informações extras ou observações pedagógicas..."></textarea>
-                        </div>
-
-                        <button type="submit" style="background-color: #10b981;">Fixar Aula na Agenda</button>
+                <div class="card">
+                    <h2>Cadastrar Novo Professor</h2>
+                    <form action="/cadastrar_professor" method="POST">
+                        <div class="form-group"><input type="text" name="nome" placeholder="Nome do Professor" required></div>
+                        <div class="form-group"><input type="email" name="email" placeholder="E-mail"></div>
+                        <div class="form-group"><input type="text" name="telefone" placeholder="Telefone / WhatsApp"></div>
+                        <div class="form-group"><input type="text" name="especialidade" placeholder="Especialidade (ex: Canto, Bateria)"></div>
+                        <button type="submit" style="background-color: #1e3d59;">Cadastrar Professor</button>
                     </form>
                 </div>
             </div>
 
-            <div class="list-section" style="border-top: 4px solid #10b981;">
-                <h2>📅 Calendário e Controle de Aulas (Secretaria)</h2>
+            <div class="list-section">
+                <h2>Alunos Matriculados</h2>
                 <table>
-                    <thead>
-                        <tr>
-                            <th>Data/Hora</th>
-                            <th>Aluno</th>
-                            <th>Professor</th>
-                            <th>Matéria/Instrumento</th>
-                            <th>Sala</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>ID</th><th>Nome</th><th>Instrumento</th><th>Telefone</th></tr></thead>
                     <tbody>
-                        {% for aula in aulas %}
-                        <tr>
-                            <td><strong>{{ aula['data_aula'] }}</strong><br><small>{{ aula['hora_inicio'] }} às {{ aula['hora_fim'] }}</small></td>
-                            <td><span style="color:#0284c7; font-weight:bold;">👤 {{ aula['nome_aluno'] }}</span></td>
-                            <td><span style="color:#b45309; font-weight:bold;">👨‍🏫 {{ aula['nome_professor'] }}</span></td>
-                            <td>{{ aula['materia'] }}</td>
-                            <td><span class="status-badge status-pendente">{{ aula['sala'] if aula['sala'] else 'Geral' }}</span></td>
-                            <td>
-                                <form action="/excluir_aula/{{ aula['id'] }}" method="POST" onsubmit="return confirm('Deseja cancelar esta aula?');" style="display:inline;">
-                                    <button type="submit" style="background-color:#ef4444; padding: 4px 8px; font-size:11px; width:auto;">❌ Cancelar</button>
-                                </form>
-                            </td>
-                        </tr>
+                        {% for aluno in alunos %}
+                        <tr><td>{{ aluno[0] }}</td><td>{{ aluno[1] }}</td><td>{{ aluno[4] if aluno[4] else '-' }}</td><td>{{ aluno[3] if aluno[3] else '-' }}</td></tr>
+                        {% else %}
+                        <tr><td colspan="4" style="text-align: center; color: #64748b;">Nenhum aluno matriculado ainda.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            
-            <div class="grid" style="grid-template-columns: 1fr 1fr;">
-                <div class="list-section">
-                    <h3>👥 Histórico Permanente de Alunos ({{ alunos|length }})</h3>
-                    <div style="max-height: 250px; overflow-y:auto;">
-                        <table>
-                            <thead><tr><th>ID</th><th>Nome</th><th>Curso</th></tr></thead>
-                            <tbody>
-                                {% for aluno in alunos %}
-                                <tr><td>{{ aluno['id'] }}</td><td><strong>{{ aluno['nome'] }}</strong></td><td>{{ aluno['curso'] }}</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="list-section">
-                    <h3>👨‍🏫 Histórico Permanente de Professores ({{ professores|length }})</h3>
-                    <div style="max-height: 250px; overflow-y:auto;">
-                        <table>
-                            <thead><tr><th>ID</th><th>Nome</th><th>Especialidade</th></tr></thead>
-                            <tbody>
-                                {% for prof in professores %}
-                                <tr><td>{{ prof['id'] }}</td><td><strong>{{ prof['nome'] }}</strong></td><td>{{ prof['especialidade'] }}</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+
+            <div class="list-section">
+                <h2>Corpo Docente (Professores)</h2>
+                <table>
+                    <thead><tr><th>ID</th><th>Nome</th><th>Especialidade</th><th>Telefone</th></tr></thead>
+                    <tbody>
+                        {% for prof in professores %}
+                        <tr><td>{{ prof[0] }}</td><td>{{ prof[1] }}</td><td>{{ prof[4] if prof[4] else '-' }}</td><td>{{ prof[3] if prof[3] else '-' }}</td></tr>
+                        {% else %}
+                        <tr><td colspan="4" style="text-align: center; color: #64748b;">Nenhum professor cadastrado ainda.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -258,36 +141,30 @@
             <div class="grid">
                 <div class="card studio">
                     <h2>Novo Agendamento de Estúdio</h2>
-                    <form action="/agendar" method="POST" enctype="multipart/form-data">
+                    <form action="/agendar_studio" method="POST">
                         <div class="form-group">
                             <label>Selecione o Espaço</label>
-                            <select name="tipo_agendamento" required>
-                                <option value="Gravação">🎙️ Estúdio de Gravação</option>
-                                <option value="Ensaio">🎸 Estúdio de Ensaio</option>
-                                <option value="Videoclipe">🎥 Estúdio de Videoclipe</option>
+                            <select name="tipo_agenda" required>
+                                <option value="gravacao">🎙️ Estúdio de Gravação</option>
+                                <option value="ensaio">🎸 Estúdio de Ensaio</option>
+                                <option value="videoclipe">🎥 Estúdio de Videoclipe</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <input type="text" name="nome_responsavel" placeholder="Nome do Cliente / Banda / Aluno" required>
+                            <input type="text" name="cliente_aluno_nome" placeholder="Nome do Cliente / Banda / Aluno" required>
                         </div>
-                        <div class="form-row">
-                            <div><input type="text" name="rg" placeholder="RG"></div>
-                            <div><input type="text" name="cpf" placeholder="CPF"></div>
-                        </div>
-                        <div class="form-group"><input type="text" name="endereco" placeholder="Endereço"></div>
-                        <div class="form-group"><input type="text" name="telefone" placeholder="Telefone"></div>
-                        <div class="form-group"><input type="text" name="tecnico" placeholder="Nome do Técnico de Áudio"></div>
-                        
                         <div class="form-row">
                             <div>
                                 <label>Data</label>
-                                <input type="date" name="data_compromisso" required>
+                                <input type="date" name="data" required>
                             </div>
                             <div>
                                 <label>Status Inicial</label>
                                 <select name="status">
-                                    <option value="A pagar">🟠 A pagar</option>
-                                    <option value="Pago">💰 Pago</option>
+                                    <option value="Agendado">🔵 Agendado</option>
+                                    <option value="Serviço concluído">🟢 Serviço concluído</option>
+                                    <option value="Agendamento pago">💰 Agendamento pago</option>
+                                    <option value="Agendamento a pagar">🟠 Agendamento a pagar</option>
                                 </select>
                             </div>
                         </div>
@@ -295,27 +172,22 @@
                         <div class="form-row">
                             <div>
                                 <label>Horário de Início</label>
-                                <input type="time" name="hora_inicio" required>
+                                <input type="time" name="horario" required>
                             </div>
                             <div>
                                 <label>Horário de Término</label>
-                                <input type="time" name="hora_fim" required>
+                                <input type="time" name="horario_termino" required>
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label>Valor da Reserva (R$)</label>
-                            <input type="number" step="0.01" name="valor_reserva" placeholder="Ex: 150.00" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Anexar Comprovante/Contrato</label>
-                            <input type="file" name="comprovante">
+                            <label>Valor Total (R$)</label>
+                            <input type="number" step="0.01" name="valor_total" placeholder="Ex: 150.00" required>
                         </div>
 
                         <div class="form-group">
                             <label>Observações / Ocorrências</label>
-                            <textarea name="observacoes" rows="2" placeholder="Notas sobre o agendamento..."></textarea>
+                            <textarea name="observacoes" rows="2" placeholder="Ex: Cliente trouxe instrumentos próprios..."></textarea>
                         </div>
 
                         <button type="submit" style="background-color: #6c5ce7;">Reservar Horário & Faturar</button>
@@ -325,103 +197,49 @@
                 <div class="list-section" style="margin-bottom: 0;">
                     <h2>Próximas Reservas nos Estúdios</h2>
                     <table>
-                        <thead><tr><th>Espaço</th><th>Cliente / Técnico</th><th>Data / Horário</th><th>Valor</th><th>Caixa</th><th>Estúdio</th><th>Ações</th></tr></thead>
+                        <thead><tr><th>Espaço</th><th>Cliente</th><th>Data / Horário</th><th>Valor</th><th>Status / Atualizar</th><th>Observações</th></tr></thead>
                         <tbody>
-                            {% for agenda in compromissos_raw %}
+                            {% for agenda in agendamentos %}
                             <tr>
-                                <td colspan="7" style="padding: 0; border: none;">
-                                    <table style="width: 100%; margin: 0; border-collapse: collapse;">
-                                        <tr>
-                                            <td style="width: 14%;">
-                                                <span class="badge badge-{{ 'gravacao' if 'Grav' in agenda['tipo_agendamento'] else 'ensaio' if 'Ens' in agenda['tipo_agendamento'] else 'videoclipe' }}">
-                                                    {{ agenda['tipo_agendamento'] }}
-                                                </span>
-                                            </td>
-                                            <td style="width: 22%;"><strong>{{ agenda['nome_responsavel'] }}</strong><br><small>Téc: {{ agenda['tecnico'] }}</small></td>
-                                            <td style="width: 18%;">{{ agenda['data_compromisso'] }}<br><small>{{ agenda['hora_inicio'] }} às {{ agenda['hora_fim'] }}</small></td>
-                                            <td style="width: 10%;">R$ {{ "%.2f"|format(agenda['valor_reserva']|float) }}</td>
-                                            <td style="width: 11%;">
-                                                <span class="status-badge {% if agenda['status'] == 'Pago' %}status-pago{% else %}status-apagar{% endif %}">
-                                                    {{ agenda['status'] }}
-                                                </span>
-                                            </td>
-                                            <td style="width: 11%;">
-                                                <span class="status-badge {% if agenda['status_servico'] == 'Concluido' %}status-concluido{% else %}status-pendente{% endif %}">
-                                                    {{ agenda['status_servico'] if agenda['status_servico'] else 'Pendente' }}
-                                                </span>
-                                            </td>
-                                            <td style="width: 14%;">
-                                                {% if agenda['status'] == 'A pagar' %}
-                                                <a href="/marcar_pago_agenda/{{ agenda['id'] }}" class="btn-action" title="Registrar Pagamento">💰 Receber</a>
-                                                {% endif %}
-                                                {% if not agenda['status_servico'] or agenda['status_servico'] == 'Pendente' %}
-                                                <a href="/concluir_servico_agenda/{{ agenda['id'] }}" class="btn-success-action" title="Trabalho Terminado">✔️ Fim</a>
-                                                {% endif %}
-                                                <button type="button" class="btn-edit-action" onclick="toggleEditPanel('edit_{{ agenda['id'] }}')">✏️</button>
-                                            </td>
-                                        </tr>
-                                    </table>
+                                <td>
+                                    <span class="badge badge-{{ agenda[1] }}">
+                                        {% if agenda[1] == 'gravacao' %}🎙️ Gravação
+                                        {% elif agenda[1] == 'ensaio' %}🎸 Ensaio
+                                        {% elif agenda[1] == 'videoclipe' %}🎥 Videoclipe
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td><strong>{{ agenda[2] }}</strong></td>
+                                <td>{{ agenda[3] }}<br><small>{{ agenda[4] }} às {{ agenda[5] if agenda[5] else '--:--' }}</small></td>
+                                <td>R$ {{ "%.2f"|format(agenda[6]|float) if agenda[6] is not none else '0.00' }}</td>
+                                <td>
+                                    <span class="status-badge 
+                                        {% if agenda[7] == 'Agendamento pago' %}status-pago
+                                        {% elif agenda[7] == 'Serviço concluído' %}status-concluido
+                                        {% elif agenda[7] == 'Agendamento a pagar' %}status-apagar
+                                        {% else %}status-agendado{% endif %}">
+                                        {{ agenda[7] if agenda[7] else 'Agendado' }}
+                                    </span>
                                     
-                                    <div id="edit_{{ agenda['id'] }}" class="edit-row-panel">
-                                        <form action="/editar_agenda" method="POST" style="margin-bottom: 15px;">
-                                            <input type="hidden" name="id" value="{{ agenda['id'] }}">
-                                            <h3 style="margin-top:0; font-size:14px; color:#d97706;">Alterar Reserva de {{ agenda['nome_responsavel'] }}</h3>
-                                            <div class="form-row">
-                                                <div>
-                                                    <label>Espaço</label>
-                                                    <select name="tipo_agendamento">
-                                                        <option value="Gravação" {% if agenda['tipo_agendamento'] == 'Gravação' %}selected{% endif %}>Gravação</option>
-                                                        <option value="Ensaio" {% if agenda['tipo_agendamento'] == 'Ensaio' %}selected{% endif %}>Ensaio</option>
-                                                        <option value="Videoclipe" {% if agenda['tipo_agendamento'] == 'Videoclipe' %}selected{% endif %}>Videoclipe</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label>Técnico</label>
-                                                    <input type="text" name="tecnico" value="{{ agenda['tecnico'] }}">
-                                                </div>
-                                            </div>
-                                            <div class="form-row">
-                                                <div>
-                                                    <label>Data</label>
-                                                    <input type="date" name="data_compromisso" value="{{ agenda['data_compromisso'] }}">
-                                                </div>
-                                                <div>
-                                                    <label>Valor (R$)</label>
-                                                    <input type="number" step="0.01" name="valor_reserva" value="{{ agenda['valor_reserva'] }}">
-                                                </div>
-                                            </div>
-                                            <div class="form-row">
-                                                <div>
-                                                    <label>Início</label>
-                                                    <input type="time" name="hora_inicio" value="{{ agenda['hora_inicio'] }}">
-                                                </div>
-                                                <div>
-                                                    <label>Fim</label>
-                                                    <input type="time" name="hora_fim" value="{{ agenda['hora_fim'] }}">
-                                                </div>
-                                            </div>
-                                            <div class="form-group">
-                                                <label>Nome do Responsável</label>
-                                                <input type="text" name="nome_responsavel" value="{{ agenda['nome_responsavel'] }}" required>
-                                            </div>
-                                            <div class="form-group">
-                                                <label>Notas adicionais</label>
-                                                <textarea name="observacoes" rows="1">{{ agenda['observacoes'] }}</textarea>
-                                            </div>
-                                            <div style="display:flex; gap:10px;">
-                                                <button type="submit" style="background-color: #d97706; padding:8px;">Salvar Alterações</button>
-                                                <button type="button" style="background-color: #94a3b8; padding:8px;" onclick="toggleEditPanel('edit_{{ agenda['id'] }}')">Fechar</button>
-                                            </div>
-                                        </form>
-
-                                        <div style="border-top: 1px solid #cbd5e1; padding-top: 10px; display: flex; justify-content: flex-end;">
-                                            <form action="/excluir_agenda/{{ agenda['id'] }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir permanentemente o agendamento de {{ agenda['nome_responsavel'] }}?');">
-                                                <button type="submit" style="background-color: #e71d36; padding: 6px 12px; font-size: 11px; width: auto;">❌ Excluir / Cancelar Reserva</button>
-                                            </form>
-                                        </div>
-                                    </div>
+                                    <form class="inline-form" action="/atualizar_status_studio/{{ agenda[0] }}" method="POST">
+                                        <select name="novo_status">
+                                            <option value="Agendado" {% if agenda[7] == 'Agendado' %}selected{% endif %}>Agendado</option>
+                                            <option value="Serviço concluído" {% if agenda[7] == 'Serviço concluído' %}selected{% endif %}>Serviço concluído</option>
+                                            <option value="Agendamento pago" {% if agenda[7] == 'Agendamento pago' %}selected{% endif %}>Agendamento pago</option>
+                                            <option value="Agendamento a pagar" {% if agenda[7] == 'Agendamento a pagar' %}selected{% endif %}>Agendamento a pagar</option>
+                                        </select>
+                                        <input type="hidden" name="observacoes" value="{{ agenda[8] if agenda[8] else '' }}" id="obs_hid_{{ agenda[0] }}">
+                                        <button type="submit">✍️ Salvar</button>
+                                    </form>
+                                </td>
+                                <td>
+                                    <textarea style="font-size: 11px; padding: 4px;" rows="2" 
+                                              oninput="document.getElementById('obs_hid_{{ agenda[0] }}').value = this.value;"
+                                              placeholder="Adicionar nota...">{{ agenda[8] if agenda[8] else '' }}</textarea>
                                 </td>
                             </tr>
+                            {% else %}
+                            <tr><td colspan="6" style="text-align: center; color: #64748b;">Nenhum agendamento encontrado.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -430,13 +248,28 @@
         </div>
 
         <div id="loja" class="tab-content">
-            <div class="card shop" style="max-width: 600px; margin: 0 auto;">
-                <h2>Venda de Acessórios e Instrumentos (PDV)</h2>
-                <div class="form-group">
-                    <label>Código de Barras / Categoria</label>
-                    <input type="text" placeholder="Passe o leitor ou digite o código do produto...">
+            <div class="grid" style="grid-template-columns: 1fr 1.3fr;">
+                <div class="card shop">
+                    <h2>Venda de Acessórios e Instrumentos (PDV)</h2>
+                    <div class="form-group">
+                        <label>Código de Barras / Categoria</label>
+                        <input type="text" placeholder="Passe o leitor ou digite o código do produto...">
+                    </div>
+                    <button type="button" style="background-color: #ff7675;">Simular Venda Balcão</button>
                 </div>
-                <button type="button" style="background-color: #ff7675;">Simular Venda Balcão</button>
+                <div class="list-section" style="margin-bottom: 0;">
+                    <h2>Estoque de Instrumentos e Acessórios</h2>
+                    <table>
+                        <thead><tr><th>ID</th><th>Nome</th><th>Categoria</th><th>Preço</th><th>Estoque</th></tr></thead>
+                        <tbody>
+                            {% for prod in produtos %}
+                            <tr><td>{{ prod[0] }}</td><td>{{ prod[1] }}</td><td>{{ prod[2] }}</td><td>R$ {{ "%.2f"|format(prod[3]|float) }}</td><td>{{ prod[4] }} un</td></tr>
+                            {% else %}
+                            <tr><td colspan="5" style="text-align: center; color: #64748b;">Nenhum item em estoque no momento.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -444,29 +277,120 @@
             <div class="fin-resumo-grid">
                 <div class="fin-box entradas">
                     <span>🟢 Total Entradas</span>
-                    <h3>R$ {{ "%.2f"|format(total_entradas) }}</h3>
+                    <h3>R$ {{ "%.2f"|format(total_entradas if total_entradas is not none else 0.0) }}</h3>
                 </div>
                 <div class="fin-box saidas">
                     <span>🔴 Total Saídas</span>
-                    <h3>R$ {{ "%.2f"|format(total_saidas) }}</h3>
+                    <h3>R$ {{ "%.2f"|format(total_saidas if total_saidas is not none else 0.0) }}</h3>
                 </div>
-                <div class="fin-box" style="background-color: #2ecc71;">
+                <div class="fin-box" style="background-color: {% if saldo_atual and saldo_atual >= 0 %}#2ecc71{% else %}#e71d36{% endif %};">
                     <span>💰 Saldo de Caixa</span>
-                    <h3>R$ {{ "%.2f"|format(saldo_caixa) }}</h3>
+                    <h3>R$ {{ "%.2f"|format(saldo_atual if saldo_atual is not none else 0.0) }}</h3>
                 </div>
             </div>
 
-            <div class="grid" style="grid-template-columns: 1fr;">
+            <div class="report-bar">
+                <strong style="color: #1e3d59; font-size: 14px;">📊 Planilhas e Relatórios:</strong>
+                <a href="/exportar_caixa_dia" class="btn-report" style="background-color: #2e7d32;">📥 Baixar Caixa do Dia (.CSV)</a>
+                <a href="/exportar_fechamento_mes" class="btn-report" style="background-color: #1e3d59;">📥 Baixar Fechamento do Mês (.CSV)</a>
+            </div>
+
+            <div class="grid">
+                <div class="card financeiro-card">
+                    <h2>Lançar Fluxo Manual (Caixa / Despesas)</h2>
+                    <form action="/cadastrar_financeiro" method="POST">
+                        <div class="form-group">
+                            <label>Tipo de Operação</label>
+                            <select name="tipo" required>
+                                <option value="entrada">🟢 Entrada (Receita / Lanchonete / Matrícula)</option>
+                                <option value="saida">🔴 Saída (Pagamento / Despesa / Manutenção)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Origem do Fluxo</label>
+                            <select name="origem" required>
+                                <option value="lanchonete">🍔 Lanchonete / Café</option>
+                                <option value="despesa">🔌 Contas Fixas (Luz, Água, Internet)</option>
+                                <option value="loja">🎸 Venda Balcão Loja</option>
+                                <option value="manutencao">🛠️ Manutenção / Infraestrutura</option>
+                                <option value="outros">❓ Outras Origens</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Descrição detalhada</label>
+                            <input type="text" name="descricao" placeholder="Ex: Compra de pó de café e água" required>
+                        </div>
+                        <div class="form-row">
+                            <div>
+                                <label>Valor (R$)</label>
+                                <input type="number" step="0.01" name="valor" placeholder="0.00" required>
+                            </div>
+                            <div>
+                                <label>Data Competência</label>
+                                <input type="date" name="data_lancamento">
+                            </div>
+                        </div>
+                        <button type="submit" style="background-color: #2ecc71;">Efetuar Lançamento</button>
+                    </form>
+                </div>
+
                 <div class="list-section" style="margin-bottom: 0;">
-                    <h2>Extrato Geral de Movimentações (Histórico Detalhado)</h2>
-                    <div style="max-height: 500px; overflow-y: auto;">
+                    <h2>Extrato Geral de Movimentações</h2>
+                    <div style="max-height: 400px; overflow-y: auto;">
                         <table>
-                            <thead><tr><th>Data/Hora</th><th>Tipo</th><th>Categoria</th><th>Descrição do Lançamento</th><th>Valor</th></tr></thead>
+                            <thead><tr><th>Data</th><th>Tipo</th><th>Origem</th><th>Descrição</th><th>Valor</th><th style="text-align: center;">Ações</th></tr></thead>
                             <tbody>
-                                {% for item in movimentacoes %}
+                                {% for item in fluxo_caixa %}
                                 <tr>
-                                    <td><small>{{ item['data'] }}</small></td>
-                                    <td><span class="badge-fin {% if item['tipo'] == 'entrada' %}badge-entrada{% else %}badge-saida{% endif %}">{{ item['tipo']|upper }}</span></td>
-                                    <td><small><strong>{{ item['categoria_fluxo'] }}</strong></small></td>
-                                    <td>{{ item['descricao'] }}</td>
-                                    <td><strong style="color: {% if item['tipo'] == 'entrada' %}#2e7d32{% else %}#c
+                                    <td><small>{{ item[5] }}</small></td>
+                                    <td>
+                                        <span class="badge-fin {% if item[1] == 'entrada' %}badge-entrada{% else %}badge-saida{% endif %}">
+                                            {{ 'ENTRADA' if item[1] == 'entrada' else 'SAÍDA' }}
+                                        </span>
+                                    </td>
+                                    <td><small><strong>{{ item[2]|upper if item[2] else 'OUTROS' }}</strong></small></td>
+                                    <td>{{ item[3] }}</td>
+                                    <td><strong style="color: {% if item[1] == 'entrada' %}#2e7d32{% else %}#c62828{% endif %};">
+                                        R$ {{ "%.2f"|format(item[4]|float) if item[4] is not none else '0.00' }}
+                                    </strong></td>
+                                    <td style="text-align: center; white-space: nowrap;">
+                                        <form action="/inverter_tipo_financeiro/{{ item[0] }}" method="POST" style="display: inline;">
+                                            <button type="submit" class="btn-action btn-invert" title="Inverter de Entrada para Saída e vice-versa">🔄 Inverter</button>
+                                        </form>
+                                        <form action="/remover_financeiro/{{ item[0] }}" method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja apagar este lançamento?');">
+                                            <button type="submit" class="btn-action btn-delete" title="Excluir Permanentemente">❌</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="6" style="text-align: center; color: #64748b;">Nenhuma movimentação financeira registrada.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
+            
+            const targetContent = document.getElementById(tabId);
+            if(targetContent) {
+                targetContent.classList.add('active');
+            }
+            
+            const buttons = document.querySelectorAll('.tab-button');
+            buttons.forEach(btn => {
+                if(btn.getAttribute('onclick').includes(tabId)) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
