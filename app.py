@@ -5,7 +5,9 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 
 app = Flask(__name__)
 app.secret_key = "chave_secreta_cambuci_2026"
-DATABASE = "cambuci.db"
+
+# Mudamos o nome do arquivo para forçar o Render a criar um banco limpo e atualizado
+DATABASE = "cambuci_v2.db"
 
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
@@ -17,9 +19,6 @@ if not os.path.exists(UPLOAD_FOLDER):
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     return conn
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def init_db():
     conn = get_db_connection()
@@ -100,24 +99,8 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Executa uma rotina de checagem estrutural rigorosa antes de subir o app
-try:
-    init_db()
-    # Força um teste de sanidade para ver se as tabelas aceitam as consultas do index.html
-    conn = get_db_connection()
-    conn.execute('SELECT id, nome, email, telefone, instrumento, data_matricula FROM alunos').fetchall()
-    conn.execute('SELECT id, nome, email, telefone, especialidade FROM professores').fetchall()
-    conn.execute('SELECT id, tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes FROM agenda').fetchall()
-    conn.close()
-except Exception as e:
-    # Se qualquer tabela antiga causar erro na consulta por índice, o arquivo corrompido é limpo
-    print(f"Detectada inconsistência estrutural no banco de dados antigo: {e}. Recriando base limpa...")
-    try:
-        if os.path.exists(DATABASE):
-            os.remove(DATABASE)
-    except Exception:
-        pass
-    init_db()
+# Inicializa o banco de dados novo
+init_db()
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -144,7 +127,7 @@ def logout():
 
 @app.route('/')
 def index():
-    # Ignora validação rígida de sessão se estiver acessando diretamente em ambiente inicial
+    # Ignora validação rígida de sessão se estiver acessando diretamente
     if not session.get('logged_in'):
         session['logged_in'] = True
         session['usuario'] = 'admin'
@@ -152,12 +135,38 @@ def index():
     
     conn = get_db_connection()
     
-    # Conversões explícitas para tuplas primitivas pura para evitar que o Jinja2 quebre nos índices aluno[4], prof[4], agenda[6]
+    # Conversões garantidas para evitar quebras no HTML
     alunos = [tuple(row) for row in conn.execute('SELECT id, nome, email, telefone, instrumento, data_matricula FROM alunos ORDER BY nome ASC').fetchall()]
     professores = [tuple(row) for row in conn.execute('SELECT id, nome, email, telefone, especialidade FROM professores ORDER BY nome ASC').fetchall()]
     produtos = [tuple(row) for row in conn.execute('SELECT id, nome, categoria, preco, estoque FROM produtos').fetchall()]
-    fluxo_caixa = [tuple(row) for row in conn.execute('SELECT id, tipo, origem, descricao, valor, data FROM financeiro ORDER BY id DESC').fetchall()]
-    agendamentos = [tuple(row) for row in conn.execute('SELECT id, tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes FROM agenda ORDER BY data ASC, horario ASC').fetchall()]
+    
+    # Tratamento para evitar falhas se algum campo de texto vier nulo
+    fluxo_caixa_raw = conn.execute('SELECT id, tipo, origem, descricao, valor, data FROM financeiro ORDER BY id DESC').fetchall()
+    fluxo_caixa = []
+    for row in fluxo_caixa_raw:
+        fluxo_caixa.append((
+            row[0],
+            row[1] if row[1] else 'entrada',
+            row[2] if row[2] else 'outros',
+            row[3] if row[3] else '',
+            row[4] if row[4] is not None else 0.0,
+            row[5] if row[5] else ''
+        ))
+        
+    agendamentos_raw = conn.execute('SELECT id, tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes FROM agenda ORDER BY data ASC, horario ASC').fetchall()
+    agendamentos = []
+    for row in agendamentos_raw:
+        agendamentos.append((
+            row[0],
+            row[1] if row[1] else 'ensaio',
+            row[2] if row[2] else '',
+            row[3] if row[3] else '',
+            row[4] if row[4] else '',
+            row[5] if row[5] else '',
+            row[6] if row[6] is not None else 0.0,
+            row[7] if row[7] else 'Agendado',
+            row[8] if row[8] else ''
+        ))
     
     # Operações agregadas de caixa resilientes a nulos
     t_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()
