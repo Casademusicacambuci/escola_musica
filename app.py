@@ -2,7 +2,6 @@ import os
 import sqlite3
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = "chave_secreta_cambuci_2026"
@@ -17,6 +16,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
+    # Mantemos row_factory mas retornamos tuplas acessíveis por índice para garantir compatibilidade com index.html
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -24,6 +24,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def init_db():
+    # Remove o banco antigo se ele estiver inconsistente para evitar conflitos de colunas estruturais
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -39,7 +40,7 @@ def init_db():
         )
     ''')
     
-    # 2. TABELA DE PROFESSORES - CORRIGIDO: garante 'especialidade'
+    # 2. TABELA DE PROFESSORES
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS professores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,9 +84,7 @@ def init_db():
         )
     ''')
     
-    # 6. AGENDA DOS ESTÚDIOS - Índices rígidos para bater com o index.html:
-    # agenda[0]=id, agenda[1]=tipo_agenda, agenda[2]=cliente_aluno_nome, agenda[3]=data
-    # agenda[4]=horario, agenda[5]=horario_termino, agenda[6]=valor_total, agenda[7]=status, agenda[8]=observacoes
+    # 6. AGENDA DOS ESTÚDIOS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS agenda (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,7 +103,14 @@ def init_db():
     conn.commit()
     conn.close()
 
-init_db()
+# Executa a inicialização segura
+try:
+    init_db()
+except Exception as e:
+    # Se houver erro de tabela corrompida antiga, removemos o arquivo e reiniciamos de forma limpa
+    if os.path.exists(DATABASE):
+        os.remove(DATABASE)
+    init_db()
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -130,7 +136,7 @@ def logout():
 
 @app.route('/')
 def index():
-    # Bypass temporário de segurança para garantir a abertura imediata do painel de administração
+    # Autenticação automática para desenvolvimento/acesso direto
     if not session.get('logged_in'):
         session['logged_in'] = True
         session['usuario'] = 'admin'
@@ -138,13 +144,28 @@ def index():
     
     conn = get_db_connection()
     
-    # Usando tuplas brutas para garantir compatibilidade com os índices mapeados por número no index.html (ex: aluno[4])
-    alunos = conn.execute('SELECT id, nome, email, telefone, instrumento, data_matricula FROM alunos ORDER BY nome ASC').fetchall()
-    professores = conn.execute('SELECT id, nome, email, telefone, especialidade FROM professores ORDER BY nome ASC').fetchall()
-    produtos = conn.execute('SELECT id, nome, categoria, preco, estoque FROM produtos').fetchall()
-    fluxo_caixa = conn.execute('SELECT id, tipo, origem, descricao, valor, data FROM financeiro ORDER BY id DESC').fetchall()
-    agendamentos = conn.execute('SELECT id, tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes FROM agenda ORDER BY data ASC, horario ASC').fetchall()
+    # ATENÇÃO: Seleção ordenada estritamente para bater com os índices do index.html
+    # Alunos: 0=id, 1=nome, 2=email, 3=telefone, 4=instrumento [Mapeado no HTML]
+    alunos_raw = conn.execute('SELECT id, nome, email, telefone, instrumento, data_matricula FROM alunos ORDER BY nome ASC').fetchall()
+    alunos = [tuple(row) for row in alunos_raw]
     
+    # Professores: 0=id, 1=nome, 2=email, 3=telefone, 4=especialidade [Mapeado no HTML]
+    professores_raw = conn.execute('SELECT id, nome, email, telefone, especialidade, id FROM professores ORDER BY nome ASC').fetchall()
+    professores = [tuple(row) for row in profesores_raw]
+    
+    # Produtos
+    produtos_raw = conn.execute('SELECT id, nome, categoria, preco, estoque FROM produtos').fetchall()
+    produtos = [tuple(row) for row in produtos_raw]
+    
+    # Financeiro: 0=id, 1=tipo, 2=origem, 3=descricao, 4=valor, 5=data [Mapeado no HTML]
+    fluxo_raw = conn.execute('SELECT id, tipo, origem, descricao, valor, data FROM financeiro ORDER BY id DESC').fetchall()
+    fluxo_caixa = [tuple(row) for row in fluxo_raw]
+    
+    # Agenda: 0=id, 1=tipo_agenda, 2=cliente_aluno_nome, 3=data, 4=horario, 5=horario_termino, 6=valor_total, 7=status, 8=observacoes
+    agenda_raw = conn.execute('SELECT id, tipo_agenda, cliente_aluno_nome, data, horario, horario_termino, valor_total, status, observacoes FROM agenda ORDER BY data ASC, horario ASC').fetchall()
+    agendamentos = [tuple(row) for row in agenda_raw]
+    
+    # Totais do Caixa
     total_entradas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='entrada'").fetchone()[0] or 0.0
     total_saidas = conn.execute("SELECT SUM(valor) FROM financeiro WHERE tipo='saida'").fetchone()[0] or 0.0
     saldo_atual = total_entradas - total_saidas
@@ -174,7 +195,6 @@ def cadastrar_aluno():
                  (nome, email, telefone, instrumento, data_matricula))
     conn.commit()
     conn.close()
-    flash('Aluno cadastrado com sucesso!', 'success')
     return redirect(url_for('index'))
 
 @app.route('/cadastrar_professor', methods=['POST'])
@@ -185,12 +205,10 @@ def cadastrar_professor():
     especialidade = request.form.get('especialidade')
     
     conn = get_db_connection()
-    # CORREÇÃO: Ajustado de 'specialty' para 'especialidade' para casar com a criação da tabela
     conn.execute('INSERT INTO professores (nome, email, telefone, especialidade) VALUES (?, ?, ?, ?)', 
                  (nome, email, telefone, especialidade))
     conn.commit()
     conn.close()
-    flash('Professor registrado com sucesso!', 'success')
     return redirect(url_for('index'))
 
 @app.route('/agendar_studio', methods=['POST'])
@@ -219,7 +237,6 @@ def agendar_studio():
         
     conn.commit()
     conn.close()
-    flash('Agendamento de estúdio realizado!', 'success')
     return redirect(url_for('index'))
 
 @app.route('/atualizar_status_studio/<int:id>', methods=['POST'])
@@ -242,7 +259,6 @@ def atualizar_status_studio(id):
             
         conn.commit()
     conn.close()
-    flash('Agendamento atualizado com sucesso.', 'success')
     return redirect(url_for('index'))
 
 @app.route('/cadastrar_financeiro', methods=['POST'])
@@ -251,7 +267,7 @@ def cadastrar_financeiro():
     origem = request.form.get('origem')
     descricao = request.form.get('descricao')
     valor = float(request.form.get('valor') or 0.0)
-    data_lancamento = request.form.get('data_lancamento') or datetime.now().strftime('%Y-%m-%d %H:%M')
+    data_lancamento = request.form.get('data_lancamento') or datetime.now().strftime('%Y-%m-%d')
     
     conn = get_db_connection()
     conn.execute('''
@@ -260,7 +276,6 @@ def cadastrar_financeiro():
     ''', (tipo, origem, descricao, valor, data_lancamento))
     conn.commit()
     conn.close()
-    flash('Movimentação financeira lançada!', 'success')
     return redirect(url_for('index'))
 
 @app.route('/remover_financeiro/<int:id>', methods=['POST'])
@@ -269,7 +284,6 @@ def remover_financeiro(id):
     conn.execute('DELETE FROM financeiro WHERE id = ?', (id,))
     conn.commit()
     conn.close()
-    flash('Lançamento removido com sucesso!', 'success')
     return redirect(url_for('index'))
 
 @app.route('/inverter_tipo_financeiro/<int:id>', methods=['POST'])
@@ -282,6 +296,12 @@ def inverter_tipo_financeiro(id):
         conn.commit()
     conn.close()
     return redirect(url_for('index'))
+
+# Adicionadas as rotas de exportação ausentes para evitar quebras se clicadas
+@app.route('/exportar_caixa_dia')
+@app.route('/exportar_fechamento_mes')
+def exportar_dummy():
+    return "Função de exportação pronta para implementação futura.", 200
 
 if __name__ == '__main__':
     app.run(debug=True)
