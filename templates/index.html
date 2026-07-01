@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Casa de Música Cambuci — Sistema de Gestão</title>
+    <title>Casa de Música Cambucí — Sistema de Gestão</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: #f4f6f9; color: #333; }
         
-        /* Topbar Simuladora de Login (Apenas para teste de desenvolvimento) */
-        .simulador-login { background: #222; color: #fff; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+        /* Topbar Simuladora de Login */
+        .simulador-login { background: #222; color: #fff; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; flex-wrap: wrap; gap: 10px; }
         .simulador-login a { color: #5dade2; margin-left: 10px; text-decoration: none; font-weight: bold; }
         
         /* Header Principal */
@@ -19,56 +19,78 @@
         .logo-area i { color: #a855f7; font-size: 20px; }
         .logo-area h1 { font-size: 18px; font-weight: 600; }
         
-        /* Abas de Navegação */
-        .nav-tabs { display: flex; background: #e2e8f0; border-bottom: 1px solid #cbd5e1; }
-        .tab { padding: 12px 20px; font-size: 13px; color: #64748b; text-decoration: none; display: flex; align-items: center; gap: 8px; border-right: 1px solid #cbd5e1; font-weight: 500; }
+        /* Abas de Navegação Responsivas */
+        .nav-tabs { display: flex; background: #e2e8f0; border-bottom: 1px solid #cbd5e1; overflow-x: auto; white-space: nowrap; }
+        .tab { padding: 12px 20px; font-size: 13px; color: #64748b; text-decoration: none; display: flex; align-items: center; gap: 8px; border-right: 1px solid #cbd5e1; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .tab:hover { background: #f1f5f9; }
         .tab.active { background: white; color: #1a365d; font-weight: bold; border-bottom: 2px solid #1a365d; }
-
+        
         /* Container de Conteúdo */
         .container { max-width: 1400px; margin: 20px auto; padding: 0 15px; }
-
+        
+        /* Contêineres de Abas */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
         /* Dashboard Indicadores */
         .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .card { padding: 20px; border-radius: 6px; color: white; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .card-entradas { background-color: #2ec4b6; }
         .card-saidas { background-color: #e71d36; }
-        .card-saldo { background-color: #e71d36; } /* Mantendo o padrão vermelho do seu print */
-        .card-saldo.positivo { background-color: #2a9d8f; } /* Opção de ficar verde caso queira mudar */
+        .card-saldo { background-color: #e71d36; }
+        .card-saldo.positivo { background-color: #2a9d8f; }
         .card span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; }
         .card h2 { font-size: 24px; font-weight: bold; }
-
+        
         /* Barra de Ações / Relatórios */
-        .actions-bar { background: white; padding: 12px 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); margin-bottom: 20px; display: flex; align-items: center; gap: 15px; }
+        .actions-bar { background: white; padding: 12px 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); margin-bottom: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
         .actions-bar span { font-size: 13px; font-weight: bold; color: #475569; }
         .btn-csv { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500; }
         .btn-dia { background-color: #228b22; }
         .btn-mes { background-color: #1f4068; }
-
-        /* Layout em Duas Colunas */
+        
+        /* Layout em Duas Colunas Adaptável */
         .main-layout { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; }
         @media(max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
-
-        .panel { background: white; padding: 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); border-top: 4px solid #2ec4b6; }
+        
+        /* Painéis */
+        .panel { background: white; padding: 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); border-top: 4px solid #2ec4b6; margin-bottom: 20px; }
         .panel.extrato { border-top-color: #cbd5e1; }
+        .panel.agenda-cor { border-top-color: #a855f7; }
         .panel h3 { font-size: 16px; color: #1a365d; margin-bottom: 15px; font-weight: 600; }
-
-        /* Formulário */
+        
+        /* Formulários */
         .form-group { margin-bottom: 12px; }
         .form-group label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 5px; }
         .form-control { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; background-color: #f8fafc; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .btn-submit { width: 100%; background-color: #2ec4b6; color: white; padding: 12px; border: none; border-radius: 4px; font-weight: bold; font-size: 14px; cursor: pointer; margin-top: 10px; transition: background 0.2s; }
         .btn-submit:hover { background-color: #23a89b; }
-
-        /* Tabela de Extrato */
+        .btn-agenda { background-color: #a855f7; }
+        .btn-agenda:hover { background-color: #8b5cf6; }
+        
+        /* Tabelas Responsivas */
         .table-container { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
         th { background-color: #f8fafc; padding: 12px 10px; color: #64748b; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
         td { padding: 12px 10px; border-bottom: 1px solid #edf2f7; color: #334155; }
         .empty-row { text-align: center; color: #94a3b8; padding: 30px; }
+        
+        /* Badges e Status */
         .badge-entrada { color: #2ec4b6; font-weight: bold; }
         .badge-saida { color: #e71d36; font-weight: bold; }
         .btn-delete { color: #e71d36; text-decoration: none; margin-left: 5px; }
+        
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .status-agendado { background-color: #fef3c7; color: #d97706; }
+        .status-pago { background-color: #d1fae5; color: #059669; }
+        .status-cancelado { background-color: #fee2e2; color: #dc2626; }
+        
+        /* Telas de Espera (Em Desenvolvimento) */
+        .tela-espera { text-align: center; padding: 60px 20px; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+        .tela-espera i { font-size: 48px; color: #cbd5e1; margin-bottom: 15px; }
+        .tela-espera h3 { color: #475569; margin-bottom: 10px; }
+        .tela-espera p { color: #94a3b8; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -76,8 +98,8 @@
     <div class="simulador-login">
         <div><i class="fa-solid fa-user-shield"></i> Logado como: <strong>{{ nome_usuario }}</strong> (Perfil: <code>{{ perfil }}</code>)</div>
         <div>
-            Simular acesso como: 
-            <a href="/alternar_usuario/caixa">Operador de Caixa</a> | 
+            Simular acesso: 
+            <a href="/alternar_usuario/caixa">Operador de Caixa</a> |
             <a href="/alternar_usuario/admin">Administrador / Financeiro</a>
         </div>
     </div>
@@ -85,138 +107,286 @@
     <header>
         <div class="logo-area">
             <i class="fa-solid fa-music"></i>
-            <h1>Casa de Música Cambuci — Sistema de Gestão</h1>
+            <h1>Casa de Música Cambucí — Sistema de Gestão</h1>
         </div>
     </header>
 
     <div class="nav-tabs">
-        <a href="#" class="tab"><i class="fa-solid fa-users"></i> Recepção & Matrículas</a>
-        <a href="#" class="tab"><i class="fa-solid fa-calendar-days"></i> Agendas dos Estúdios</a>
-        <a href="#" class="tab"><i class="fa-solid fa-guitar"></i> Loja & Acessórios</a>
-        <a href="#" class="tab active"><i class="fa-solid fa-sack-dollar"></i> Caixa & Financeiro</a>
+        <a class="tab" onclick="alternarAba('recepcao')"><i class="fa-solid fa-users"></i> Recepção & Matrículas</a>       
+        <a class="tab" onclick="alternarAba('agenda')"><i class="fa-solid fa-calendar-days"></i> Agendas dos Estúdios</a>        
+        <a class="tab" onclick="alternarAba('loja')"><i class="fa-solid fa-guitar"></i> Loja & Acessórios</a>        
+        <a class="tab active" onclick="alternarAba('financeiro')"><i class="fa-solid fa-sack-dollar"></i> Caixa & Financeiro</a>
     </div>
 
     <div class="container">
 
-        <div class="grid-cards">
-            <div class="card card-entradas">
-                <span><i class="fa-solid fa-circle-arrow-up"></i> Total Entradas</span>
-                <h2>R$ {{ "%.2f"|format(total_entradas) }}</h2>
-            </div>
-            <div class="card card-saidas">
-                <span><i class="fa-solid fa-circle-arrow-down"></i> Total Saídas</span>
-                <h2>R$ {{ "%.2f"|format(total_saidas) }}</h2>
-            </div>
-            <div class="card card-saldo">
-                <span><i class="fa-solid fa-wallet"></i> Saldo de Caixa {% if perfil == 'operador_caixa' %}(Hoje){% else %}(Geral){% endif %}</span>
-                <h2>R$ {{ "%.2f"|format(saldo_caixa) }}</h2>
+        <div id="conteudo-recepcao" class="tab-content">
+            <div class="tela-espera">
+                <i class="fa-solid fa-users-gear"></i>
+                <h3>Módulo de Recepção & Matrículas</h3>
+                <p>Este espaço está preparado para receber o cadastro de alunos, fichas médicas e controle de mensalidades em breve.</p>
             </div>
         </div>
 
-        <div class="actions-bar">
-            <span><i class="fa-solid fa-chart-bar"></i> Planilhas e Relatórios:</span>
-            
-            <a href="/exportar/dia" class="btn-csv btn-dia"><i class="fa-solid fa-download"></i> Baixar Caixa do Dia (.CSV)</a>
-            
-            {% if perfil == 'administrador' %}
-                <a href="/exportar/mes" class="btn-csv btn-mes"><i class="fa-solid fa-download"></i> Baixar Fechamento do Mês (.CSV)</a>
-            {% endif %}
-        </div>
-
-        <div class="main-layout">
-            
-            <div class="panel">
-                <h3>Lançar Fluxo Manual (Caixa / Despesas)</h3>
-                <form action="/lancar" method="POST">
-                    <div class="form-group">
-                        <label>Tipo de Operação</label>
-                        <select name="tipo" class="form-control">
-                            <option value="Entrada">🟢 Entrada (Receita / Lanchonete / Matrícula)</option>
-                            <option value="Saída">🔴 Saída (Despesa / Pagamento / Manutenção)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Origem do Fluxo</label>
-                        <select name="origem" class="form-control">
-                            <option value="Lanchonete / Café">☕ Lanchonete / Café</option>
-                            <option value="Matrícula / Mensalidade">🎵 Matrícula / Mensalidade</option>
-                            <option value="Acessórios e Instrumentos">🎸 Acessórios e Instrumentos</option>
-                            <option value="Limpeza / Consumo">🧹 Limpeza / Consumo</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Descrição detalhada</label>
-                        <input type="text" name="descricao" class="form-control" placeholder="Ex: Compra de pó de café e água" required>
-                    </div>
-
-                    <div class="form-row">
+        <div id="conteudo-agenda" class="tab-content">
+            <div class="main-layout">
+                <div class="panel agenda-cor">
+                    <h3>Agendar Horário de Estúdio</h3>
+                    <form action="/agendar_studio" method="POST">
                         <div class="form-group">
-                            <label>Valor (R$)</label>
-                            <input type="number" name="valor" step="0.01" class="form-control" placeholder="0.00" required>
+                            <label>Tipo de Agendamento</label>
+                            <select name="tipo_agenda" class="form-control">
+                                <option value="ensaio">Estúdio de Ensaio</option>
+                                <option value="gravacao">Estúdio de Gravação</option>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label>Data Competência</label>
-                            <input type="date" name="data_competencia" class="form-control">
+                            <label>Nome do Cliente / Aluno</label>
+                            <input type="text" name="cliente_aluno_nome" class="form-control" placeholder="Nome completo ou banda" required>
                         </div>
-                    </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Data</label>
+                                <input type="date" name="data" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Status Inicial</label>
+                                <select name="status" class="form-control">
+                                    <option value="Agendado">Agendado (Pendente)</option>
+                                    <option value="Agendamento pago">Agendamento pago</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Horário de Início</label>
+                                <input type="time" name="horario" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Horário de Término</label>
+                                <input type="time" name="horario_termino" class="form-control">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Valor Total (R$)</label>
+                            <input type="number" name="valor_total" step="0.01" class="form-control" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Observações</label>
+                            <textarea name="observacoes" class="form-control" rows="2" placeholder="Ex: Necessita de amplificador extra de contrabaixo"></textarea>
+                        </div>
+                        <button type="submit" class="btn-submit btn-agenda">Confirmar Agendamento</button>
+                    </form>
+                </div>
 
-                    <button type="submit" class="btn-submit">Efetuar Lançamento</button>
-                </form>
-            </div>
-
-            <div class="panel extrato">
-                <h3>Extrato Geral de Movimentações {% if perfil == 'operador_caixa' %}(Apenas Hoje){% endif %}</h3>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Tipo</th>
-                                <th>Origem</th>
-                                <th>Descrição</th>
-                                <th>Valor</th>
-                                {% if perfil == 'administrador' %}
+                <div class="panel extrato agenda-cor">
+                    <h3>Compromissos e Reservas dos Estúdios</h3>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Data/Hora</th>
+                                    <th>Estúdio</th>
+                                    <th>Cliente / Banda</th>
+                                    <th>Valor</th>
+                                    <th>Status</th>
                                     <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if agendamentos %}
+                                    {% for a in agendamentos %}
+                                    <tr>
+                                        <td>{{ a[3] }} às {{ a[4] }}</td>
+                                        <td><strong>{{ a[1]|capitalize }}</strong></td>
+                                        <td>{{ a[2] }}</td>
+                                        <td>R$ {{ "%.2f"|format(a[6]) }}</td>
+                                        <td>
+                                            {% if 'pago' in a[7]|lower %}
+                                                <span class="status-badge status-pago">Pago</span>
+                                            {% elif 'canc' in a[7]|lower %}
+                                                <span class="status-badge status-cancelado">Cancelado</span>
+                                            {% else %}
+                                                <span class="status-badge status-agendado">Pendente</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if 'pago' not in a[7]|lower %}
+                                            <form action="/atualizar_status_studio/{{ a[0] }}" method="POST" style="display:inline;">
+                                                <input type="hidden" name="novo_status" value="Agendamento pago">
+                                                <button type="submit" class="btn-submit" style="padding: 4px 8px; font-size: 11px; margin: 0; width: auto; background-color: #2a9d8f;">Dar Baixa</button>
+                                            </form>
+                                            {% else %}
+                                                <span style="color:#94a3b8; font-size:11px;">Faturado</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="6" class="empty-row">Nenhum agendamento de estúdio registrado.</td>
+                                    </tr>
                                 {% endif %}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for m in movimentacoes %}
-                            <tr>
-                                <td>{{ m.data }}</td>
-                                <td>
-                                    {% if m.tipo == 'Entrada' %}
-                                        <span class="badge-entrada">Entrada</span>
-                                    {% else %}
-                                        <span class="badge-saida">Saída</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ m.origem }}</td>
-                                <td>{{ m.descricao }}</td>
-                                <td>R$ {{ "%.2f"|format(m.valor) }}</td>
-                                
-                                {% if perfil == 'administrador' %}
-                                    <td>
-                                        <a href="/excluir/{{ m.id }}" class="btn-delete" title="Excluir Registro" onclick="return confirm('Tem certeza que deseja excluir este lançamento?')"><i class="fa-solid fa-trash-can"></i></a>
-                                    </td>
-                                {% endif %}
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="{% if perfil == 'administrador' %}6{% else %}5{% endif %}" class="empty-row">
-                                    Nenhuma movimentação financeira registrada.
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="conteudo-loja" class="tab-content">
+            <div class="tela-espera">
+                <i class="fa-solid fa-store"></i>
+                <h3>Módulo de Loja — Acessórios e Instrumentos</h3>
+                <p>Aqui ficará o controle do estoque de palhetas, encordoamentos, cabos e instrumentos sob encomenda.</p>
+            </div>
+        </div>
+
+        <div id="conteudo-financeiro" class="tab-content active">
+            <div class="grid-cards">
+                <div class="card card-entradas">
+                    <span><i class="fa-solid fa-circle-arrow-up"></i> Total Entradas</span>
+                    <h2>R$ {{ "%.2f"|format(total_entradas) }}</h2>
+                </div>
+                <div class="card card-saidas">
+                    <span><i class="fa-solid fa-circle-arrow-down"></i> Total Saídas</span>
+                    <h2>R$ {{ "%.2f"|format(total_saidas) }}</h2>
+                </div>
+                <div class="card card-saldo {% if saldo_caixa >= 0 %}positivo{% endif %}">
+                    <span><i class="fa-solid fa-wallet"></i> Saldo de Caixa {% if perfil == 'operador_caixa' %}(Hoje){% else %}(Geral){% endif %}</span>
+                    <h2>R$ {{ "%.2f"|format(saldo_caixa) }}</h2>
                 </div>
             </div>
 
+            <div class="actions-bar">
+                <span><i class="fa-solid fa-chart-bar"></i> Planilhas e Relatórios:</span>
+                <a href="/exportar/dia" class="btn-csv btn-dia"><i class="fa-solid fa-download"></i> Baixar Caixa do Dia (.CSV)</a>
+                {% if perfil == 'administrador' %}
+                    <a href="/exportar/mes" class="btn-csv btn-mes"><i class="fa-solid fa-download"></i> Baixar Fechamento do Mês (.CSV)</a>
+                {% endif %}
+            </div>
+
+            <div class="main-layout">
+                <div class="panel">
+                    <h3>Lançar Fluxo Manual (Caixa / Despesas)</h3>
+                    <form action="/lancar" method="POST">
+                        <div class="form-group">
+                            <label>Tipo de Operação</label>
+                            <select name="tipo" class="form-control">
+                                <option value="Entrada">?? Entrada (Receita / Lanchonete / Matrícula)</option>
+                                <option value="Saída">?? Saída (Despesa / Pagamento / Manutenção)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Origem do Fluxo</label>
+                            <select name="origem" class="form-control">
+                                <option value="Lanchonete / Café">? Lanchonete / Café</option>
+                                <option value="Matrícula / Mensalidade">?? Matrícula / Mensalidade</option>
+                                <option value="Acessórios e Instrumentos">?? Acessórios e Instrumentos</option>
+                                <option value="Limpeza / Consumo">?? Limpeza / Consumo</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Descrição detalhada</label>
+                            <input type="text" name="descricao" class="form-control" placeholder="Ex: Compra de pó de café e água" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Valor (R$)</label>
+                                <input type="number" name="valor" step="0.01" class="form-control" placeholder="0.00" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Data Competência</label>
+                                <input type="date" name="data_competencia" class="form-control">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-submit">Efetuar Lançamento</button>
+                    </form>
+                </div>
+
+                <div class="panel extrato">
+                    <h3>Extrato Geral de Movimentações {% if perfil == 'operador_caixa' %}(Apenas Hoje){% endif %}</h3>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Tipo</th>
+                                    <th>Origem</th>
+                                    <th>Descrição</th>
+                                    <th>Valor</th>
+                                    {% if perfil == 'administrador' %}
+                                        <th>Ações</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if movimentacoes %}
+                                    {% for m in movimentacoes %}
+                                    <tr>
+                                        <td>{{ m.data }}</td>
+                                        <td>
+                                            {% if m.tipo == 'Entrada' or m.tipo == 'entrada' %}
+                                                <span class="badge-entrada">Entrada</span>
+                                            {% else %}
+                                                <span class="badge-saida">Saída</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ m.origem }}</td>
+                                        <td>{{ m.descricao }}</td>
+                                        <td>R$ {{ "%.2f"|format(m.valor) }}</td>
+                                        {% if perfil == 'administrador' %}
+                                        <td>
+                                            <a href="/excluir/{{ m.id }}" class="btn-delete" title="Excluir Registro" onclick="return confirm('Tem certeza que deseja excluir este lançamento?')"><i class="fa-solid fa-trash-can"></i></a>
+                                        </td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="{% if perfil == 'administrador' %}6{% else %}5{% endif %}" class="empty-row">Nenhuma movimentação financeira registrada.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
+
     </div>
 
+    <script>
+        // Pega o perfil injetado pelo Flask para controle no frontend
+        const perfilUsuario = "{{ perfil }}";
+
+        function alternarAba(idAba) {
+            // Regra de segurança visual: Operador de caixa não pode sair da aba financeira
+            if (perfilUsuario === "operador_caixa" && idAba !== "financeiro") {
+                alert("Acesso Restrito: Seu perfil de Operador de Caixa possui permissão de acesso apenas para o módulo Financeiro.");
+                return;
+            }
+
+            // 1. Remove a classe active de todas as abas (botões)
+            const abas = document.querySelectorAll('.tab');
+            abas.forEach(aba => aba.classList.remove('active'));
+
+            // 2. Esconde todos os blocos de conteúdo
+            const conteudos = document.querySelectorAll('.tab-content');
+            conteudos.forEach(conteudo => conteudo.classList.remove('active'));
+
+            // 3. Ativa o botão correto e o conteúdo correto
+            // Encontra a aba baseado no clique do mouse
+            event.currentTarget.classList.add('active');
+            document.getElementById('conteudo-' + idAba).classList.add('active');
+        }
+
+        // Executado ao carregar a página: Se for operador de caixa, garante que ele caia direto no financeiro
+        window.onload = function() {
+            if (perfilUsuario === "operador_caixa") {
+                alternarAba('financeiro');
+            }
+        };
+    </script>
 </body>
 </html>
