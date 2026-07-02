@@ -45,15 +45,34 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# --- ROTAS DO MÓDULO ADMINISTRATIVO ---
-
-@app.route('/admin')
-def admin_dashboard():
+# --- ROTA INICIAL (CORREÇÃO DO ERRO NOT FOUND) ---
+@app.route('/')
+def index():
     conn = get_db_connection()
     fornecedores = conn.execute('SELECT * FROM fornecedores').fetchall()
     funcionarios = conn.execute('SELECT * FROM funcionarios').fetchall()
     conn.close()
-    return render_template('admin.html', fornecedores=fornecedores, funcionarios=funcionarios)
+    
+    # Renderiza o index.html passando todas as variáveis estruturais que o template exige
+    return render_template(
+        'index.html', 
+        fornecedores=fornecedores, 
+        funcionarios=funcionarios,
+        nome_usuario="Deni Miller",
+        perfil="administrador",
+        total_entradas=0.0,
+        total_saidas=0.0,
+        saldo_caixa=0.0,
+        movimentacoes=[],
+        agendamentos=[]
+    )
+
+# --- ROTAS DO MÓDULO ADMINISTRATIVO ---
+
+@app.route('/admin')
+def admin_dashboard():
+    # Redireciona para a raiz para manter a mesma estrutura de exibição unificada do index.html
+    return redirect(url_for('index'))
 
 # --- CRUD FORNECEDORES ---
 
@@ -73,7 +92,7 @@ def add_fornecedor():
     conn.commit()
     conn.close()
     flash('Fornecedor adicionado com sucesso!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 @app.route('/admin/fornecedor/delete/<int:id>')
 def delete_fornecedor(id):
@@ -82,7 +101,7 @@ def delete_fornecedor(id):
     conn.commit()
     conn.close()
     flash('Fornecedor removido com sucesso!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 # --- CRUD FUNCIONÁRIOS ---
 
@@ -102,7 +121,7 @@ def add_funcionario():
     conn.commit()
     conn.close()
     flash('Funcionário registrado com sucesso!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 @app.route('/admin/funcionario/delete/<int:id>')
 def delete_funcionario(id):
@@ -111,7 +130,7 @@ def delete_funcionario(id):
     conn.commit()
     conn.close()
     flash('Funcionário removido com sucesso!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 # --- EXPORTAÇÃO PARA CSV ---
 
