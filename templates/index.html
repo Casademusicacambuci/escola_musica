@@ -48,7 +48,6 @@
         .btn-csv { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500; }
         .btn-dia { background-color: #228b22; }
         .btn-mes { background-color: #1f4068; }
-        .btn-admin-csv { background-color: #475569; }
         
         /* Layout em Duas Colunas Adaptável */
         .main-layout { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; }
@@ -58,7 +57,6 @@
         .panel { background: white; padding: 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); border-top: 4px solid #2ec4b6; margin-bottom: 20px; }
         .panel.extrato { border-top-color: #cbd5e1; }
         .panel.agenda-cor { border-top-color: #a855f7; }
-        .panel.adm-cor { border-top-color: #e2e8f0; }
         .panel h3 { font-size: 16px; color: #1a365d; margin-bottom: 15px; font-weight: 600; }
         
         /* Formulários */
@@ -88,7 +86,7 @@
         .status-pago { background-color: #d1fae5; color: #059669; }
         .status-cancelado { background-color: #fee2e2; color: #dc2626; }
         
-        /* Telas de Espera */
+        /* Telas de Espera (Em Desenvolvimento) */
         .tela-espera { text-align: center; padding: 60px 20px; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
         .tela-espera i { font-size: 48px; color: #cbd5e1; margin-bottom: 15px; }
         .tela-espera h3 { color: #475569; margin-bottom: 10px; }
@@ -118,9 +116,6 @@
         <a class="tab" onclick="alternarAba('agenda')"><i class="fa-solid fa-calendar-days"></i> Agendas dos Estúdios</a>        
         <a class="tab" onclick="alternarAba('loja')"><i class="fa-solid fa-guitar"></i> Loja & Acessórios</a>        
         <a class="tab active" onclick="alternarAba('financeiro')"><i class="fa-solid fa-sack-dollar"></i> Caixa & Financeiro</a>
-        {% if perfil == 'administrador' %}
-            <a class="tab" onclick="alternarAba('administrativo')"><i class="fa-solid fa-sliders"></i> Painel Administrativo</a>
-        {% endif %}
     </div>
 
     <div class="container">
@@ -143,6 +138,7 @@
                             <select name="tipo_agenda" class="form-control">
                                 <option value="ensaio">Estúdio de Ensaio</option>
                                 <option value="gravacao">Estúdio de Gravação</option>
+                                <option value="videoclipe">Estúdio de Videoclipe</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -202,22 +198,22 @@
                                 {% if agendamentos %}
                                     {% for a in agendamentos %}
                                     <tr>
-                                        <td>{{ a['data'] }} às {{ a['horario'] }}</td>
-                                        <td><strong>{{ a['tipo_agenda']|capitalize }}</strong></td>
-                                        <td>{{ a['cliente_aluno_nome'] }}</td>
-                                        <td>R$ {{ "%.2f"|format(a['valor_total']) }}</td>
+                                        <td>{{ a[3] }} às {{ a[4] }}</td>
+                                        <td><strong>{{ a[1]|capitalize }}</strong></td>
+                                        <td>{{ a[2] }}</td>
+                                        <td>R$ {{ "%.2f"|format(a[6]) }}</td>
                                         <td>
-                                            {% if 'pago' in a['status']|lower %}
+                                            {% if 'pago' in a[7]|lower %}
                                                 <span class="status-badge status-pago">Pago</span>
-                                            {% elif 'canc' in a['status']|lower %}
+                                            {% elif 'canc' in a[7]|lower %}
                                                 <span class="status-badge status-cancelado">Cancelado</span>
                                             {% else %}
                                                 <span class="status-badge status-agendado">Pendente</span>
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {% if 'pago' not in a['status']|lower %}
-                                            <form action="/atualizar_status_studio/{{ a['id'] }}" method="POST" style="display:inline;">
+                                            {% if 'pago' not in a[7]|lower %}
+                                            <form action="/atualizar_status_studio/{{ a[0] }}" method="POST" style="display:inline;">
                                                 <input type="hidden" name="novo_status" value="Agendamento pago">
                                                 <button type="submit" class="btn-submit" style="padding: 4px 8px; font-size: 11px; margin: 0; width: auto; background-color: #2a9d8f;">Dar Baixa</button>
                                             </form>
@@ -278,17 +274,17 @@
                         <div class="form-group">
                             <label>Tipo de Operação</label>
                             <select name="tipo" class="form-control">
-                                <option value="Entrada">Entrada (Receita / Lanchonete / Matrícula)</option>
-                                <option value="Saída">Saída (Despesa / Pagamento / Manutenção)</option>
+                                <option value="Entrada">?? Entrada (Receita / Lanchonete / Matrícula)</option>
+                                <option value="Saída">?? Saída (Despesa / Pagamento / Manutenção)</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label>Origem do Fluxo</label>
                             <select name="origem" class="form-control">
-                                <option value="Lanchonete / Café">Lanchonete / Café</option>
-                                <option value="Matrícula / Mensalidade">Matrícula / Mensalidade</option>
-                                <option value="Acessórios e Instrumentos">Acessórios e Instrumentos</option>
-                                <option value="Limpeza / Consumo">Limpeza / Consumo</option>
+                                <option value="Lanchonete / Café">? Lanchonete / Café</option>
+                                <option value="Matrícula / Mensalidade">?? Matrícula / Mensalidade</option>
+                                <option value="Acessórios e Instrumentos">?? Acessórios e Instrumentos</option>
+                                <option value="Limpeza / Consumo">?? Limpeza / Consumo</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -359,171 +355,34 @@
             </div>
         </div>
 
-        {% if perfil == 'administrador' %}
-        <div id="conteudo-administrativo" class="tab-content">
-            <div class="actions-bar">
-                <span><i class="fa-solid fa-file-csv"></i> Exportação Cadastral:</span>
-                <a href="/exportar/fornecedores" class="btn-csv btn-admin-csv"><i class="fa-solid fa-download"></i> Planilha de Fornecedores (.CSV)</a>
-                <a href="/exportar/funcionarios" class="btn-csv btn-admin-csv"><i class="fa-solid fa-download"></i> Planilha de Funcionários (.CSV)</a>
-            </div>
-
-            <div class="main-layout" style="margin-bottom: 30px;">
-                <div class="panel adm-cor">
-                    <h3>Cadastrar Novo Fornecedor</h3>
-                    <form action="/admin/fornecedor/add" method="POST">
-                        <div class="form-group">
-                            <label>Nome / Razão Social</label>
-                            <input type="text" name="nome" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>CNPJ</label>
-                            <input type="text" name="cnpj" class="form-control" placeholder="00.000.000/0001-00">
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Telefone</label>
-                                <input type="text" name="telefone" class="form-control">
-                            </div>
-                            <div class="form-group">
-                                <label>E-mail</label>
-                                <input type="email" name="email" class="form-control">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Produto / Serviço Prestado</label>
-                            <input type="text" name="produto_servico" class="form-control" placeholder="Ex: Luthieria, Cordas, Limpeza...">
-                        </div>
-                        <button type="submit" class="btn-submit" style="background-color: #475569;">Registrar Fornecedor</button>
-                    </form>
-                </div>
-
-                <div class="panel extrato adm-cor">
-                    <h3>Lista de Fornecedores Homologados</h3>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Nome</th>
-                                    <th>CNPJ</th>
-                                    <th>Contato</th>
-                                    <th>Serviço/Produto</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% if fornecedores %}
-                                    {% for f in fornecedores %}
-                                    <tr>
-                                        <td><strong>{{ f.nome }}</strong></td>
-                                        <td>{{ f.cnpj }}</td>
-                                        <td>{{ f.telefone }}<br><small>{{ f.email }}</small></td>
-                                        <td>{{ f.produto_servico }}</td>
-                                        <td>
-                                            <a href="/admin/fornecedor/delete/{{ f.id }}" class="btn-delete" onclick="return confirm('Excluir fornecedor?')"><i class="fa-solid fa-trash"></i></a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr>
-                                        <td colspan="5" class="empty-row">Nenhum fornecedor cadastrado.</td>
-                                    </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div class="main-layout">
-                <div class="panel adm-cor">
-                    <h3>Registrar Novo Funcionário / Professor</h3>
-                    <form action="/admin/funcionario/add" method="POST">
-                        <div class="form-group">
-                            <label>Nome Completo</label>
-                            <input type="text" name="nome" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Cargo / Função</label>
-                            <input type="text" name="cargo" class="form-control" placeholder="Ex: Prof. de Violão, Recepcionista..." required>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Telefone</label>
-                                <input type="text" name="telefone" class="form-control">
-                            </div>
-                            <div class="form-group">
-                                <label>E-mail</label>
-                                <input type="email" name="email" class="form-control">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Salário / Hora-Aula (R$)</label>
-                            <input type="number" name="salario" step="0.01" class="form-control" placeholder="0.00">
-                        </div>
-                        <button type="submit" class="btn-submit" style="background-color: #475569;">Salvar Ficha de Funcionário</button>
-                    </form>
-                </div>
-
-                <div class="panel extrato adm-cor">
-                    <h3>Quadro de Funcionários & Colaboradores</h3>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Nome Colaborador</th>
-                                    <th>Cargo / Função</th>
-                                    <th>Contato</th>
-                                    <th>Salário Base</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% if funcionarios %}
-                                    {% for emp in funcionarios %}
-                                    <tr>
-                                        <td><strong>{{ emp.nome }}</strong></td>
-                                        <td><span class="status-badge status-agendado" style="color:#1e293b">{{ emp.cargo }}</span></td>
-                                        <td>{{ emp.telefone }}<br><small>{{ emp.email }}</small></td>
-                                        <td>R$ {{ "%.2f"|format(emp.salario) }}</td>
-                                        <td>
-                                            <a href="/admin/funcionario/delete/{{ emp.id }}" class="btn-delete" onclick="return confirm('Excluir funcionário?')"><i class="fa-solid fa-trash"></i></a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr>
-                                        <td colspan="5" class="empty-row">Nenhum funcionário registrado.</td>
-                                    </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
     </div>
 
     <script>
+        // Pega o perfil injetado pelo Flask para controle no frontend
         const perfilUsuario = "{{ perfil }}";
 
         function alternarAba(idAba) {
+            // Regra de segurança visual: Operador de caixa não pode sair da aba financeira
             if (perfilUsuario === "operador_caixa" && idAba !== "financeiro") {
                 alert("Acesso Restrito: Seu perfil de Operador de Caixa possui permissão de acesso apenas para o módulo Financeiro.");
                 return;
             }
 
+            // 1. Remove a classe active de todas as abas (botões)
             const abas = document.querySelectorAll('.tab');
             abas.forEach(aba => aba.classList.remove('active'));
 
+            // 2. Esconde todos os blocos de conteúdo
             const conteudos = document.querySelectorAll('.tab-content');
             conteudos.forEach(conteudo => conteudo.classList.remove('active'));
 
+            // 3. Ativa o botão correto e o conteúdo correto
+            // Encontra a aba baseado no clique do mouse
             event.currentTarget.classList.add('active');
             document.getElementById('conteudo-' + idAba).classList.add('active');
         }
 
+        // Executado ao carregar a página: Se for operador de caixa, garante que ele caia direto no financeiro
         window.onload = function() {
             if (perfilUsuario === "operador_caixa") {
                 alternarAba('financeiro');
