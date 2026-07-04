@@ -9,34 +9,26 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: #f4f6f9; color: #333; }
         
-        /* Topbar Simuladora de Login */
         .simulador-login { background: #222; color: #fff; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; flex-wrap: wrap; gap: 10px; }
         .simulador-login a { color: #5dade2; margin-left: 10px; text-decoration: none; font-weight: bold; }
         
-        /* Header Principal */
         header { background-color: #1a365d; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
         .logo-area { display: flex; align-items: center; gap: 10px; }
         .logo-area i { color: #a855f7; font-size: 20px; }
         .logo-area h1 { font-size: 18px; font-weight: 600; }
         
-        /* Abas de Navegação Responsivas */
         .nav-tabs { display: flex; background: #e2e8f0; border-bottom: 1px solid #cbd5e1; overflow-x: auto; white-space: nowrap; }
         .tab { padding: 12px 20px; font-size: 13px; color: #64748b; text-decoration: none; display: flex; align-items: center; gap: 8px; border-right: 1px solid #cbd5e1; font-weight: 500; cursor: pointer; transition: all 0.2s; }
         .tab:hover { background: #f1f5f9; }
         .tab.active { background: white; color: #1a365d; font-weight: bold; border-bottom: 2px solid #1a365d; }
         
-        /* Mensagens de Alerta (Flash) */
         .flash-messages { max-width: 1400px; margin: 10px auto; padding: 0 15px; }
         .alert { padding: 10px; background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; border-radius: 4px; font-size: 13px; margin-bottom: 5px; }
 
-        /* Container de Conteúdo */
         .container { max-width: 1400px; margin: 20px auto; padding: 0 15px; }
-        
-        /* Contêineres de Abas */
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         
-        /* Dashboard Indicadores */
         .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .card { padding: 20px; border-radius: 6px; color: white; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .card-entradas { background-color: #2ec4b6; }
@@ -46,18 +38,15 @@
         .card span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; }
         .card h2 { font-size: 24px; font-weight: bold; }
         
-        /* Barra de Ações / Relatórios */
         .actions-bar { background: white; padding: 12px 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); margin-bottom: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
         .actions-bar span { font-size: 13px; font-weight: bold; color: #475569; }
-        .btn-csv { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500; }
+        .btn-csv { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500; border:none;}
         .btn-dia { background-color: #228b22; }
         .btn-mes { background-color: #1f4068; }
         
-        /* Layout em Duas Colunas Adaptável */
-        .main-layout { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; }
+        .main-layout { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; margin-bottom: 30px;}
         @media(max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
         
-        /* Painéis */
         .panel { background: white; padding: 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); border-top: 4px solid #2ec4b6; margin-bottom: 20px; }
         .panel.extrato { border-top-color: #cbd5e1; }
         .panel.agenda-cor { border-top-color: #a855f7; }
@@ -65,7 +54,6 @@
         .panel.rh-cor { border-top-color: #e28743; }
         .panel h3 { font-size: 16px; color: #1a365d; margin-bottom: 15px; font-weight: 600; }
         
-        /* Formulários */
         .form-group { margin-bottom: 12px; }
         .form-group label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 5px; }
         .form-control { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; background-color: #f8fafc; }
@@ -73,32 +61,19 @@
         .btn-submit { width: 100%; background-color: #2ec4b6; color: white; padding: 12px; border: none; border-radius: 4px; font-weight: bold; font-size: 14px; cursor: pointer; margin-top: 10px; transition: background 0.2s; }
         .btn-submit:hover { background-color: #23a89b; }
         .btn-agenda { background-color: #a855f7; }
-        .btn-agenda:hover { background-color: #8b5cf6; }
         .btn-admin { background-color: #1a365d; }
         .btn-rh { background-color: #e28743; }
         
-        /* Tabelas Responsivas */
-        .table-container { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
         th { background-color: #f8fafc; padding: 12px 10px; color: #64748b; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
         td { padding: 12px 10px; border-bottom: 1px solid #edf2f7; color: #334155; }
         .empty-row { text-align: center; color: #94a3b8; padding: 30px; }
-        
-        /* Badges e Status */
         .badge-entrada { color: #2ec4b6; font-weight: bold; }
         .badge-saida { color: #e71d36; font-weight: bold; }
         .btn-delete { color: #e71d36; text-decoration: none; margin-left: 5px; }
         
-        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-        .status-agendado { background-color: #fef3c7; color: #d97706; }
-        .status-pago { background-color: #d1fae5; color: #059669; }
-        .status-cancelado { background-color: #fee2e2; color: #dc2626; }
-        
-        /* Telas de Espera (Em Desenvolvimento) */
         .tela-espera { text-align: center; padding: 60px 20px; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
         .tela-espera i { font-size: 48px; color: #cbd5e1; margin-bottom: 15px; }
-        .tela-espera h3 { color: #475569; margin-bottom: 10px; }
-        .tela-espera p { color: #94a3b8; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -130,12 +105,10 @@
     {% endwith %}
 
     <div class="nav-tabs">
-        <a class="tab" id="tab-secretaria" onclick="alternarAba('secretaria')"><i class="fa-solid fa-users"></i> Secretaria</a>       
+        <a class="tab active" id="tab-secretaria" onclick="alternarAba('secretaria')"><i class="fa-solid fa-users"></i> Secretaria</a>       
         <a class="tab" id="tab-agenda" onclick="alternarAba('agenda')"><i class="fa-solid fa-calendar-days"></i> Agendas dos Estúdios</a>        
         <a class="tab" id="tab-loja" onclick="alternarAba('loja')"><i class="fa-solid fa-guitar"></i> Loja & Acessórios</a>        
-        <a class="tab active" id="tab-financeiro" onclick="alternarAba('financeiro')"><i class="fa-solid fa-sack-dollar"></i> Caixa & Financeiro</a>
-        
-        <!-- Abas visíveis unicamente para o perfil Administrador -->
+        <a class="tab" id="tab-financeiro" onclick="alternarAba('financeiro')"><i class="fa-solid fa-sack-dollar"></i> Caixa & Financeiro</a>
         {% if perfil == 'administrador' %}
             <a class="tab" id="tab-admin" onclick="alternarAba('admin')"><i class="fa-solid fa-user-gear"></i> Perfil Administrador</a>
             <a class="tab" id="tab-rh" onclick="alternarAba('rh')"><i class="fa-solid fa-id-card"></i> RH</a>
@@ -144,120 +117,183 @@
 
     <div class="container">
 
-        <!-- MÓDULO SECRETARIA -->
-        <div id="conteudo-secretaria" class="tab-content">
-            <div class="tela-espera">
-                <i class="fa-solid fa-users-gear"></i>
-                <h3>Módulo de Secretaria</h3>
-                <p>Este espaço está preparado para receber o cadastro de alunos, fichas médicas e controle de mensalidades em breve.</p>
-            </div>
-        </div>
-
-        <!-- MÓDULO ESTÚDIOS -->
-        <div id="conteudo-agenda" class="tab-content">
+        <!-- ================= MÓDULO SECRETARIA COMPLETADO ================= -->
+        <div id="conteudo-secretaria" class="tab-content active">
+            
+            <!-- Linha 1: Cadastro de Alunos e Lista de Alunos -->
             <div class="main-layout">
-                <div class="panel agenda-cor">
-                    <h3>Agendar Horário de Estúdio</h3>
-                    <form action="/agendar_studio" method="POST">
-                        <div class="form-group">
-                            <label>Tipo de Agendamento</label>
-                            <select name="tipo_agenda" class="form-control">
-                                <option value="ensaio">Estúdio de Ensaio</option>
-                                <option value="gravacao">Estúdio de Gravação</option>
-                                <option value="videoclipe">Estúdio de Videoclipe</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Nome do Cliente / Aluno</label>
-                            <input type="text" name="cliente_aluno_nome" class="form-control" placeholder="Nome completo ou banda" required>
-                        </div>
+                <div class="panel">
+                    <h3>Matricular Novo Aluno</h3>
+                    <form action="/secretaria/aluno/add" method="POST" enctype="multipart/form-data">
+                        <div class="form-group"><label>Nome Completo</label><input type="text" name="nome" class="form-control" required></div>
+                        <div class="form-group"><label>Curso Pretendido (Livre)</label><input type="text" name="curso_pretendido" class="form-control" placeholder="Ex: Violão de Nylon MPB, Canto, Piano" required></div>
+                        <div class="form-group"><label>Endereço Completo</label><input type="text" name="endereco" class="form-control" required></div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Data</label>
-                                <input type="date" name="data" class="form-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Status Inicial</label>
-                                <select name="status" class="form-control">
-                                    <option value="Agendado">Agendado (Pendente)</option>
-                                    <option value="Agendamento pago">Agendamento pago</option>
-                                </select>
-                            </div>
+                            <div class="form-group"><label>Telefone</label><input type="text" name="telefone" class="form-control" required></div>
+                            <div class="form-group"><label>E-mail</label><input type="email" name="email" class="form-control" required></div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Horário de Início</label>
-                                <input type="time" name="horario" class="form-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Horário de Término</label>
-                                <input type="time" name="horario_termino" class="form-control">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Valor Total (R$)</label>
-                            <input type="number" name="valor_total" step="0.01" class="form-control" placeholder="0.00">
-                        </div>
-                        <div class="form-group">
-                            <label>Observações</label>
-                            <textarea name="observacoes" class="form-control" rows="2" placeholder="Ex: Necessita de amplificador extra de contrabaixo"></textarea>
-                        </div>
-                        <button type="submit" class="btn-submit btn-agenda">Confirmar Agendamento</button>
+                        <div class="form-group"><label>Anexar Comprovante de Endereço</label><input type="file" name="comprovante" class="form-control"></div>
+                        <button type="submit" class="btn-submit">Salvar Matrícula</button>
                     </form>
                 </div>
-
-                <div class="panel extrato agenda-cor">
-                    <h3>Compromissos e Reservas dos Estúdios</h3>
-                    <div class="table-container">
+                <div class="panel extrato">
+                    <h3>Alunos Matriculados</h3>
+                    <div style="overflow-x:auto;">
                         <table>
-                            <thead>
-                                <tr>
-                                    <th>Data/Hora</th>
-                                    <th>Estúdio</th>
-                                    <th>Cliente / Banda</th>
-                                    <th>Valor</th>
-                                    <th>Status</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
+                            <thead><tr><th>ID</th><th>Nome / Curso</th><th>Contato</th><th>Endereço / Docs</th></tr></thead>
                             <tbody>
-                                {% if agendamentos %}
-                                    {% for a in agendamentos %}
+                                {% if alunos %}
+                                    {% for al in alunos %}
                                     <tr>
-                                        <td>{{ a[3] }} às {{ a[4] }}</td>
-                                        <td><strong>{{ a[1]|capitalize }}</strong></td>
-                                        <td>{{ a[2] }}</td>
-                                        <td>R$ {{ "%.2f"|format(a[6]) }}</td>
-                                        <td>
-                                            {% if 'pago' in a[7]|lower %}
-                                                <span class="status-badge status-pago">Pago</span>
-                                            {% elif 'canc' in a[7]|lower %}
-                                                <span class="status-badge status-cancelado">Cancelado</span>
-                                            {% else %}
-                                                <span class="status-badge status-agendado">Pendente</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if 'pago' not in a[7]|lower %}
-                                            <form action="/atualizar_status_studio/{{ a[0] }}" method="POST" style="display:inline;">
-                                                <input type="hidden" name="novo_status" value="Agendamento pago">
-                                                <button type="submit" class="btn-submit" style="padding: 4px 8px; font-size: 11px; margin: 0; width: auto; background-color: #2a9d8f;">Dar Baixa</button>
-                                            </form>
-                                            {% else %}
-                                                <span style="color:#94a3b8; font-size:11px;">Faturado</span>
-                                            {% endif %}
-                                        </td>
+                                        <td>{{ al.id }}</td>
+                                        <td><strong>{{ al.nome }}</strong><br><small style="color:#a855f7;">Curso: {{ al.curso_pretendido }}</small></td>
+                                        <td>{{ al.telefone }}<br><small>{{ al.email }}</small></td>
+                                        <td>{{ al.endereco }} <br> {% if al.comprovante_path %}<small style="color:green;"><i class="fa-solid fa-file-pdf"></i> Anexo salvo</small>{% else %}<small style="color:red;">Sem comprovante</small>{% endif %}</td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
-                                    <tr>
-                                        <td colspan="6" class="empty-row">Nenhum agendamento de estúdio registrado.</td>
-                                    </tr>
+                                    <tr><td colspan="4" class="empty-row">Nenhum aluno matriculado.</td></tr>
                                 {% endif %}
                             </tbody>
                         </table>
                     </div>
                 </div>
+            </div>
+
+            <!-- Linha 2: Cadastro de Professores e Lista de Professores -->
+            <div class="main-layout">
+                <div class="panel rh-cor">
+                    <h3>Cadastrar Professor / Instrutor</h3>
+                    <form action="/secretaria/professor/add" method="POST" enctype="multipart/form-data">
+                        <div class="form-group"><label>Nome Completo</label><input type="text" name="nome" class="form-control" required></div>
+                        <div class="form-group"><label>Especialidade / Curso</label><input type="text" name="curso" class="form-control" required></div>
+                        <div class="form-group"><label>Endereço Completo</label><input type="text" name="endereco" class="form-control" required></div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Telefone</label><input type="text" name="telefone" class="form-control" required></div>
+                            <div class="form-group"><label>E-mail</label><input type="email" name="email" class="form-control" required></div>
+                        </div>
+                        <div class="form-group"><label>Anexar Comprovante de Endereço</label><input type="file" name="comprovante" class="form-control"></div>
+                        <button type="submit" class="btn-submit btn-rh">Salvar Professor</button>
+                    </form>
+                </div>
+                <div class="panel extrato rh-cor">
+                    <h3>Quadro Docente e Fechamento Mensal</h3>
+                    <div style="overflow-x:auto;">
+                        <table>
+                            <thead><tr><th>Professor</th><th>Curso</th><th>Endereço</th><th>Planilha de Pagamento</th></tr></thead>
+                            <tbody>
+                                {% if professores %}
+                                    {% for pr in professores %}
+                                    <tr>
+                                        <td><strong>{{ pr.nome }}</strong><br><small>{{ pr.telefone }}</small></td>
+                                        <td>{{ pr.curso }}</td>
+                                        <td>{{ pr.endereco }}</td>
+                                        <td>
+                                            <a href="/secretaria/professor/exportar/{{ pr.id }}" class="btn-csv btn-dia" style="padding:4px 8px; font-size:11px;"><i class="fa-solid fa-download"></i> Baixar Planilha (.CSV)</a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr><td colspan="4" class="empty-row">Nenhum professor cadastrado.</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Linha 3: Integração de Agenda (Vincular Aluno e Professor) e Validação de Aula Dada -->
+            <div class="main-layout">
+                <div class="panel agenda-cor">
+                    <h3>Vincular Agenda (Turmas / Aulas)</h3>
+                    <form action="/secretaria/turma/add" method="POST">
+                        <div class="form-group">
+                            <label>Selecione o Aluno</label>
+                            <select name="aluno_id" class="form-control">
+                                {% for al in alunos %}<option value="{{ al.id }}">{{ al.nome }} ({{ al.curso_pretendido }})</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Selecione o Professor</label>
+                            <select name="professor_id" class="form-control">
+                                {% for pr in professores %}<option value="{{ pr.id }}">{{ pr.nome }} - {{ pr.curso }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Dia da Semana</label>
+                                <select name="dia_semana" class="form-control">
+                                    <option value="Segunda-feira">Segunda-feira</option><option value="Terça-feira">Terça-feira</option>
+                                    <option value="Quarta-feira">Quarta-feira</option><option value="Quinta-feira">Quinta-feira</option>
+                                    <option value="Sexta-feira">Sexta-feira</option><option value="Sábado">Sábado</option>
+                                </select>
+                            </div>
+                            <div class="form-group"><label>Horário</label><input type="time" name="horario" class="form-control" required></div>
+                        </div>
+                        <div class="form-group"><label>Custo Repasse Professor por Aula (R$)</label><input type="number" name="valor_hora_aula" step="0.01" class="form-control" required placeholder="0.00"></div>
+                        <button type="submit" class="btn-submit btn-agenda">Criar Vínculo de Aula</button>
+                    </form>
+                </div>
+
+                <!-- Painel do Professor: Confirmação e Integração com Financeiro -->
+                <div class="panel extrato agenda-cor">
+                    <h3>Painel do Professor (Confirmação de Aula em Tempo Real)</h3>
+                    <div style="overflow-x:auto;">
+                        <table>
+                            <thead><tr><th>Grade de Horários</th><th>Aluno</th><th>Professor</th><th>Valor Aula</th><th>Ação</th></tr></thead>
+                            <tbody>
+                                {% if turmas %}
+                                    {% for tm in turmas %}
+                                    <tr>
+                                        <td>{{ tm.dia_semana }} às {{ tm.horario }}</td>
+                                        <td><strong>{{ tm.aluno_nome }}</strong></td>
+                                        <td>{{ tm.professor_nome }}</td>
+                                        <td>R$ {{ "%.2f"|format(tm.valor_hora_aula) }}</td>
+                                        <td>
+                                            <form action="/professor/aula/confirmar/{{ tm.id }}" method="POST">
+                                                <button type="submit" class="btn-submit" style="margin:0; padding:4px 8px; font-size:11px; width:auto; background-color:#2a9d8f;"><i class="fa-solid fa-circle-check"></i> Confirmar Executada</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr><td colspan="5" class="empty-row">Nenhum horário de aula estruturado.</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 style="margin-top: 25px;">Aulas Confirmadas & Enviadas ao Financeiro (Mês Atual)</h3>
+                    <div style="overflow-x:auto;">
+                        <table>
+                            <thead><tr><th>Data Confirmação</th><th>Aluno</th><th>Professor</th><th>Valor</th><th>Status Integração</th></tr></thead>
+                            <tbody>
+                                {% if aulas_executadas %}
+                                    {% for ae in aulas_executadas %}
+                                    <tr>
+                                        <td>{{ ae.data_execucao }}</td>
+                                        <td>{{ ae.aluno_nome }}</td>
+                                        <td><strong>{{ ae.professor_nome }}</strong></td>
+                                        <td>R$ {{ "%.2f"|format(ae.valor_pago) }}</td>
+                                        <td><span style="background-color:#d1fae5; color:#059669; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;">{{ ae.financeiro_status }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr><td colspan="5" class="empty-row">Nenhuma aula registrada como executada ainda.</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MÓDULO ESTÚDIOS -->
+        <div id="conteudo-agenda" class="tab-content">
+            <div class="tela-espera">
+                <i class="fa-solid fa-calendar-days"></i>
+                <h3>Agendas dos Estúdios</h3>
+                <p>Módulo em espera para próxima etapa de desenvolvimento.</p>
             </div>
         </div>
 
@@ -271,7 +307,7 @@
         </div>
 
         <!-- MÓDULO FINANCEIRO -->
-        <div id="conteudo-financeiro" class="tab-content active">
+        <div id="conteudo-financeiro" class="tab-content">
             <div class="grid-cards">
                 <div class="card card-entradas">
                     <span><i class="fa-solid fa-circle-arrow-up"></i> Total Entradas</span>
@@ -285,14 +321,6 @@
                     <span><i class="fa-solid fa-wallet"></i> Saldo de Caixa {% if perfil == 'operador_caixa' %}(Hoje){% else %}(Geral){% endif %}</span>
                     <h2>R$ {{ "%.2f"|format(saldo_caixa) }}</h2>
                 </div>
-            </div>
-
-            <div class="actions-bar">
-                <span><i class="fa-solid fa-chart-bar"></i> Planilhas e Relatórios:</span>
-                <a href="/admin/exportar/dia" class="btn-csv btn-dia"><i class="fa-solid fa-download"></i> Baixar Caixa do Dia (.CSV)</a>
-                {% if perfil == 'administrador' %}
-                    <a href="/admin/exportar/mes" class="btn-csv btn-mes"><i class="fa-solid fa-download"></i> Baixar Fechamento do Mês (.CSV)</a>
-                {% endif %}
             </div>
 
             <div class="main-layout">
@@ -315,19 +343,10 @@
                                 <option value="Limpeza / Consumo">🧹 Limpeza / Consumo</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label>Descrição detalhada</label>
-                            <input type="text" name="descricao" class="form-control" placeholder="Ex: Compra de pó de café e água" required>
-                        </div>
+                        <div class="form-group"><label>Descrição detalhada</label><input type="text" name="descricao" class="form-control" placeholder="Ex: Compra de pó de café e água" required></div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Valor (R$)</label>
-                                <input type="number" name="valor" step="0.01" class="form-control" placeholder="0.00" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Data Competência</label>
-                                <input type="date" name="data_competencia" class="form-control">
-                            </div>
+                            <div class="form-group"><label>Valor (R$)</label><input type="number" name="valor" step="0.01" class="form-control" placeholder="0.00" required></div>
+                            <div class="form-group"><label>Data Competência</label><input type="date" name="data_competencia" class="form-control"></div>
                         </div>
                         <button type="submit" class="btn-submit">Efetuar Lançamento</button>
                     </form>
@@ -338,16 +357,7 @@
                     <div class="table-container">
                         <table>
                             <thead>
-                                <tr>
-                                    <th>Data</th>
-                                    <th>Tipo</th>
-                                    <th>Origem</th>
-                                    <th>Descrição</th>
-                                    <th>Valor</th>
-                                    {% if perfil == 'administrador' %}
-                                        <th>Ações</th>
-                                    {% endif %}
-                                </tr>
+                                <tr><th>Data</th><th>Tipo</th><th>Origem</th><th>Descrição</th><th>Valor</th>{% if perfil == 'administrador' %}<th>Ações</th>{% endif %}</tr>
                             </thead>
                             <tbody>
                                 {% if movimentacoes %}
@@ -355,26 +365,21 @@
                                     <tr>
                                         <td>{{ m.data }}</td>
                                         <td>
-                                            {% if m.tipo == 'Entrada' or m.tipo == 'entrada' %}
-                                                <span class="badge-entrada">Entrada</span>
-                                            {% else %}
-                                                <span class="badge-saida">Saída</span>
-                                            {% endif %}
+                                            {% if m.tipo == 'Entrada' %}<span class="badge-entrada">Entrada</span>
+                                            {% else %}<span class="badge-saida">Saída</span>{% endif %}
                                         </td>
                                         <td>{{ m.origem }}</td>
                                         <td>{{ m.descricao }}</td>
                                         <td>R$ {{ "%.2f"|format(m.valor) }}</td>
                                         {% if perfil == 'administrador' %}
                                         <td>
-                                            <a href="/excluir/{{ m.id }}" class="btn-delete" title="Excluir Registro" onclick="return confirm('Tem certeza que deseja excluir este lançamento?')"><i class="fa-solid fa-trash-can"></i></a>
+                                            <a href="/excluir/{{ m.id }}" class="btn-delete" onclick="return confirm('Excluir este lançamento?')"><i class="fa-solid fa-trash-can"></i></a>
                                         </td>
                                         {% endif %}
                                     </tr>
                                     {% endfor %}
                                 {% else %}
-                                    <tr>
-                                        <td colspan="{% if perfil == 'administrador' %}6{% else %}5{% endif %}" class="empty-row">Nenhuma movimentação financeira registrada.</td>
-                                    </tr>
+                                    <tr><td colspan="6" class="empty-row">Nenhuma movimentação financeira registrada.</td></tr>
                                 {% endif %}
                             </tbody>
                         </table>
@@ -383,145 +388,61 @@
             </div>
         </div>
 
-        <!-- MÓDULO PERFIL ADMINISTRADOR (FORNECEDORES) -->
+        <!-- MÓDULO PERFIL ADMINISTRADOR -->
         {% if perfil == 'administrador' %}
         <div id="conteudo-admin" class="tab-content">
             <div class="main-layout">
                 <div class="panel admin-cor">
                     <h3>Cadastrar Novo Fornecedor</h3>
                     <form action="/admin/fornecedor/add" method="POST">
-                        <div class="form-group">
-                            <label>Nome do Fornecedor</label>
-                            <input type="text" name="nome" class="form-control" placeholder="Razão social ou Nome fantasia" required>
-                        </div>
-                        <div class="form-group">
-                            <label>CNPJ</label>
-                            <input type="text" name="cnpj" class="form-control" placeholder="00.000.000/0001-00">
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Telefone</label>
-                                <input type="text" name="telefone" class="form-control" placeholder="(11) 99999-9999">
-                            </div>
-                            <div class="form-group">
-                                <label>E-mail</label>
-                                <input type="email" name="email" class="form-control" placeholder="fornecedor@email.com">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Produto / Serviço Prestado</label>
-                            <input type="text" name="produto_servico" class="form-control" placeholder="Ex: Manutenção de pianos, Palhetas no atacado">
-                        </div>
+                        <div class="form-group"><label>Nome do Fornecedor</label><input type="text" name="nome" class="form-control" required></div>
+                        <div class="form-group"><label>CNPJ</label><input type="text" name="cnpj" class="form-control"></div>
                         <button type="submit" class="btn-submit btn-admin">Salvar Fornecedor</button>
                     </form>
                 </div>
-
                 <div class="panel extrato admin-cor">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3>Fornecedores Cadastrados</h3>
-                        <a href="/admin/exportar/fornecedores" class="btn-csv btn-mes" style="padding: 5px 10px; font-size: 11px;"><i class="fa-solid fa-file-csv"></i> Exportar</a>
-                    </div>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Nome</th>
-                                    <th>Contato</th>
-                                    <th>Produto/Serviço</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% if fornecedores %}
-                                    {% for f in fornecedores %}
-                                    <tr>
-                                        <td><strong>{{ f.nome }}</strong><br><small>CNPJ: {{ f.cnpj }}</small></td>
-                                        <td>{{ f.telefone }}<br><small>{{ f.email }}</small></td>
-                                        <td>{{ f.produto_servico }}</td>
-                                        <td>
-                                            <a href="/admin/fornecedor/delete/{{ f.id }}" class="btn-delete" onclick="return confirm('Excluir este fornecedor?')"><i class="fa-solid fa-trash"></i></a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr>
-                                        <td colspan="4" class="empty-row">Nenhum fornecedor armazenado no banco de dados.</td>
-                                    </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
+                    <h3>Fornecedores Armazenados</h3>
+                    <table>
+                        <thead><tr><th>Nome</th><th>Produto/Serviço</th><th>Ações</th></tr></thead>
+                        <tbody>
+                            {% if fornecedores %}
+                                {% for f in fornecedores %}
+                                <tr><td><strong>{{ f.nome }}</strong></td><td>{{ f.produto_servico }}</td><td><a href="/admin/fornecedor/delete/{{ f.id }}" class="btn-delete"><i class="fa-solid fa-trash"></i></a></td></tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="3" class="empty-row">Nenhum fornecedor.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <!-- NOVO MÓDULO: RECURSOS HUMANOS (RH) -->
+        <!-- MÓDULO RH GENERALIZADO -->
         <div id="conteudo-rh" class="tab-content">
             <div class="main-layout">
                 <div class="panel rh-cor">
-                    <h3>Registrar Funcionário / Professor</h3>
+                    <h3>Registrar Funcionário / Equipe</h3>
                     <form action="/rh/funcionario/add" method="POST">
-                        <div class="form-group">
-                            <label>Nome Completo</label>
-                            <input type="text" name="nome" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Cargo / Função</label>
-                            <input type="text" name="cargo" class="form-control" placeholder="Ex: Professor de Violão, Técnico de Som" required>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Telefone</label>
-                                <input type="text" name="telefone" class="form-control">
-                            </div>
-                            <div class="form-group">
-                                <label>E-mail</label>
-                                <input type="email" name="email" class="form-control">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Salário / Hora-Aula (R$)</label>
-                            <input type="number" name="salario" step="0.01" class="form-control" placeholder="0.00">
-                        </div>
-                        <button type="submit" class="btn-submit btn-rh">Registrar Colaborador</button>
+                        <div class="form-group"><label>Nome Completo</label><input type="text" name="nome" class="form-control" required></div>
+                        <div class="form-group"><label>Cargo</label><input type="text" name="cargo" class="form-control" required></div>
+                        <button type="submit" class="btn-submit btn-rh">Salvar Funcionário</button>
                     </form>
                 </div>
-
                 <div class="panel extrato rh-cor">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3>Quadro de Funcionários</h3>
-                        <a href="/admin/exportar/funcionarios" class="btn-csv btn-dia" style="padding: 5px 10px; font-size: 11px; background-color: #e28743;"><i class="fa-solid fa-file-csv"></i> Exportar</a>
-                    </div>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Funcionário</th>
-                                    <th>Cargo</th>
-                                    <th>Salário</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% if funcionarios %}
-                                    {% for func in funcionarios %}
-                                    <tr>
-                                        <td><strong>{{ func.nome }}</strong><br><small>{{ func.email }} | {{ func.telefone }}</small></td>
-                                        <td>{{ func.cargo }}</td>
-                                        <td>R$ {{ "%.2f"|format(func.salario) }}</td>
-                                        <td>
-                                            <a href="/rh/funcionario/delete/{{ func.id }}" class="btn-delete" onclick="return confirm('Remover este funcionário do banco de dados?')"><i class="fa-solid fa-trash"></i></a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr>
-                                        <td colspan="4" class="empty-row">Nenhum funcionário registrado no sistema de RH.</td>
-                                    </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
+                    <h3>Quadro de Equipe Técnica</h3>
+                    <table>
+                        <thead><tr><th>Nome</th><th>Cargo</th><th>Ações</th></tr></thead>
+                        <tbody>
+                            {% if funcionarios %}
+                                {% for func in funcionarios %}
+                                <tr><td><strong>{{ func.nome }}</strong></td><td>{{ func.cargo }}</td><td><a href="/rh/funcionario/delete/{{ func.id }}" class="btn-delete"><i class="fa-solid fa-trash"></i></a></td></tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="3" class="empty-row">Nenhum funcionário de equipe cadastrado.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -530,37 +451,27 @@
     </div>
 
     <script>
-        // Injeta dinamicamente o perfil definido no backend do Flask
         const perfilUsuario = "{{ perfil }}";
 
         function alternarAba(idAba) {
-            // Bloqueio estrito no frontend se o usuário for operador de caixa e tentar sair do financeiro
             if (perfilUsuario === "operador_caixa" && idAba !== "financeiro") {
                 alert("Acesso Restrito: Seu perfil de Operador de Caixa possui permissão de acesso apenas para o módulo Financeiro.");
                 return;
             }
 
-            // 1. Remove a classe active de todos os botões/abas
             const abas = document.querySelectorAll('.tab');
             abas.forEach(aba => aba.classList.remove('active'));
 
-            // 2. Oculta todos os blocos de conteúdo das abas
             const conteudos = document.querySelectorAll('.tab-content');
             conteudos.forEach(conteudo => conteudo.classList.remove('active'));
 
-            // 3. Ativa o botão correto e o seu respectivo conteúdo baseado na ID enviada
             const elementoAba = document.getElementById('tab-' + idAba);
-            if(elementoAba) {
-                elementoAba.classList.add('active');
-            }
+            if(elementoAba) elementoAba.classList.add('active');
             
             const elementoConteudo = document.getElementById('conteudo-' + idAba);
-            if(elementoConteudo) {
-                elementoConteudo.classList.add('active');
-            }
+            if(elementoConteudo) elementoConteudo.classList.add('active');
         }
 
-        // Executado ao carregar a página: Se for operador de caixa, força a exibição padrão no financeiro
         window.onload = function() {
             if (perfilUsuario === "operador_caixa") {
                 alternarAba('financeiro');
