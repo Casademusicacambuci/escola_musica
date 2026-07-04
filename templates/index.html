@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Casa de Música Cambucí — Sistema de Gestão</title>
+    <title>Casa de Música Cambucí – Sistema de Gestão</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -25,6 +25,10 @@
         .tab:hover { background: #f1f5f9; }
         .tab.active { background: white; color: #1a365d; font-weight: bold; border-bottom: 2px solid #1a365d; }
         
+        /* Mensagens de Alerta (Flash) */
+        .flash-messages { max-width: 1400px; margin: 10px auto; padding: 0 15px; }
+        .alert { padding: 10px; background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; border-radius: 4px; font-size: 13px; margin-bottom: 5px; }
+
         /* Container de Conteúdo */
         .container { max-width: 1400px; margin: 20px auto; padding: 0 15px; }
         
@@ -57,6 +61,8 @@
         .panel { background: white; padding: 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); border-top: 4px solid #2ec4b6; margin-bottom: 20px; }
         .panel.extrato { border-top-color: #cbd5e1; }
         .panel.agenda-cor { border-top-color: #a855f7; }
+        .panel.admin-cor { border-top-color: #1a365d; }
+        .panel.rh-cor { border-top-color: #e28743; }
         .panel h3 { font-size: 16px; color: #1a365d; margin-bottom: 15px; font-weight: 600; }
         
         /* Formulários */
@@ -68,6 +74,8 @@
         .btn-submit:hover { background-color: #23a89b; }
         .btn-agenda { background-color: #a855f7; }
         .btn-agenda:hover { background-color: #8b5cf6; }
+        .btn-admin { background-color: #1a365d; }
+        .btn-rh { background-color: #e28743; }
         
         /* Tabelas Responsivas */
         .table-container { overflow-x: auto; }
@@ -99,35 +107,53 @@
         <div><i class="fa-solid fa-user-shield"></i> Logado como: <strong>{{ nome_usuario }}</strong> (Perfil: <code>{{ perfil }}</code>)</div>
         <div>
             Simular acesso: 
-            <a href="/alternar_usuario/caixa">Operador de Caixa</a> |
-            <a href="/alternar_usuario/admin">Administrador / Financeiro</a>
+            <a href="/alternar_usuario/operador_caixa">Operador de Caixa</a> |
+            <a href="/alternar_usuario/administrador">Administrador / Financeiro</a>
         </div>
     </div>
 
     <header>
         <div class="logo-area">
             <i class="fa-solid fa-music"></i>
-            <h1>Casa de Música Cambucí — Sistema de Gestão</h1>
+            <h1>Casa de Música Cambucí – Sistema de Gestão</h1>
         </div>
     </header>
 
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for message in messages %}
+            <div class="alert">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
     <div class="nav-tabs">
-        <a class="tab" onclick="alternarAba('recepcao')"><i class="fa-solid fa-users"></i> Recepção & Matrículas</a>       
-        <a class="tab" onclick="alternarAba('agenda')"><i class="fa-solid fa-calendar-days"></i> Agendas dos Estúdios</a>        
-        <a class="tab" onclick="alternarAba('loja')"><i class="fa-solid fa-guitar"></i> Loja & Acessórios</a>        
-        <a class="tab active" onclick="alternarAba('financeiro')"><i class="fa-solid fa-sack-dollar"></i> Caixa & Financeiro</a>
+        <a class="tab" id="tab-secretaria" onclick="alternarAba('secretaria')"><i class="fa-solid fa-users"></i> Secretaria</a>       
+        <a class="tab" id="tab-agenda" onclick="alternarAba('agenda')"><i class="fa-solid fa-calendar-days"></i> Agendas dos Estúdios</a>        
+        <a class="tab" id="tab-loja" onclick="alternarAba('loja')"><i class="fa-solid fa-guitar"></i> Loja & Acessórios</a>        
+        <a class="tab active" id="tab-financeiro" onclick="alternarAba('financeiro')"><i class="fa-solid fa-sack-dollar"></i> Caixa & Financeiro</a>
+        
+        <!-- Abas visíveis unicamente para o perfil Administrador -->
+        {% if perfil == 'administrador' %}
+            <a class="tab" id="tab-admin" onclick="alternarAba('admin')"><i class="fa-solid fa-user-gear"></i> Perfil Administrador</a>
+            <a class="tab" id="tab-rh" onclick="alternarAba('rh')"><i class="fa-solid fa-id-card"></i> RH</a>
+        {% endif %}
     </div>
 
     <div class="container">
 
-        <div id="conteudo-recepcao" class="tab-content">
+        <!-- MÓDULO SECRETARIA -->
+        <div id="conteudo-secretaria" class="tab-content">
             <div class="tela-espera">
                 <i class="fa-solid fa-users-gear"></i>
-                <h3>Módulo de Recepção & Matrículas</h3>
+                <h3>Módulo de Secretaria</h3>
                 <p>Este espaço está preparado para receber o cadastro de alunos, fichas médicas e controle de mensalidades em breve.</p>
             </div>
         </div>
 
+        <!-- MÓDULO ESTÚDIOS -->
         <div id="conteudo-agenda" class="tab-content">
             <div class="main-layout">
                 <div class="panel agenda-cor">
@@ -235,14 +261,16 @@
             </div>
         </div>
 
+        <!-- MÓDULO LOJA -->
         <div id="conteudo-loja" class="tab-content">
             <div class="tela-espera">
                 <i class="fa-solid fa-store"></i>
-                <h3>Módulo de Loja — Acessórios e Instrumentos</h3>
+                <h3>Módulo de Loja – Acessórios e Instrumentos</h3>
                 <p>Aqui ficará o controle do estoque de palhetas, encordoamentos, cabos e instrumentos sob encomenda.</p>
             </div>
         </div>
 
+        <!-- MÓDULO FINANCEIRO -->
         <div id="conteudo-financeiro" class="tab-content active">
             <div class="grid-cards">
                 <div class="card card-entradas">
@@ -261,9 +289,9 @@
 
             <div class="actions-bar">
                 <span><i class="fa-solid fa-chart-bar"></i> Planilhas e Relatórios:</span>
-                <a href="/exportar/dia" class="btn-csv btn-dia"><i class="fa-solid fa-download"></i> Baixar Caixa do Dia (.CSV)</a>
+                <a href="/admin/exportar/dia" class="btn-csv btn-dia"><i class="fa-solid fa-download"></i> Baixar Caixa do Dia (.CSV)</a>
                 {% if perfil == 'administrador' %}
-                    <a href="/exportar/mes" class="btn-csv btn-mes"><i class="fa-solid fa-download"></i> Baixar Fechamento do Mês (.CSV)</a>
+                    <a href="/admin/exportar/mes" class="btn-csv btn-mes"><i class="fa-solid fa-download"></i> Baixar Fechamento do Mês (.CSV)</a>
                 {% endif %}
             </div>
 
@@ -274,17 +302,17 @@
                         <div class="form-group">
                             <label>Tipo de Operação</label>
                             <select name="tipo" class="form-control">
-                                <option value="Entrada">?? Entrada (Receita / Lanchonete / Matrícula)</option>
-                                <option value="Saída">?? Saída (Despesa / Pagamento / Manutenção)</option>
+                                <option value="Entrada">++ Entrada (Receita / Lanchonete / Matrícula)</option>
+                                <option value="Saída">-- Saída (Despesa / Pagamento / Manutenção)</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label>Origem do Fluxo</label>
                             <select name="origem" class="form-control">
-                                <option value="Lanchonete / Café">? Lanchonete / Café</option>
-                                <option value="Matrícula / Mensalidade">?? Matrícula / Mensalidade</option>
-                                <option value="Acessórios e Instrumentos">?? Acessórios e Instrumentos</option>
-                                <option value="Limpeza / Consumo">?? Limpeza / Consumo</option>
+                                <option value="Lanchonete / Café">☕ Lanchonete / Café</option>
+                                <option value="Matrícula / Mensalidade">🎵 Matrícula / Mensalidade</option>
+                                <option value="Acessórios e Instrumentos">🎸 Acessórios e Instrumentos</option>
+                                <option value="Limpeza / Consumo">🧹 Limpeza / Consumo</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -355,34 +383,184 @@
             </div>
         </div>
 
+        <!-- MÓDULO PERFIL ADMINISTRADOR (FORNECEDORES) -->
+        {% if perfil == 'administrador' %}
+        <div id="conteudo-admin" class="tab-content">
+            <div class="main-layout">
+                <div class="panel admin-cor">
+                    <h3>Cadastrar Novo Fornecedor</h3>
+                    <form action="/admin/fornecedor/add" method="POST">
+                        <div class="form-group">
+                            <label>Nome do Fornecedor</label>
+                            <input type="text" name="nome" class="form-control" placeholder="Razão social ou Nome fantasia" required>
+                        </div>
+                        <div class="form-group">
+                            <label>CNPJ</label>
+                            <input type="text" name="cnpj" class="form-control" placeholder="00.000.000/0001-00">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Telefone</label>
+                                <input type="text" name="telefone" class="form-control" placeholder="(11) 99999-9999">
+                            </div>
+                            <div class="form-group">
+                                <label>E-mail</label>
+                                <input type="email" name="email" class="form-control" placeholder="fornecedor@email.com">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Produto / Serviço Prestado</label>
+                            <input type="text" name="produto_servico" class="form-control" placeholder="Ex: Manutenção de pianos, Palhetas no atacado">
+                        </div>
+                        <button type="submit" class="btn-submit btn-admin">Salvar Fornecedor</button>
+                    </form>
+                </div>
+
+                <div class="panel extrato admin-cor">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3>Fornecedores Cadastrados</h3>
+                        <a href="/admin/exportar/fornecedores" class="btn-csv btn-mes" style="padding: 5px 10px; font-size: 11px;"><i class="fa-solid fa-file-csv"></i> Exportar</a>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Contato</th>
+                                    <th>Produto/Serviço</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if fornecedores %}
+                                    {% for f in fornecedores %}
+                                    <tr>
+                                        <td><strong>{{ f.nome }}</strong><br><small>CNPJ: {{ f.cnpj }}</small></td>
+                                        <td>{{ f.telefone }}<br><small>{{ f.email }}</small></td>
+                                        <td>{{ f.produto_servico }}</td>
+                                        <td>
+                                            <a href="/admin/fornecedor/delete/{{ f.id }}" class="btn-delete" onclick="return confirm('Excluir este fornecedor?')"><i class="fa-solid fa-trash"></i></a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="4" class="empty-row">Nenhum fornecedor armazenado no banco de dados.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOVO MÓDULO: RECURSOS HUMANOS (RH) -->
+        <div id="conteudo-rh" class="tab-content">
+            <div class="main-layout">
+                <div class="panel rh-cor">
+                    <h3>Registrar Funcionário / Professor</h3>
+                    <form action="/rh/funcionario/add" method="POST">
+                        <div class="form-group">
+                            <label>Nome Completo</label>
+                            <input type="text" name="nome" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Cargo / Função</label>
+                            <input type="text" name="cargo" class="form-control" placeholder="Ex: Professor de Violão, Técnico de Som" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Telefone</label>
+                                <input type="text" name="telefone" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>E-mail</label>
+                                <input type="email" name="email" class="form-control">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Salário / Hora-Aula (R$)</label>
+                            <input type="number" name="salario" step="0.01" class="form-control" placeholder="0.00">
+                        </div>
+                        <button type="submit" class="btn-submit btn-rh">Registrar Colaborador</button>
+                    </form>
+                </div>
+
+                <div class="panel extrato rh-cor">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3>Quadro de Funcionários</h3>
+                        <a href="/admin/exportar/funcionarios" class="btn-csv btn-dia" style="padding: 5px 10px; font-size: 11px; background-color: #e28743;"><i class="fa-solid fa-file-csv"></i> Exportar</a>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Funcionário</th>
+                                    <th>Cargo</th>
+                                    <th>Salário</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if funcionarios %}
+                                    {% for func in funcionarios %}
+                                    <tr>
+                                        <td><strong>{{ func.nome }}</strong><br><small>{{ func.email }} | {{ func.telefone }}</small></td>
+                                        <td>{{ func.cargo }}</td>
+                                        <td>R$ {{ "%.2f"|format(func.salario) }}</td>
+                                        <td>
+                                            <a href="/rh/funcionario/delete/{{ func.id }}" class="btn-delete" onclick="return confirm('Remover este funcionário do banco de dados?')"><i class="fa-solid fa-trash"></i></a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="4" class="empty-row">Nenhum funcionário registrado no sistema de RH.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
     </div>
 
     <script>
-        // Pega o perfil injetado pelo Flask para controle no frontend
+        // Injeta dinamicamente o perfil definido no backend do Flask
         const perfilUsuario = "{{ perfil }}";
 
         function alternarAba(idAba) {
-            // Regra de segurança visual: Operador de caixa não pode sair da aba financeira
+            // Bloqueio estrito no frontend se o usuário for operador de caixa e tentar sair do financeiro
             if (perfilUsuario === "operador_caixa" && idAba !== "financeiro") {
                 alert("Acesso Restrito: Seu perfil de Operador de Caixa possui permissão de acesso apenas para o módulo Financeiro.");
                 return;
             }
 
-            // 1. Remove a classe active de todas as abas (botões)
+            // 1. Remove a classe active de todos os botões/abas
             const abas = document.querySelectorAll('.tab');
             abas.forEach(aba => aba.classList.remove('active'));
 
-            // 2. Esconde todos os blocos de conteúdo
+            // 2. Oculta todos os blocos de conteúdo das abas
             const conteudos = document.querySelectorAll('.tab-content');
             conteudos.forEach(conteudo => conteudo.classList.remove('active'));
 
-            // 3. Ativa o botão correto e o conteúdo correto
-            // Encontra a aba baseado no clique do mouse
-            event.currentTarget.classList.add('active');
-            document.getElementById('conteudo-' + idAba).classList.add('active');
+            // 3. Ativa o botão correto e o seu respectivo conteúdo baseado na ID enviada
+            const elementoAba = document.getElementById('tab-' + idAba);
+            if(elementoAba) {
+                elementoAba.classList.add('active');
+            }
+            
+            const elementoConteudo = document.getElementById('conteudo-' + idAba);
+            if(elementoConteudo) {
+                elementoConteudo.classList.add('active');
+            }
         }
 
-        // Executado ao carregar a página: Se for operador de caixa, garante que ele caia direto no financeiro
+        // Executado ao carregar a página: Se for operador de caixa, força a exibição padrão no financeiro
         window.onload = function() {
             if (perfilUsuario === "operador_caixa") {
                 alternarAba('financeiro');
