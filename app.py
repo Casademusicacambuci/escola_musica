@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, Response
+from flask import Flask, render_template, request, redirect, url_for, flash, Response, session
 import sqlite3
 import csv
 import io
@@ -45,21 +45,34 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# --- ROTA INICIAL (CORREÇÃO DO ERRO NOT FOUND) ---
+# --- SIMULADOR DE ALTERNAÇÃO DE PERFIL ---
+@app.route('/alternar_usuario/<perfil_selecionado>')
+def alternar_usuario(perfil_selecionado):
+    if perfil_selecionado in ['administrador', 'operador_caixa']:
+        session['perfil'] = perfil_selecionado
+        flash(f"Perfil alterado para {perfil_selecionado.replace('_', ' ').title()}")
+    return redirect(url_for('index'))
+
+# --- ROTA INICIAL ---
 @app.route('/')
 def index():
+    # Define administrador como padrão caso não exista sessão ativa
+    if 'perfil' not in session:
+        session['perfil'] = 'administrador'
+        
+    perfil_atual = session['perfil']
+    
     conn = get_db_connection()
     fornecedores = conn.execute('SELECT * FROM fornecedores').fetchall()
     funcionarios = conn.execute('SELECT * FROM funcionarios').fetchall()
     conn.close()
     
-    # Renderiza o index.html passando todas as variáveis estruturais que o template exige
     return render_template(
         'index.html', 
         fornecedores=fornecedores, 
         funcionarios=funcionarios,
         nome_usuario="Deni Miller",
-        perfil="administrador",
+        perfil=perfil_atual,
         total_entradas=0.0,
         total_saidas=0.0,
         saldo_caixa=0.0,
@@ -67,15 +80,28 @@ def index():
         agendamentos=[]
     )
 
-# --- ROTAS DO MÓDULO ADMINISTRATIVO ---
-
-@app.route('/admin')
-def admin_dashboard():
-    # Redireciona para a raiz para manter a mesma estrutura de exibição unificada do index.html
+# --- ROTAS DE ESTÚDIO & FINANCEIRO (PLACEHOLDERS EVITANDO ERROS 404) ---
+@app.route('/agendar_studio', methods=['POST'])
+def agendar_studio():
+    flash('Agendamento simulado com sucesso!')
     return redirect(url_for('index'))
 
-# --- CRUD FORNECEDORES ---
+@app.route('/atualizar_status_studio/<int:id>', methods=['POST'])
+def atualizar_status_studio(id):
+    flash('Status do estúdio atualizado!')
+    return redirect(url_for('index'))
 
+@app.route('/lancar', methods=['POST'])
+def lancar():
+    flash('Movimentação financeira lançada com sucesso!')
+    return redirect(url_for('index'))
+
+@app.route('/excluir/<int:id>')
+def excluir_movimentacao(id):
+    flash('Lançamento excluído!')
+    return redirect(url_for('index'))
+
+# --- CRUD FORNECEDORES (MÓDULO ADM) ---
 @app.route('/admin/fornecedor/add', methods=['POST'])
 def add_fornecedor():
     nome = request.form['nome']
@@ -103,9 +129,8 @@ def delete_fornecedor(id):
     flash('Fornecedor removido com sucesso!')
     return redirect(url_for('index'))
 
-# --- CRUD FUNCIONÁRIOS ---
-
-@app.route('/admin/funcionario/add', methods=['POST'])
+# --- CRUD FUNCIONÁRIOS (MÓDULO RH) ---
+@app.route('/rh/funcionario/add', methods=['POST'])
 def add_funcionario():
     nome = request.form['nome']
     cargo = request.form['cargo']
@@ -120,20 +145,19 @@ def add_funcionario():
     ''', (nome, cargo, telefone, email, salario))
     conn.commit()
     conn.close()
-    flash('Funcionário registrado com sucesso!')
+    flash('Funcionário registrado no RH com sucesso!')
     return redirect(url_for('index'))
 
-@app.route('/admin/funcionario/delete/<int:id>')
+@app.route('/rh/funcionario/delete/<int:id>')
 def delete_funcionario(id):
     conn = get_db_connection()
     conn.execute('DELETE FROM funcionarios WHERE id = ?', (id,))
     conn.commit()
     conn.close()
-    flash('Funcionário removido com sucesso!')
+    flash('Funcionário removido do sistema de RH!')
     return redirect(url_for('index'))
 
 # --- EXPORTAÇÃO PARA CSV ---
-
 @app.route('/admin/exportar/<string:tipo>')
 def exportar_csv(tipo):
     conn = get_db_connection()
@@ -153,6 +177,9 @@ def exportar_csv(tipo):
          for row in rows:
              writer.writerow([row['id'], row['nome'], row['cargo'], row['telefone'], row['email'], row['salario']])
          filename = "funcionarios.csv"
+    else:
+         writer.writerow(['Filtro de data manual simulado'])
+         filename = f"exportacao_{tipo}.csv"
      
     conn.close()
     output.seek(0)
