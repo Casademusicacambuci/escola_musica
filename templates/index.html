@@ -1,482 +1,410 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Casa de Música Cambucí – Sistema de Gestão</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: #f4f6f9; color: #333; }
+from flask import Flask, render_template, request, redirect, url_for, flash, Response, session
+import sqlite3
+import csv
+import io
+import os
+from werkzeug.utils import secure_filename
+from datetime import datetime
+
+app = Flask(__name__)
+app.secret_key = "chave_secreta_cambuci"
+
+# Configuração de uploads para os comprovantes de endereço
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# --- CONFIGURAÇÃO DO BANCO DE DADOS (TODAS AS TABELAS UNIFICADAS) ---
+def init_db():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    # 1. Tabela de Fornecedores
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS fornecedores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            cnpj TEXT,
+            telefone TEXT,
+            email TEXT,
+            produto_servico TEXT
+        )
+    ''')
+    
+    # 2. Tabela de Funcionários
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS funcionarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            cargo TEXT NOT NULL,
+            telefone TEXT,
+            email TEXT,
+            salario REAL
+        )
+    ''')
+
+    # 3. Tabela de Alunos (Secretaria)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS alunos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            curso_pretendido TEXT,
+            endereco TEXT,
+            telefone TEXT,
+            email TEXT,
+            comprovante_path TEXT
+        )
+    ''')
+
+    # 4. Tabela de Professores (Secretaria)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS professores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            telefone TEXT,
+            email TEXT,
+            curso TEXT,
+            endereco TEXT,
+            comprovante_path TEXT
+        )
+    ''')
+
+    # 5. Tabela de Turmas / Vínculos de Aulas
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS turmas_aulas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            aluno_id INTEGER,
+            professor_id INTEGER,
+            dia_semana TEXT,
+            horario TEXT,
+            valor_hora_aula REAL,
+            FOREIGN KEY(aluno_id) REFERENCES alunos(id),
+            FOREIGN KEY(professor_id) REFERENCES professores(id)
+        )
+    ''')
+
+    # 6. Tabela de Registro de Aulas Realizadas
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS registro_aulas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            turma_id INTEGER,
+            data_execucao TEXT,
+            status TEXT,
+            valor_pago REAL,
+            financeiro_status TEXT,
+            FOREIGN KEY(turma_id) REFERENCES turmas_aulas(id)
+        )
+    ''')
+
+    # 7. Tabela de AGENDAMENTOS DOS ESTÚDIOS (Recuperada e Ativa)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS agendamentos_estudio (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_nome TEXT NOT NULL,
+            tipo_servico TEXT NOT NULL,
+            data TEXT NOT NULL,
+            horario TEXT NOT NULL,
+            status TEXT DEFAULT 'Agendado'
+        )
+    ''')
+
+    # 8. Tabela de Movimentações Financeiras Reais
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS movimentacoes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo TEXT,
+            origem TEXT,
+            descricao TEXT,
+            valor REAL,
+            data TEXT
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def get_db_connection():
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# --- ALTERNAÇÃO DE PERFIL ---
+@app.route('/alternar_usuario/<perfil_selecionado>')
+def alternar_usuario(perfil_selecionado):
+    if perfil_selecionado in ['administrador', 'operador_caixa']:
+        session['perfil'] = perfil_selecionado
+        flash(f"Perfil alterado para {perfil_selecionado.replace('_', ' ').title()}")
+    return redirect(url_for('index'))
+
+# --- ROTA PRINCIPAL ---
+@app.route('/')
+def index():
+    if 'perfil' not in session:
+        session['perfil'] = 'administrador'
         
-        .simulador-login { background: #222; color: #fff; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; flex-wrap: wrap; gap: 10px; }
-        .simulador-login a { color: #5dade2; margin-left: 10px; text-decoration: none; font-weight: bold; }
+    perfil_atual = session['perfil']
+    
+    conn = get_db_connection()
+    fornecedores = conn.execute('SELECT * FROM fornecedores').fetchall()
+    funcionarios = conn.execute('SELECT * FROM funcionarios').fetchall()
+    alunos = conn.execute('SELECT * FROM alunos').fetchall()
+    professores = conn.execute('SELECT * FROM professores').fetchall()
+    
+    # Busca a agenda dos estúdios que estava sumida
+    agendamentos_estudio = conn.execute('SELECT * FROM agendamentos_estudio ORDER BY data ASC, horario ASC').fetchall()
+    
+    # Busca a grade de turmas da secretaria
+    turmas = conn.execute('''
+        SELECT t.id, a.nome AS aluno_nome, p.nome AS professor_nome, t.dia_semana, t.horario, t.valor_hora_aula
+        FROM turmas_aulas t
+        JOIN alunos a ON t.aluno_id = a.id
+        JOIN professores p ON t.professor_id = p.id
+    ''').fetchall()
+
+    # Histórico de aulas dadas
+    aulas_executadas = conn.execute('''
+        SELECT r.id, a.nome AS aluno_nome, p.nome AS professor_nome, r.data_execucao, r.valor_pago, r.financeiro_status
+        FROM registro_aulas r
+        JOIN turmas_aulas t ON r.turma_id = t.id
+        JOIN alunos a ON t.aluno_id = a.id
+        JOIN professores p ON t.professor_id = p.id
+    ''').fetchall()
+
+    # Fluxo de Caixa Global
+    movs = conn.execute('SELECT * FROM movimentacoes ORDER BY id DESC').fetchall()
+    total_entradas = conn.execute("SELECT SUM(valor) FROM movimentacoes WHERE tipo='Entrada'").fetchone()[0] or 0.0
+    total_saidas = conn.execute("SELECT SUM(valor) FROM movimentacoes WHERE tipo='Saída'").fetchone()[0] or 0.0
+    saldo_caixa = total_entradas - total_saidas
+
+    conn.close()
+    
+    return render_template(
+        'index.html', 
+        fornecedores=fornecedores, 
+        funcionarios=funcionarios,
+        alunos=alunos,
+        professores=professores,
+        turmas=turmas,
+        aulas_executadas=aulas_executadas,
+        agendamentos=agendamentos_estudio,  # Reativado aqui!
+        nome_usuario="Deni Miller",
+        perfil=perfil_atual,
+        total_entradas=total_entradas,
+        total_saidas=total_saidas,
+        saldo_caixa=saldo_caixa,
+        movimentacoes=movs
+    )
+
+# ================= SEÇÃO SECRETARIA =================
+
+@app.route('/secretaria/aluno/add', methods=['POST'])
+def add_aluno():
+    nome = request.form['nome']
+    curso = request.form['curso_pretendido']
+    endereco = request.form['endereco']
+    telefone = request.form['telefone']
+    email = request.form['email']
+    
+    filename = ""
+    if 'comprovante' in request.files:
+        file = request.files['comprovante']
+        if file.filename != '':
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+    conn = get_db_connection()
+    conn.execute('''
+        INSERT INTO alunos (nome, curso_pretendido, endereco, telefone, email, comprovante_path)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (nome, curso, endereco, telefone, email, filename))
+    conn.commit()
+    conn.close()
+    flash('Aluno matriculado com sucesso!')
+    return redirect(url_for('index'))
+
+@app.route('/secretaria/professor/add', methods=['POST'])
+def add_professor():
+    nome = request.form['nome']
+    telefone = request.form['telefone']
+    email = request.form['email']
+    curso = request.form['curso']
+    endereco = request.form['endereco']
+    
+    filename = ""
+    if 'comprovante' in request.files:
+        file = request.files['comprovante']
+        if file.filename != '':
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+    conn = get_db_connection()
+    conn.execute('''
+        INSERT INTO professores (nome, telefone, email, curso, endereco, comprovante_path)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (nome, telefone, email, curso, endereco, filename))
+    conn.commit()
+    conn.close()
+    flash('Professor cadastrado com sucesso!')
+    return redirect(url_for('index'))
+
+@app.route('/secretaria/turma/add', methods=['POST'])
+def add_turma():
+    aluno_id = request.form['aluno_id']
+    professor_id = request.form['professor_id']
+    dia_semana = request.form['dia_semana']
+    horario = request.form['horario']
+    valor = request.form['valor_hora_aula']
+    
+    conn = get_db_connection()
+    conn.execute('''
+        INSERT INTO turmas_aulas (aluno_id, professor_id, dia_semana, horario, valor_hora_aula)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (aluno_id, professor_id, dia_semana, horario, valor))
+    conn.commit()
+    conn.close()
+    flash('Aula agendada na grade da Secretaria!')
+    return redirect(url_for('index'))
+
+@app.route('/professor/aula/confirmar/<int:turma_id>', methods=['POST'])
+def confirmar_aula(turma_id):
+    data_hoje = datetime.today().strftime('%Y-%m-%d %H:%M')
+    conn = get_db_connection()
+    turma = conn.execute('''
+        SELECT t.*, p.nome AS prof_nome, a.nome AS aluno_nome FROM turmas_aulas t
+        JOIN professores p ON t.professor_id = p.id
+        JOIN alunos a ON t.aluno_id = a.id WHERE t.id = ?
+    ''', (turma_id,)).fetchone()
+    
+    if turma:
+        valor = turma['valor_hora_aula']
+        desc_financeiro = f"Repasse: Aula Executada - Prof. {turma['prof_nome']} (Aluno: {turma['aluno_nome']})"
         
-        header { background-color: #1a365d; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
-        .logo-area { display: flex; align-items: center; gap: 10px; }
-        .logo-area i { color: #a855f7; font-size: 20px; }
-        .logo-area h1 { font-size: 18px; font-weight: 600; }
+        conn.execute('INSERT INTO registro_aulas (turma_id, data_execucao, status, valor_pago, financeiro_status) VALUES (?, ?, "Executada", ?, "Enviado para o Financeiro")', (turma_id, data_hoje, valor))
+        conn.execute('INSERT INTO movimentacoes (tipo, origem, descricao, valor, data) VALUES ("Saída", "Matrícula / Mensalidade", ?, ?, ?)', (desc_financeiro, valor, data_hoje.split()[0]))
+        conn.commit()
+        flash(f"Aula confirmada! Custo de R$ {valor:.2f} repassado ao Financeiro.")
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/secretaria/professor/exportar/<int:professor_id>')
+def exportar_professor_csv(professor_id):
+    conn = get_db_connection()
+    prof = conn.execute('SELECT nome FROM professores WHERE id = ?', (professor_id,)).fetchone()
+    if not prof:
+        conn.close()
+        return "Professor não encontrado", 404
         
-        .nav-tabs { display: flex; background: #e2e8f0; border-bottom: 1px solid #cbd5e1; overflow-x: auto; white-space: nowrap; }
-        .tab { padding: 12px 20px; font-size: 13px; color: #64748b; text-decoration: none; display: flex; align-items: center; gap: 8px; border-right: 1px solid #cbd5e1; font-weight: 500; cursor: pointer; transition: all 0.2s; }
-        .tab:hover { background: #f1f5f9; }
-        .tab.active { background: white; color: #1a365d; font-weight: bold; border-bottom: 2px solid #1a365d; }
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([f"Extrato de Aulas - Prof. {prof['nome']}"])
+    writer.writerow(['ID', 'Aluno', 'Data Executada', 'Valor Repasse', 'Status'])
+    
+    rows = conn.execute('SELECT r.id, a.nome AS aluno_nome, r.data_execucao, r.valor_pago, r.financeiro_status FROM registro_aulas r JOIN turmas_aulas t ON r.turma_id = t.id JOIN alunos a ON t.aluno_id = a.id WHERE t.professor_id = ?', (professor_id,)).fetchall()
+    
+    total = 0.0
+    for row in rows:
+        writer.writerow([row['id'], row['aluno_nome'], row['data_execucao'], f"R$ {row['valor_pago']:.2f}", row['financeiro_status']])
+        total += row['valor_pago']
+    writer.writerow(['', '', 'TOTAL A PAGAR:', f"R$ {total:.2f}"])
+    conn.close()
+    output.seek(0)
+    return Response(output, mimetype="text/csv", headers={"Content-disposition": f"attachment; filename=extrato_{secure_filename(prof['nome'])}.csv"})
+
+# ================= MÓDULO AGENDAS DOS ESTÚDIOS (RECUPERADO E INTEGRADO) =================
+
+@app.route('/agendar_studio', methods=['POST'])
+def agendar_studio():
+    cliente = request.form['cliente_nome']
+    tipo = request.form['tipo_servico']
+    data = request.form['data']
+    horario = request.form['horario']
+    
+    conn = get_db_connection()
+    # Validação contra agendamentos duplicados no mesmo dia e horário
+    conflito = conn.execute('SELECT * FROM agendamentos_estudio WHERE data = ? AND horario = ? AND status != "Cancelado"', (data, horario)).fetchone()
+    
+    if conflito:
+        conn.close()
+        flash('⚠️ Erro: Este horário já está reservado no estúdio! Escolha outro período.')
+        return redirect(url_for('index'))
         
-        .flash-messages { max-width: 1400px; margin: 10px auto; padding: 0 15px; }
-        .alert { padding: 10px; background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; border-radius: 4px; font-size: 13px; margin-bottom: 5px; }
+    conn.execute('INSERT INTO agendamentos_estudio (cliente_nome, tipo_servico, data, horario) VALUES (?, ?, ?, ?)', (cliente, tipo, data, horario))
+    conn.commit()
+    conn.close()
+    flash('Sucesso: Horário reservado no estúdio!')
+    return redirect(url_for('index'))
 
-        .container { max-width: 1400px; margin: 20px auto; padding: 0 15px; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        
-        .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 20px; }
-        .card { padding: 20px; border-radius: 6px; color: white; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .card-entradas { background-color: #2ec4b6; }
-        .card-saidas { background-color: #e71d36; }
-        .card-saldo { background-color: #e71d36; }
-        .card-saldo.positivo { background-color: #2a9d8f; }
-        .card span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; }
-        .card h2 { font-size: 24px; font-weight: bold; }
-        
-        .actions-bar { background: white; padding: 12px 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); margin-bottom: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
-        .actions-bar span { font-size: 13px; font-weight: bold; color: #475569; }
-        .btn-csv { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; color: white; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 500; border:none;}
-        .btn-dia { background-color: #228b22; }
-        .btn-mes { background-color: #1f4068; }
-        
-        .main-layout { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; margin-bottom: 30px;}
-        @media(max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
-        
-        .panel { background: white; padding: 20px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); border-top: 4px solid #2ec4b6; margin-bottom: 20px; }
-        .panel.extrato { border-top-color: #cbd5e1; }
-        .panel.agenda-cor { border-top-color: #a855f7; }
-        .panel.admin-cor { border-top-color: #1a365d; }
-        .panel.rh-cor { border-top-color: #e28743; }
-        .panel h3 { font-size: 16px; color: #1a365d; margin-bottom: 15px; font-weight: 600; }
-        
-        .form-group { margin-bottom: 12px; }
-        .form-group label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 5px; }
-        .form-control { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; background-color: #f8fafc; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn-submit { width: 100%; background-color: #2ec4b6; color: white; padding: 12px; border: none; border-radius: 4px; font-weight: bold; font-size: 14px; cursor: pointer; margin-top: 10px; transition: background 0.2s; }
-        .btn-submit:hover { background-color: #23a89b; }
-        .btn-agenda { background-color: #a855f7; }
-        .btn-admin { background-color: #1a365d; }
-        .btn-rh { background-color: #e28743; }
-        
-        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
-        th { background-color: #f8fafc; padding: 12px 10px; color: #64748b; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
-        td { padding: 12px 10px; border-bottom: 1px solid #edf2f7; color: #334155; }
-        .empty-row { text-align: center; color: #94a3b8; padding: 30px; }
-        .badge-entrada { color: #2ec4b6; font-weight: bold; }
-        .badge-saida { color: #e71d36; font-weight: bold; }
-        .btn-delete { color: #e71d36; text-decoration: none; margin-left: 5px; }
-        
-        .tela-espera { text-align: center; padding: 60px 20px; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
-        .tela-espera i { font-size: 48px; color: #cbd5e1; margin-bottom: 15px; }
-    </style>
-</head>
-<body>
+@app.route('/atualizar_status_studio/<int:id>', methods=['POST'])
+def atualizar_status_studio(id):
+    novo_status = request.form['status']
+    conn = get_db_connection()
+    conn.execute('UPDATE agendamentos_estudio SET status = ? WHERE id = ?', (novo_status, id))
+    conn.commit()
+    conn.close()
+    flash('Status do estúdio atualizado!')
+    return redirect(url_for('index'))
 
-    <div class="simulador-login">
-        <div><i class="fa-solid fa-user-shield"></i> Logado como: <strong>{{ nome_usuario }}</strong> (Perfil: <code>{{ perfil }}</code>)</div>
-        <div>
-            Simular acesso: 
-            <a href="/alternar_usuario/operador_caixa">Operador de Caixa</a> |
-            <a href="/alternar_usuario/administrador">Administrador / Financeiro</a>
-        </div>
-    </div>
+# ================= FINANCEIRO E OUTROS =================
 
-    <header>
-        <div class="logo-area">
-            <i class="fa-solid fa-music"></i>
-            <h1>Casa de Música Cambucí – Sistema de Gestão</h1>
-        </div>
-    </header>
+@app.route('/lancar', methods=['POST'])
+def lancar():
+    tipo = request.form['tipo']
+    origem = request.form['origem']
+    descricao = request.form['descricao']
+    valor = float(request.form['valor'])
+    data = request.form['data_competencia'] or datetime.today().strftime('%Y-%m-%d')
+    
+    conn = get_db_connection()
+    conn.execute('INSERT INTO movimentacoes (tipo, origem, descricao, valor, data) VALUES (?, ?, ?, ?, ?)', (tipo, origem, descricao, valor, data))
+    conn.commit()
+    conn.close()
+    flash('Movimentação financeira registrada!')
+    return redirect(url_for('index'))
 
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div class="flash-messages">
-          {% for message in messages %}
-            <div class="alert">{{ message }}</div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
+@app.route('/excluir/<int:id>')
+def excluir_movimentacao(id):
+    conn = get_db_connection()
+    conn.execute('DELETE FROM movimentacoes WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    flash('Lançamento excluído!')
+    return redirect(url_for('index'))
 
-    <div class="nav-tabs">
-        <a class="tab active" id="tab-secretaria" onclick="alternarAba('secretaria')"><i class="fa-solid fa-users"></i> Secretaria</a>       
-        <a class="tab" id="tab-agenda" onclick="alternarAba('agenda')"><i class="fa-solid fa-calendar-days"></i> Agendas dos Estúdios</a>        
-        <a class="tab" id="tab-loja" onclick="alternarAba('loja')"><i class="fa-solid fa-guitar"></i> Loja & Acessórios</a>        
-        <a class="tab" id="tab-financeiro" onclick="alternarAba('financeiro')"><i class="fa-solid fa-sack-dollar"></i> Caixa & Financeiro</a>
-        {% if perfil == 'administrador' %}
-            <a class="tab" id="tab-admin" onclick="alternarAba('admin')"><i class="fa-solid fa-user-gear"></i> Perfil Administrador</a>
-            <a class="tab" id="tab-rh" onclick="alternarAba('rh')"><i class="fa-solid fa-id-card"></i> RH</a>
-        {% endif %}
-    </div>
+@app.route('/admin/fornecedor/add', methods=['POST'])
+def add_fornecedor():
+    conn = get_db_connection()
+    conn.execute('INSERT INTO fornecedores (nome, cnpj, telefone, email, produto_servico) VALUES (?, ?, ?, ?, ?)',
+                 (request.form['nome'], request.form['cnpj'], request.form['telefone'], request.form['email'], request.form['produto_servico']))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
 
-    <div class="container">
+@app.route('/admin/fornecedor/delete/<int:id>')
+def delete_fornecedor(id):
+    conn = get_db_connection()
+    conn.execute('DELETE FROM fornecedores WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
 
-        <!-- ================= MÓDULO SECRETARIA COMPLETADO ================= -->
-        <div id="conteudo-secretaria" class="tab-content active">
-            
-            <!-- Linha 1: Cadastro de Alunos e Lista de Alunos -->
-            <div class="main-layout">
-                <div class="panel">
-                    <h3>Matricular Novo Aluno</h3>
-                    <form action="/secretaria/aluno/add" method="POST" enctype="multipart/form-data">
-                        <div class="form-group"><label>Nome Completo</label><input type="text" name="nome" class="form-control" required></div>
-                        <div class="form-group"><label>Curso Pretendido (Livre)</label><input type="text" name="curso_pretendido" class="form-control" placeholder="Ex: Violão de Nylon MPB, Canto, Piano" required></div>
-                        <div class="form-group"><label>Endereço Completo</label><input type="text" name="endereco" class="form-control" required></div>
-                        <div class="form-row">
-                            <div class="form-group"><label>Telefone</label><input type="text" name="telefone" class="form-control" required></div>
-                            <div class="form-group"><label>E-mail</label><input type="email" name="email" class="form-control" required></div>
-                        </div>
-                        <div class="form-group"><label>Anexar Comprovante de Endereço</label><input type="file" name="comprovante" class="form-control"></div>
-                        <button type="submit" class="btn-submit">Salvar Matrícula</button>
-                    </form>
-                </div>
-                <div class="panel extrato">
-                    <h3>Alunos Matriculados</h3>
-                    <div style="overflow-x:auto;">
-                        <table>
-                            <thead><tr><th>ID</th><th>Nome / Curso</th><th>Contato</th><th>Endereço / Docs</th></tr></thead>
-                            <tbody>
-                                {% if alunos %}
-                                    {% for al in alunos %}
-                                    <tr>
-                                        <td>{{ al.id }}</td>
-                                        <td><strong>{{ al.nome }}</strong><br><small style="color:#a855f7;">Curso: {{ al.curso_pretendido }}</small></td>
-                                        <td>{{ al.telefone }}<br><small>{{ al.email }}</small></td>
-                                        <td>{{ al.endereco }} <br> {% if al.comprovante_path %}<small style="color:green;"><i class="fa-solid fa-file-pdf"></i> Anexo salvo</small>{% else %}<small style="color:red;">Sem comprovante</small>{% endif %}</td>
-                                    </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr><td colspan="4" class="empty-row">Nenhum aluno matriculado.</td></tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+@app.route('/rh/funcionario/add', methods=['POST'])
+def add_funcionario():
+    conn = get_db_connection()
+    conn.execute('INSERT INTO funcionarios (nome, cargo, telefone, email, salario) VALUES (?, ?, ?, ?, ?)',
+                 (request.form['nome'], request.form['cargo'], request.form['telefone'], request.form['email'], request.form['salario']))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
 
-            <!-- Linha 2: Cadastro de Professores e Lista de Professores -->
-            <div class="main-layout">
-                <div class="panel rh-cor">
-                    <h3>Cadastrar Professor / Instrutor</h3>
-                    <form action="/secretaria/professor/add" method="POST" enctype="multipart/form-data">
-                        <div class="form-group"><label>Nome Completo</label><input type="text" name="nome" class="form-control" required></div>
-                        <div class="form-group"><label>Especialidade / Curso</label><input type="text" name="curso" class="form-control" required></div>
-                        <div class="form-group"><label>Endereço Completo</label><input type="text" name="endereco" class="form-control" required></div>
-                        <div class="form-row">
-                            <div class="form-group"><label>Telefone</label><input type="text" name="telefone" class="form-control" required></div>
-                            <div class="form-group"><label>E-mail</label><input type="email" name="email" class="form-control" required></div>
-                        </div>
-                        <div class="form-group"><label>Anexar Comprovante de Endereço</label><input type="file" name="comprovante" class="form-control"></div>
-                        <button type="submit" class="btn-submit btn-rh">Salvar Professor</button>
-                    </form>
-                </div>
-                <div class="panel extrato rh-cor">
-                    <h3>Quadro Docente e Fechamento Mensal</h3>
-                    <div style="overflow-x:auto;">
-                        <table>
-                            <thead><tr><th>Professor</th><th>Curso</th><th>Endereço</th><th>Planilha de Pagamento</th></tr></thead>
-                            <tbody>
-                                {% if professores %}
-                                    {% for pr in professores %}
-                                    <tr>
-                                        <td><strong>{{ pr.nome }}</strong><br><small>{{ pr.telefone }}</small></td>
-                                        <td>{{ pr.curso }}</td>
-                                        <td>{{ pr.endereco }}</td>
-                                        <td>
-                                            <a href="/secretaria/professor/exportar/{{ pr.id }}" class="btn-csv btn-dia" style="padding:4px 8px; font-size:11px;"><i class="fa-solid fa-download"></i> Baixar Planilha (.CSV)</a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr><td colspan="4" class="empty-row">Nenhum professor cadastrado.</td></tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+@app.route('/rh/funcionario/delete/<int:id>')
+def delete_funcionario(id):
+    conn = get_db_connection()
+    conn.execute('DELETE FROM funcionarios WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
 
-            <!-- Linha 3: Integração de Agenda (Vincular Aluno e Professor) e Validação de Aula Dada -->
-            <div class="main-layout">
-                <div class="panel agenda-cor">
-                    <h3>Vincular Agenda (Turmas / Aulas)</h3>
-                    <form action="/secretaria/turma/add" method="POST">
-                        <div class="form-group">
-                            <label>Selecione o Aluno</label>
-                            <select name="aluno_id" class="form-control">
-                                {% for al in alunos %}<option value="{{ al.id }}">{{ al.nome }} ({{ al.curso_pretendido }})</option>{% endfor %}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Selecione o Professor</label>
-                            <select name="professor_id" class="form-control">
-                                {% for pr in professores %}<option value="{{ pr.id }}">{{ pr.nome }} - {{ pr.curso }}</option>{% endfor %}
-                            </select>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Dia da Semana</label>
-                                <select name="dia_semana" class="form-control">
-                                    <option value="Segunda-feira">Segunda-feira</option><option value="Terça-feira">Terça-feira</option>
-                                    <option value="Quarta-feira">Quarta-feira</option><option value="Quinta-feira">Quinta-feira</option>
-                                    <option value="Sexta-feira">Sexta-feira</option><option value="Sábado">Sábado</option>
-                                </select>
-                            </div>
-                            <div class="form-group"><label>Horário</label><input type="time" name="horario" class="form-control" required></div>
-                        </div>
-                        <div class="form-group"><label>Custo Repasse Professor por Aula (R$)</label><input type="number" name="valor_hora_aula" step="0.01" class="form-control" required placeholder="0.00"></div>
-                        <button type="submit" class="btn-submit btn-agenda">Criar Vínculo de Aula</button>
-                    </form>
-                </div>
-
-                <!-- Painel do Professor: Confirmação e Integração com Financeiro -->
-                <div class="panel extrato agenda-cor">
-                    <h3>Painel do Professor (Confirmação de Aula em Tempo Real)</h3>
-                    <div style="overflow-x:auto;">
-                        <table>
-                            <thead><tr><th>Grade de Horários</th><th>Aluno</th><th>Professor</th><th>Valor Aula</th><th>Ação</th></tr></thead>
-                            <tbody>
-                                {% if turmas %}
-                                    {% for tm in turmas %}
-                                    <tr>
-                                        <td>{{ tm.dia_semana }} às {{ tm.horario }}</td>
-                                        <td><strong>{{ tm.aluno_nome }}</strong></td>
-                                        <td>{{ tm.professor_nome }}</td>
-                                        <td>R$ {{ "%.2f"|format(tm.valor_hora_aula) }}</td>
-                                        <td>
-                                            <form action="/professor/aula/confirmar/{{ tm.id }}" method="POST">
-                                                <button type="submit" class="btn-submit" style="margin:0; padding:4px 8px; font-size:11px; width:auto; background-color:#2a9d8f;"><i class="fa-solid fa-circle-check"></i> Confirmar Executada</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr><td colspan="5" class="empty-row">Nenhum horário de aula estruturado.</td></tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <h3 style="margin-top: 25px;">Aulas Confirmadas & Enviadas ao Financeiro (Mês Atual)</h3>
-                    <div style="overflow-x:auto;">
-                        <table>
-                            <thead><tr><th>Data Confirmação</th><th>Aluno</th><th>Professor</th><th>Valor</th><th>Status Integração</th></tr></thead>
-                            <tbody>
-                                {% if aulas_executadas %}
-                                    {% for ae in aulas_executadas %}
-                                    <tr>
-                                        <td>{{ ae.data_execucao }}</td>
-                                        <td>{{ ae.aluno_nome }}</td>
-                                        <td><strong>{{ ae.professor_nome }}</strong></td>
-                                        <td>R$ {{ "%.2f"|format(ae.valor_pago) }}</td>
-                                        <td><span style="background-color:#d1fae5; color:#059669; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:bold;">{{ ae.financeiro_status }}</span></td>
-                                    </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr><td colspan="5" class="empty-row">Nenhuma aula registrada como executada ainda.</td></tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- MÓDULO ESTÚDIOS -->
-        <div id="conteudo-agenda" class="tab-content">
-            <div class="tela-espera">
-                <i class="fa-solid fa-calendar-days"></i>
-                <h3>Agendas dos Estúdios</h3>
-                <p>Módulo em espera para próxima etapa de desenvolvimento.</p>
-            </div>
-        </div>
-
-        <!-- MÓDULO LOJA -->
-        <div id="conteudo-loja" class="tab-content">
-            <div class="tela-espera">
-                <i class="fa-solid fa-store"></i>
-                <h3>Módulo de Loja – Acessórios e Instrumentos</h3>
-                <p>Aqui ficará o controle do estoque de palhetas, encordoamentos, cabos e instrumentos sob encomenda.</p>
-            </div>
-        </div>
-
-        <!-- MÓDULO FINANCEIRO -->
-        <div id="conteudo-financeiro" class="tab-content">
-            <div class="grid-cards">
-                <div class="card card-entradas">
-                    <span><i class="fa-solid fa-circle-arrow-up"></i> Total Entradas</span>
-                    <h2>R$ {{ "%.2f"|format(total_entradas) }}</h2>
-                </div>
-                <div class="card card-saidas">
-                    <span><i class="fa-solid fa-circle-arrow-down"></i> Total Saídas</span>
-                    <h2>R$ {{ "%.2f"|format(total_saidas) }}</h2>
-                </div>
-                <div class="card card-saldo {% if saldo_caixa >= 0 %}positivo{% endif %}">
-                    <span><i class="fa-solid fa-wallet"></i> Saldo de Caixa {% if perfil == 'operador_caixa' %}(Hoje){% else %}(Geral){% endif %}</span>
-                    <h2>R$ {{ "%.2f"|format(saldo_caixa) }}</h2>
-                </div>
-            </div>
-
-            <div class="main-layout">
-                <div class="panel">
-                    <h3>Lançar Fluxo Manual (Caixa / Despesas)</h3>
-                    <form action="/lancar" method="POST">
-                        <div class="form-group">
-                            <label>Tipo de Operação</label>
-                            <select name="tipo" class="form-control">
-                                <option value="Entrada">++ Entrada (Receita / Lanchonete / Matrícula)</option>
-                                <option value="Saída">-- Saída (Despesa / Pagamento / Manutenção)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Origem do Fluxo</label>
-                            <select name="origem" class="form-control">
-                                <option value="Lanchonete / Café">☕ Lanchonete / Café</option>
-                                <option value="Matrícula / Mensalidade">🎵 Matrícula / Mensalidade</option>
-                                <option value="Acessórios e Instrumentos">🎸 Acessórios e Instrumentos</option>
-                                <option value="Limpeza / Consumo">🧹 Limpeza / Consumo</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>Descrição detalhada</label><input type="text" name="descricao" class="form-control" placeholder="Ex: Compra de pó de café e água" required></div>
-                        <div class="form-row">
-                            <div class="form-group"><label>Valor (R$)</label><input type="number" name="valor" step="0.01" class="form-control" placeholder="0.00" required></div>
-                            <div class="form-group"><label>Data Competência</label><input type="date" name="data_competencia" class="form-control"></div>
-                        </div>
-                        <button type="submit" class="btn-submit">Efetuar Lançamento</button>
-                    </form>
-                </div>
-
-                <div class="panel extrato">
-                    <h3>Extrato Geral de Movimentações {% if perfil == 'operador_caixa' %}(Apenas Hoje){% endif %}</h3>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr><th>Data</th><th>Tipo</th><th>Origem</th><th>Descrição</th><th>Valor</th>{% if perfil == 'administrador' %}<th>Ações</th>{% endif %}</tr>
-                            </thead>
-                            <tbody>
-                                {% if movimentacoes %}
-                                    {% for m in movimentacoes %}
-                                    <tr>
-                                        <td>{{ m.data }}</td>
-                                        <td>
-                                            {% if m.tipo == 'Entrada' %}<span class="badge-entrada">Entrada</span>
-                                            {% else %}<span class="badge-saida">Saída</span>{% endif %}
-                                        </td>
-                                        <td>{{ m.origem }}</td>
-                                        <td>{{ m.descricao }}</td>
-                                        <td>R$ {{ "%.2f"|format(m.valor) }}</td>
-                                        {% if perfil == 'administrador' %}
-                                        <td>
-                                            <a href="/excluir/{{ m.id }}" class="btn-delete" onclick="return confirm('Excluir este lançamento?')"><i class="fa-solid fa-trash-can"></i></a>
-                                        </td>
-                                        {% endif %}
-                                    </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr><td colspan="6" class="empty-row">Nenhuma movimentação financeira registrada.</td></tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- MÓDULO PERFIL ADMINISTRADOR -->
-        {% if perfil == 'administrador' %}
-        <div id="conteudo-admin" class="tab-content">
-            <div class="main-layout">
-                <div class="panel admin-cor">
-                    <h3>Cadastrar Novo Fornecedor</h3>
-                    <form action="/admin/fornecedor/add" method="POST">
-                        <div class="form-group"><label>Nome do Fornecedor</label><input type="text" name="nome" class="form-control" required></div>
-                        <div class="form-group"><label>CNPJ</label><input type="text" name="cnpj" class="form-control"></div>
-                        <button type="submit" class="btn-submit btn-admin">Salvar Fornecedor</button>
-                    </form>
-                </div>
-                <div class="panel extrato admin-cor">
-                    <h3>Fornecedores Armazenados</h3>
-                    <table>
-                        <thead><tr><th>Nome</th><th>Produto/Serviço</th><th>Ações</th></tr></thead>
-                        <tbody>
-                            {% if fornecedores %}
-                                {% for f in fornecedores %}
-                                <tr><td><strong>{{ f.nome }}</strong></td><td>{{ f.produto_servico }}</td><td><a href="/admin/fornecedor/delete/{{ f.id }}" class="btn-delete"><i class="fa-solid fa-trash"></i></a></td></tr>
-                                {% endfor %}
-                            {% else %}
-                                <tr><td colspan="3" class="empty-row">Nenhum fornecedor.</td></tr>
-                            {% endif %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- MÓDULO RH GENERALIZADO -->
-        <div id="conteudo-rh" class="tab-content">
-            <div class="main-layout">
-                <div class="panel rh-cor">
-                    <h3>Registrar Funcionário / Equipe</h3>
-                    <form action="/rh/funcionario/add" method="POST">
-                        <div class="form-group"><label>Nome Completo</label><input type="text" name="nome" class="form-control" required></div>
-                        <div class="form-group"><label>Cargo</label><input type="text" name="cargo" class="form-control" required></div>
-                        <button type="submit" class="btn-submit btn-rh">Salvar Funcionário</button>
-                    </form>
-                </div>
-                <div class="panel extrato rh-cor">
-                    <h3>Quadro de Equipe Técnica</h3>
-                    <table>
-                        <thead><tr><th>Nome</th><th>Cargo</th><th>Ações</th></tr></thead>
-                        <tbody>
-                            {% if funcionarios %}
-                                {% for func in funcionarios %}
-                                <tr><td><strong>{{ func.nome }}</strong></td><td>{{ func.cargo }}</td><td><a href="/rh/funcionario/delete/{{ func.id }}" class="btn-delete"><i class="fa-solid fa-trash"></i></a></td></tr>
-                                {% endfor %}
-                            {% else %}
-                                <tr><td colspan="3" class="empty-row">Nenhum funcionário de equipe cadastrado.</td></tr>
-                            {% endif %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-    </div>
-
-    <script>
-        const perfilUsuario = "{{ perfil }}";
-
-        function alternarAba(idAba) {
-            if (perfilUsuario === "operador_caixa" && idAba !== "financeiro") {
-                alert("Acesso Restrito: Seu perfil de Operador de Caixa possui permissão de acesso apenas para o módulo Financeiro.");
-                return;
-            }
-
-            const abas = document.querySelectorAll('.tab');
-            abas.forEach(aba => aba.classList.remove('active'));
-
-            const conteudos = document.querySelectorAll('.tab-content');
-            conteudos.forEach(conteudo => conteudo.classList.remove('active'));
-
-            const elementoAba = document.getElementById('tab-' + idAba);
-            if(elementoAba) elementoAba.classList.add('active');
-            
-            const elementoConteudo = document.getElementById('conteudo-' + idAba);
-            if(elementoConteudo) elementoConteudo.classList.add('active');
-        }
-
-        window.onload = function() {
-            if (perfilUsuario === "operador_caixa") {
-                alternarAba('financeiro');
-            }
-        };
-    </script>
-</body>
-</html>
+if __name__ == '__main__':
+    app.run(debug=True)
