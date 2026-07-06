@@ -152,7 +152,7 @@ def index():
     alunos = conn.execute('SELECT * FROM alunos').fetchall()
     professores = conn.execute('SELECT * FROM professores').fetchall()
     
-    # Busca a agenda dos estúdios que estava sumida
+    # Busca a agenda dos estúdios
     agendamentos_estudio = conn.execute('SELECT * FROM agendamentos_estudio ORDER BY data ASC, horario ASC').fetchall()
     
     # Busca a grade de turmas da secretaria
@@ -188,7 +188,7 @@ def index():
         professores=professores,
         turmas=turmas,
         aulas_executadas=aulas_executadas,
-        agendamentos=agendamentos_estudio,  # Reativado aqui!
+        agendamentos=agendamentos_estudio,
         nome_usuario="Deni Miller",
         perfil=perfil_atual,
         total_entradas=total_entradas,
@@ -312,7 +312,7 @@ def exportar_professor_csv(professor_id):
     output.seek(0)
     return Response(output, mimetype="text/csv", headers={"Content-disposition": f"attachment; filename=extrato_{secure_filename(prof['nome'])}.csv"})
 
-# ================= MÓDULO AGENDAS DOS ESTÚDIOS (RECUPERADO E INTEGRADO) =================
+# ================= MÓDULO AGENDAS DOS ESTÚDIOS =================
 
 @app.route('/agendar_studio', methods=['POST'])
 def agendar_studio():
@@ -322,7 +322,6 @@ def agendar_studio():
     horario = request.form['horario']
     
     conn = get_db_connection()
-    # Validação contra agendamentos duplicados no mesmo dia e horário
     conflito = conn.execute('SELECT * FROM agendamentos_estudio WHERE data = ? AND horario = ? AND status != "Cancelado"', (data, horario)).fetchone()
     
     if conflito:
