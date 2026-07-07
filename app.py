@@ -14,7 +14,7 @@ UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'upload
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# --- CONFIGURAÇÃO DO BANCO DE DADOS (TODAS AS TABELAS RESTAURADAS) ---
+# --- CONFIGURAÇÃO DO BANCO DE DADOS (INTEGRAL DO SEU ARQUIVO) ---
 def init_db():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -96,7 +96,7 @@ def init_db():
         )
     ''')
 
-    # 7. Tabela de Agendamentos de Estúdio (Com envio ao Financeiro)
+    # 7. Tabela de AGENDAMENTOS DOS ESTÚDIOS (Exatamente como no seu bloco de notas)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS agendamentos_estudio (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,7 +104,6 @@ def init_db():
             tipo_servico TEXT NOT NULL,
             data TEXT NOT NULL,
             horario TEXT NOT NULL,
-            valor_servico REAL DEFAULT 0.0,
             status TEXT DEFAULT 'Agendado'
         )
     ''')
@@ -136,10 +135,10 @@ def get_db_connection():
 def alternar_usuario(perfil_selecionado):
     if perfil_selecionado in ['administrador', 'operador_caixa']:
         session['perfil'] = perfil_selecionado
-        flash(f"Perfil altered para {perfil_selecionado.replace('_', ' ').title()}")
+        flash(f"Perfil alterado para {perfil_selecionado.replace('_', ' ').title()}")
     return redirect(url_for('index'))
 
-# --- ROTA PRINCIPAL DO SISTEMA APONTANDO PARA O SEU INDEX.HTML ---
+# --- ROTA PRINCIPAL COMPATÍVEL COM INDEX.HTML E ADMIN ---
 @app.route('/admin')
 @app.route('/')
 def index():
@@ -155,7 +154,6 @@ def index():
     professores = conn.execute('SELECT * FROM professores').fetchall()
     agendamentos_estudio = conn.execute('SELECT * FROM agendamentos_estudio ORDER BY data ASC, horario ASC').fetchall()
     
-    # Grade de horários/turmas da secretaria
     turmas = conn.execute('''
         SELECT t.id, a.nome AS aluno_nome, p.nome AS professor_nome, t.dia_semana, t.horario, t.valor_hora_aula
         FROM turmas_aulas t
@@ -163,7 +161,6 @@ def index():
         JOIN professores p ON t.professor_id = p.id
     ''').fetchall()
 
-    # Histórico de aulas concluídas
     aulas_executadas = conn.execute('''
         SELECT r.id, a.nome AS aluno_nome, p.nome AS professor_nome, r.data_execucao, r.valor_pago, r.financeiro_status
         FROM registro_aulas r
@@ -172,15 +169,12 @@ def index():
         JOIN professores p ON t.professor_id = p.id
     ''').fetchall()
 
-    # Fluxo de Caixa Global
     movs = conn.execute('SELECT * FROM movimentacoes ORDER BY id DESC').fetchall()
     total_entradas = conn.execute("SELECT SUM(valor) FROM movimentacoes WHERE tipo='Entrada'").fetchone()[0] or 0.0
     total_saidas = conn.execute("SELECT SUM(valor) FROM movimentacoes WHERE tipo='Saída'").fetchone()[0] or 0.0
     saldo_caixa = total_entradas - total_saidas
-
     conn.close()
     
-    # Redireciona para o seu arquivo index.html original
     return render_template(
         'index.html', 
         fornecedores=fornecedores, 
@@ -198,54 +192,8 @@ def index():
         movimentacoes=movs
     )
 
-# --- MÓDULO ESTÚDIOS: ENVIO AUTOMÁTICO AO FINANCEIRO ---
-@app.route('/agendar_studio', methods=['POST'])
-def agendar_studio():
-    cliente = request.form['cliente_nome']
-    tipo = request.form['tipo_servico']
-    data = request.form['data']
-    horario = request.form['horario']
-    valor = float(request.form.get('valor_servico', 0.0))
-    
-    conn = get_db_connection()
-    conflito = conn.execute('SELECT * FROM agendamentos_estudio WHERE data = ? AND horario = ? AND status != "Cancelado"', (data, horario)).fetchone()
-    
-    if conflito:
-        conn.close()
-        flash('⚠️ Erro: Este horário já está reservado no estúdio! Escolha outro período.')
-        return redirect(url_for('index'))
-        
-    conn.execute('INSERT INTO agendamentos_estudio (cliente_nome, tipo_servico, data, horario, valor_servico) VALUES (?, ?, ?, ?, ?)', (cliente, tipo, data, horario, valor))
-    conn.commit()
-    conn.close()
-    flash('Sucesso: Horário reservado no estúdio!')
-    return redirect(url_for('index'))
+# ================= SEÇÃO SECRETARIA =================
 
-@app.route('/atualizar_status_studio/<int:id>', methods=['POST'])
-def atualizar_status_studio(id):
-    novo_status = request.form['status']
-    data_hoje = datetime.today().strftime('%Y-%m-%d')
-    
-    conn = get_db_connection()
-    agendamento = conn.execute('SELECT * FROM agendamentos_estudio WHERE id = ?', (id,)).fetchone()
-    
-    if agendamento:
-        conn.execute('UPDATE agendamentos_estudio SET status = ? WHERE id = ?', (novo_status, id))
-        
-        # Regra do estúdio para o financeiro
-        if novo_status == 'Concluído' and agendamento['valor_servico'] > 0:
-            descricao_fin = f"Faturamento Estúdio: {agendamento['tipo_servico']} - {agendamento['cliente_nome']}"
-            conn.execute('INSERT INTO movimentacoes (tipo, origem, descricao, valor, data) VALUES ("Entrada", "Reserva de Estúdio", ?, ?, ?)',
-                         (descricao_fin, agendamento['valor_servico'], data_hoje))
-            flash(f'Status atualizado! Receita de R$ {agendamento["valor_servico"]:.2f} enviada ao Financeiro.')
-        else:
-            flash('Status do estúdio atualizado!')
-            
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-# --- MÓDULO SECRETARIA E REPASSES ---
 @app.route('/secretaria/aluno/add', methods=['POST'])
 def add_aluno():
     nome = request.form['nome']
@@ -335,7 +283,82 @@ def confirmar_aula(turma_id):
     conn.close()
     return redirect(url_for('index'))
 
-# --- FINANCEIRO MANUAL E EXCLUSÕES ---
+@app.route('/secretaria/professor/exportar/<int:professor_id>')
+def exportar_professor_csv(professor_id):
+    conn = get_db_connection()
+    prof = conn.execute('SELECT nome FROM professores WHERE id = ?', (professor_id,)).fetchone()
+    if not prof:
+        conn.close()
+        return "Professor não encontrado", 404
+        
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([f"Extrato de Aulas - Prof. {prof['nome']}"])
+    writer.writerow(['ID', 'Aluno', 'Data Executada', 'Valor Repasse', 'Status'])
+    
+    rows = conn.execute('SELECT r.id, a.nome AS aluno_nome, r.data_execucao, r.valor_pago, r.financeiro_status FROM registro_aulas r JOIN turmas_aulas t ON r.turma_id = t.id JOIN alunos a ON t.aluno_id = a.id WHERE t.professor_id = ?', (professor_id,)).fetchall()
+    
+    total = 0.0
+    for row in rows:
+        writer.writerow([row['id'], row['aluno_nome'], row['data_execucao'], f"R$ {row['valor_pago']:.2f}", row['financeiro_status']])
+        total += row['valor_pago']
+    writer.writerow(['', '', 'TOTAL A PAGAR:', f"R$ {total:.2f}"])
+    conn.close()
+    output.seek(0)
+    return Response(output, mimetype="text/csv", headers={"Content-disposition": f"attachment; filename=extrato_{secure_filename(prof['nome'])}.csv"})
+
+# ================= MÓDULO AGENDAS DOS ESTÚDIOS =================
+
+@app.route('/agendar_studio', methods=['POST'])
+def agendar_studio():
+    cliente = request.form['cliente_nome']
+    tipo = request.form['tipo_servico']
+    data = request.form['data']
+    horario = request.form['horario']
+    
+    conn = get_db_connection()
+    conflito = conn.execute('SELECT * FROM agendamentos_estudio WHERE data = ? AND horario = ? AND status != "Cancelado"', (data, horario)).fetchone()
+    
+    if conflito:
+        conn.close()
+        flash('⚠️ Erro: Este horário já está reservado no estúdio! Escolha outro período.')
+        return redirect(url_for('index'))
+        
+    conn.execute('INSERT INTO agendamentos_estudio (cliente_nome, tipo_servico, data, horario) VALUES (?, ?, ?, ?)', (cliente, tipo, data, horario))
+    conn.commit()
+    conn.close()
+    flash('Sucesso: Horário reservado no estúdio!')
+    return redirect(url_for('index'))
+
+@app.route('/atualizar_status_studio/<int:id>', methods=['POST'])
+def atualizar_status_studio(id):
+    novo_status = request.form['status']
+    data_hoje = datetime.today().strftime('%Y-%m-%d')
+    
+    conn = get_db_connection()
+    agendamento = conn.execute('SELECT * FROM agendamentos_estudio WHERE id = ?', (id,)).fetchone()
+    
+    if agendamento:
+        conn.execute('UPDATE agendamentos_estudio SET status = ? WHERE id = ?', (novo_status, id))
+        
+        # INTEGRAÇÃO COM O FINANCEIRO: Se concluído, capta o valor enviado pelo formulário ou lança a entrada
+        if novo_status == 'Concluído':
+            valor_informado = request.form.get('valor_servico')
+            valor = float(valor_informado) if valor_informado else 0.0
+            
+            descricao_fin = f"Faturamento Estúdio: {agendamento['tipo_servico']} - {agendamento['cliente_nome']}"
+            conn.execute('INSERT INTO movimentacoes (tipo, origem, descricao, valor, data) VALUES ("Entrada", "Reserva de Estúdio", ?, ?, ?)',
+                         (descricao_fin, valor, data_hoje))
+            flash(f'Status atualizado! Receita enviada ao Financeiro.')
+        else:
+            flash('Status do estúdio atualizado!')
+            
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+# ================= FINANCEIRO E OUTROS (ROTAS IDÊNTICAS AO SEU BLOCO DE NOTAS) =================
+
 @app.route('/lancar', methods=['POST'])
 def lancar():
     tipo = request.form['tipo']
@@ -360,7 +383,6 @@ def excluir_movimentacao(id):
     flash('Lançamento excluído!')
     return redirect(url_for('index'))
 
-# --- CRUD FORNECEDORES & RH ---
 @app.route('/admin/fornecedor/add', methods=['POST'])
 def add_fornecedor():
     conn = get_db_connection()
@@ -368,7 +390,6 @@ def add_fornecedor():
                  (request.form['nome'], request.form['cnpj'], request.form['telefone'], request.form['email'], request.form['produto_servico']))
     conn.commit()
     conn.close()
-    flash('Fornecedor adicionado com sucesso!')
     return redirect(url_for('index'))
 
 @app.route('/admin/fornecedor/delete/<int:id>')
@@ -377,76 +398,24 @@ def delete_fornecedor(id):
     conn.execute('DELETE FROM fornecedores WHERE id = ?', (id,))
     conn.commit()
     conn.close()
-    flash('Fornecedor removido com sucesso!')
     return redirect(url_for('index'))
 
-@app.route('/admin/funcionario/add', methods=['POST'])
+@app.route('/rh/funcionario/add', methods=['POST'])
 def add_funcionario():
     conn = get_db_connection()
     conn.execute('INSERT INTO funcionarios (nome, cargo, telefone, email, salario) VALUES (?, ?, ?, ?, ?)',
                  (request.form['nome'], request.form['cargo'], request.form['telefone'], request.form['email'], request.form['salario']))
     conn.commit()
     conn.close()
-    flash('Funcionário registrado com sucesso!')
     return redirect(url_for('index'))
 
-@app.route('/admin/funcionario/delete/<int:id>')
+@app.route('/rh/funcionario/delete/<int:id>')
 def delete_funcionario(id):
     conn = get_db_connection()
     conn.execute('DELETE FROM funcionarios WHERE id = ?', (id,))
     conn.commit()
     conn.close()
-    flash('Funcionário removido com sucesso!')
     return redirect(url_for('index'))
-
-# --- EXPORTAÇÕES CSV ---
-@app.route('/admin/exportar/<string:tipo>')
-def exportar_csv(tipo):
-    conn = get_db_connection()
-    output = io.StringIO()
-    writer = csv.writer(output)
-    
-    if tipo == 'fornecedores':
-         writer.writerow(['ID', 'Nome', 'CNPJ', 'Telefone', 'Email', 'Produto/Serviço'])
-         rows = conn.execute('SELECT * FROM fornecedores').fetchall()
-         for row in rows:
-             writer.writerow([row['id'], row['nome'], row['cnpj'], row['telefone'], row['email'], row['produto_servico']])
-         filename = "fornecedores.csv"
-         
-    elif tipo == 'funcionarios':
-         writer.writerow(['ID', 'Nome', 'Cargo', 'Telefone', 'Email', 'Salário'])
-         rows = conn.execute('SELECT * FROM funcionarios').fetchall()
-         for row in rows:
-             writer.writerow([row['id'], row['nome'], row['cargo'], row['telefone'], row['email'], row['salario']])
-         filename = "funcionarios.csv"
-     
-    conn.close()
-    output.seek(0)
-    return Response(output, mimetype="text/csv", headers={"Content-disposition": f"attachment; filename={filename}"})
-
-@app.route('/secretaria/professor/exportar/<int:professor_id>')
-def exportar_professor_csv(professor_id):
-    conn = get_db_connection()
-    prof = conn.execute('SELECT nome FROM professores WHERE id = ?', (professor_id,)).fetchone()
-    if not prof:
-        conn.close()
-        return "Professor não encontrado", 404
-        
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow([f"Extrato de Aulas - Prof. {prof['nome']}"])
-    writer.writerow(['ID', 'Aluno', 'Data Executada', 'Valor Repasse', 'Status'])
-    
-    rows = conn.execute('SELECT r.id, a.nome AS aluno_nome, r.data_execucao, r.valor_pago, r.financeiro_status FROM registro_aulas r JOIN turmas_aulas t ON r.turma_id = t.id JOIN alunos a ON t.aluno_id = a.id WHERE t.professor_id = ?', (professor_id,)).fetchall()
-    
-    total = 0.0
-    for row in rows:
-        writer.writerow([row['id'], row['aluno_nome'], row['data_execucao'], f"R$ {row['valor_pago']:.2f}", row['financeiro_status']])
-        total += row['valor_pago']
-    writer.writerow(['', '', 'TOTAL A PAGAR:', f"R$ {total:.2f}"])
-    conn.close()
-    output.seek(0)
-    return Response(output, mimetype="text/csv", headers={"Content-disposition": f"attachment; filename=extrato_{secure_filename(prof['nome'])}.csv"})
 
 if __name__ == '__main__':
     app.run(debug=True)
