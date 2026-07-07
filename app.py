@@ -136,13 +136,13 @@ def get_db_connection():
 def alternar_usuario(perfil_selecionado):
     if perfil_selecionado in ['administrador', 'operador_caixa']:
         session['perfil'] = perfil_selecionado
-        flash(f"Perfil alterado para {perfil_selecionado.replace('_', ' ').title()}")
-    return redirect(url_for('admin_dashboard'))
+        flash(f"Perfil altered para {perfil_selecionado.replace('_', ' ').title()}")
+    return redirect(url_for('index'))
 
-# --- ROTA PRINCIPAL DO SISTEMA RESTAURADA (/admin) ---
+# --- ROTA PRINCIPAL DO SISTEMA APONTANDO PARA O SEU INDEX.HTML ---
 @app.route('/admin')
 @app.route('/')
-def admin_dashboard():
+def index():
     if 'perfil' not in session:
         session['perfil'] = 'administrador'
         
@@ -180,8 +180,9 @@ def admin_dashboard():
 
     conn.close()
     
+    # Redireciona para o seu arquivo index.html original
     return render_template(
-        'admin.html', 
+        'index.html', 
         fornecedores=fornecedores, 
         funcionarios=funcionarios,
         alunos=alunos,
@@ -212,13 +213,13 @@ def agendar_studio():
     if conflito:
         conn.close()
         flash('⚠️ Erro: Este horário já está reservado no estúdio! Escolha outro período.')
-        return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('index'))
         
     conn.execute('INSERT INTO agendamentos_estudio (cliente_nome, tipo_servico, data, horario, valor_servico) VALUES (?, ?, ?, ?, ?)', (cliente, tipo, data, horario, valor))
     conn.commit()
     conn.close()
     flash('Sucesso: Horário reservado no estúdio!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 @app.route('/atualizar_status_studio/<int:id>', methods=['POST'])
 def atualizar_status_studio(id):
@@ -231,7 +232,7 @@ def atualizar_status_studio(id):
     if agendamento:
         conn.execute('UPDATE agendamentos_estudio SET status = ? WHERE id = ?', (novo_status, id))
         
-        # Regra de ouro: Se o status mudar para Concluído, lança automaticamente a receita no financeiro
+        # Regra do estúdio para o financeiro
         if novo_status == 'Concluído' and agendamento['valor_servico'] > 0:
             descricao_fin = f"Faturamento Estúdio: {agendamento['tipo_servico']} - {agendamento['cliente_nome']}"
             conn.execute('INSERT INTO movimentacoes (tipo, origem, descricao, valor, data) VALUES ("Entrada", "Reserva de Estúdio", ?, ?, ?)',
@@ -242,7 +243,7 @@ def atualizar_status_studio(id):
             
     conn.commit()
     conn.close()
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 # --- MÓDULO SECRETARIA E REPASSES ---
 @app.route('/secretaria/aluno/add', methods=['POST'])
@@ -268,7 +269,7 @@ def add_aluno():
     conn.commit()
     conn.close()
     flash('Aluno matriculado com sucesso!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 @app.route('/secretaria/professor/add', methods=['POST'])
 def add_professor():
@@ -293,7 +294,7 @@ def add_professor():
     conn.commit()
     conn.close()
     flash('Professor cadastrado com sucesso!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 @app.route('/secretaria/turma/add', methods=['POST'])
 def add_turma():
@@ -311,7 +312,7 @@ def add_turma():
     conn.commit()
     conn.close()
     flash('Aula agendada na grade da Secretaria!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 @app.route('/professor/aula/confirmar/<int:turma_id>', methods=['POST'])
 def confirmar_aula(turma_id):
@@ -332,7 +333,7 @@ def confirmar_aula(turma_id):
         conn.commit()
         flash(f"Aula confirmada! Custo de R$ {valor:.2f} repassado ao Financeiro.")
     conn.close()
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 # --- FINANCEIRO MANUAL E EXCLUSÕES ---
 @app.route('/lancar', methods=['POST'])
@@ -344,11 +345,11 @@ def lancar():
     data = request.form['data_competencia'] or datetime.today().strftime('%Y-%m-%d')
     
     conn = get_db_connection()
-    conn.execute('INSERT INTO movimentacoes (tipo, origem, descricao, valor, data) VALUES (?, ?, ?, ?, ?)', (tipo, origins, descricao, valor, data))
+    conn.execute('INSERT INTO movimentacoes (tipo, origem, descricao, valor, data) VALUES (?, ?, ?, ?, ?)', (tipo, origem, descricao, valor, data))
     conn.commit()
     conn.close()
     flash('Movimentação financeira registrada!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 @app.route('/excluir/<int:id>')
 def excluir_movimentacao(id):
@@ -357,9 +358,9 @@ def excluir_movimentacao(id):
     conn.commit()
     conn.close()
     flash('Lançamento excluído!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
-# --- ORIGINAL CRUD FORNECEDORES & RH ---
+# --- CRUD FORNECEDORES & RH ---
 @app.route('/admin/fornecedor/add', methods=['POST'])
 def add_fornecedor():
     conn = get_db_connection()
@@ -368,7 +369,7 @@ def add_fornecedor():
     conn.commit()
     conn.close()
     flash('Fornecedor adicionado com sucesso!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 @app.route('/admin/fornecedor/delete/<int:id>')
 def delete_fornecedor(id):
@@ -377,7 +378,7 @@ def delete_fornecedor(id):
     conn.commit()
     conn.close()
     flash('Fornecedor removido com sucesso!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 @app.route('/admin/funcionario/add', methods=['POST'])
 def add_funcionario():
@@ -387,7 +388,7 @@ def add_funcionario():
     conn.commit()
     conn.close()
     flash('Funcionário registrado com sucesso!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
 @app.route('/admin/funcionario/delete/<int:id>')
 def delete_funcionario(id):
@@ -396,9 +397,9 @@ def delete_funcionario(id):
     conn.commit()
     conn.close()
     flash('Funcionário removido com sucesso!')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('index'))
 
-# --- EXPORTAÇÕES CSV ORIGINAIS ---
+# --- EXPORTAÇÕES CSV ---
 @app.route('/admin/exportar/<string:tipo>')
 def exportar_csv(tipo):
     conn = get_db_connection()
