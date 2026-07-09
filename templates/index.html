@@ -76,18 +76,21 @@
                             <div class="col-md-3">
                                 <input type="text" class="form-control" name="cliente_nome" placeholder="Nome do Cliente" required>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <select name="tipo_servico" class="form-select" required>
                                     <option value="Ensaio">Ensaio</option>
                                     <option value="Gravação">Gravação</option>
                                     <option value="Produção">Produção</option>
                                 </select>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <input type="date" class="form-control" name="data" required>
                             </div>
                             <div class="col-md-2">
                                 <input type="time" class="form-control" name="horario" required>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" step="0.01" class="form-control" name="valor" placeholder="Valor (R$)" required>
                             </div>
                             <div class="col-md-1">
                                 <button type="submit" class="btn btn-warning w-100">+</button>
@@ -98,31 +101,33 @@
                             <table class="table table-sm table-striped">
                                 <thead>
                                     <tr>
-                                        <th>Data</th>
-                                        <th>Hora</th>
+                                        <th>Data/Hora</th>
                                         <th>Cliente</th>
                                         <th>Serviço</th>
-                                        <th>Status</th>
-                                        <th>Ação</th>
+                                        <th>Valor</th>
+                                        <th>Ação Automática</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for agenda in agendamentos %}
                                     <tr>
-                                        <td>{{ agenda.data }}</td>
-                                        <td>{{ agenda.horario }}</td>
-                                        <td>{{ agenda.cliente_nome }}</td>
-                                        <td>{{ agenda.tipo_servico }}</td>
-                                        <td>{{ agenda.status }}</td>
+                                        <td class="align-middle">{{ agenda.data }} <br> <small>{{ agenda.horario }}</small></td>
+                                        <td class="align-middle">{{ agenda.cliente_nome }}</td>
+                                        <td class="align-middle">{{ agenda.tipo_servico }}</td>
+                                        <td class="align-middle text-success fw-bold">R$ {{ "%.2f"|format(agenda.valor) }}</td>
                                         <td>
-                                            <form action="/atualizar_status_studio" method="POST" class="d-flex">
+                                            <form action="/atualizar_status_studio" method="POST" class="d-flex align-items-center">
                                                 <input type="hidden" name="id" value="{{ agenda.id }}">
-                                                <select name="status" class="form-select form-select-sm me-1">
+                                                <select name="status" class="form-select form-select-sm me-1" {% if agenda.status == 'Concluído' %}disabled{% endif %}>
                                                     <option value="Agendado" {% if agenda.status == 'Agendado' %}selected{% endif %}>Agendado</option>
-                                                    <option value="Concluído" {% if agenda.status == 'Concluído' %}selected{% endif %}>Concluído</option>
+                                                    <option value="Concluído" {% if agenda.status == 'Concluído' %}selected{% endif %}>Concluído (Enviar p/ Caixa)</option>
                                                     <option value="Cancelado" {% if agenda.status == 'Cancelado' %}selected{% endif %}>Cancelado</option>
                                                 </select>
-                                                <button type="submit" class="btn btn-sm btn-outline-secondary">OK</button>
+                                                {% if agenda.status != 'Concluído' %}
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary">OK</button>
+                                                {% else %}
+                                                    <span class="badge bg-success ms-1">Recebido</span>
+                                                {% endif %}
                                             </form>
                                         </td>
                                     </tr>
@@ -280,4 +285,3 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-
