@@ -9,7 +9,6 @@ from datetime import datetime
 app = Flask(__name__)
 
 # CONFIGURAÇÃO DE SEGURANÇA
-# O Render vai preencher isso automaticamente de forma segura. Se não encontrar, usa uma padrão.
 app.secret_key = os.environ.get('SECRET_KEY', 'chave_secreta_padrao_mude_em_producao')
 
 # Configuração de uploads para os comprovantes de endereço
@@ -87,16 +86,23 @@ def init_db():
         FOREIGN KEY(turma_id) REFERENCES turmas_aulas(id)
     )''')
     
-    # 7. Tabela de AGENDAMENTOS DOS ESTÚDIOS (Recuperada e Ativa)
+    # 7. Tabela de AGENDAMENTOS DOS ESTÚDIOS
     cursor.execute('''CREATE TABLE IF NOT EXISTS agendamentos_estudio (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         cliente_nome TEXT NOT NULL, 
         tipo_servico TEXT NOT NULL, 
         data TEXT NOT NULL, 
         horario TEXT NOT NULL, 
+        valor REAL DEFAULT 0.0,
         status TEXT DEFAULT 'Agendado'
     )''')
     
+    # Adiciona a coluna 'valor' caso o banco de dados seja antigo e não tenha
+    try:
+        cursor.execute("ALTER TABLE agendamentos_estudio ADD COLUMN valor REAL DEFAULT 0.0")
+    except sqlite3.OperationalError:
+        pass # A coluna já existe, tudo certo!
+        
     # 8. Tabela de Movimentações Financeiras Reais
     cursor.execute('''CREATE TABLE IF NOT EXISTS movimentacoes (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -319,13 +325,14 @@ def exportar_professor_csv(professor_id):
     conn.close()
     return response
 
-# --- MÓDULO AGENDAS DOS ESTÚDIOS (RECUPERADO E INTEGRADO) ---
+# --- MÓDULO AGENDAS DOS ESTÚDIOS ---
 @app.route('/agendar_studio', methods=['POST'])
 def agendar_studio():
     cliente = request.form['cliente_nome']
     tipo = request.form['tipo_servico']
     data = request.form['data']
     horario = request.form['horario']
+    valor = float(request.form.get('valor', 0.0))
     
     conn = get_db_connection()
     conflito = conn.execute(
@@ -339,8 +346,8 @@ def agendar_studio():
         return redirect(url_for('index'))
         
     conn.execute(
-        "INSERT INTO agendamentos_estudio (cliente_nome, tipo_servico, data, horario) VALUES (?, ?, ?, ?)",
-        (cliente, tipo, data, horario)
+        "INSERT INTO agendamentos_estudio (cliente_nome, tipo_servico, data, horario, valor) VALUES (?, ?, ?, ?, ?)",
+        (cliente, tipo, data, horario, valor)
     )
     conn.commit()
     conn.close()
@@ -351,15 +358,45 @@ def agendar_studio():
 def atualizar_status_studio():
     id_novo = request.form['id']
     status = request.form['status']
+    data_hoje = datetime.today().strftime('%Y-%m-%d')
     
     conn = get_db_connection()
-    conn.execute("UPDATE agendamentos_estudio SET status = ? WHERE id = ?", (status, id_novo))
+    agenda = conn.execute("SELECT * FROM agendamentos_estudio WHERE id = ?", (id_novo,)).fetchone()
+    
+    if agenda:
+        conn.execute("UPDATE agendamentos_estudio SET status = ? WHERE id = ?", (status, id_novo))
+        
+        # O pulo do gato: Se marcou como "Concluído" e ainda não estava concluído antes, lança no financeiro!
+        if status == 'Concluído' and agenda['status'] != 'Concluído':
+            desc_financeiro = f"Estúdio: {agenda['tipo_servico']} - Cliente: {agenda['cliente_nome']}"
+            valor = agenda['valor']
+            conn.execute(
+                "INSERT INTO movimentacoes (tipo, origem, descricao, valor, data) VALUES (?, ?, ?, ?, ?)",
+                ('Entrada', 'Estúdio', desc_financeiro, valor, data_hoje)
+            )
+            flash(f'Serviço Concluído! R$ {valor:.2f} registrado nas Entradas do Caixa.')
+        else:
+            flash(f'Status do estúdio atualizado para: {status}')
+            
     conn.commit()
     conn.close()
-    flash('Status do estúdio atualizado!')
+    return redirect(url_for('index'))
+
+# ================= FINANCEIRO E OUTROS =================
+@app.route('/lancar', methods=['POST'])
+def lancar():
+    tipo = request.form['tipo']
+    origem = request.form['origem']
+    descricao = request.form['descricao']
+    valor = float(request.form['valor'])
+    data = request.form['data_competencia'] or datetime.today().strftime('%Y-%m-%d')
+    
+    conn = get_db_connection()
+    conn.execute('INSERT INTO movimentacoes (tipo, origem, descricao, valor, data) VALUES (?, ?, ?, ?, ?)', (tipo, origem, descricao, valor, data))
+    conn.commit()
+    conn.close()
+    flash('Movimentação financeira registrada!')
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    # Usado apenas para rodar localmente, o Render usará o gunicorn.
     app.run(debug=True)
-
