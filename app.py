@@ -362,3 +362,4 @@ def atualizar_status_studio():
 if __name__ == '__main__':
     # Usado apenas para rodar localmente, o Render usará o gunicorn.
     app.run(debug=True)
+
