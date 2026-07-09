@@ -1,410 +1,282 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, Response, session
-import sqlite3
-import csv
-import io
-import os
-from werkzeug.utils import secure_filename
-from datetime import datetime
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM - Casa de Musica Cambuci</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
 
-app = Flask(__name__)
-app.secret_key = "chave_secreta_cambuci"
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">Casa de Musica Cambuci - CRM</a>
+            <div class="d-flex text-white align-items-center">
+                <span class="me-3">Olá, {{ nome_usuario }}</span>
+                <span class="badge bg-secondary me-3">Perfil: {{ perfil.replace('_', ' ').title() }}</span>
+                <form action="/alternar_usuario" method="POST" class="d-flex m-0">
+                    <select name="perfil_selecionado" class="form-select form-select-sm me-2">
+                        <option value="administrador" {% if perfil == 'administrador' %}selected{% endif %}>Administrador</option>
+                        <option value="operador_caixa" {% if perfil == 'operador_caixa' %}selected{% endif %}>Operador de Caixa</option>
+                    </select>
+                    <button type="submit" class="btn btn-outline-light btn-sm">Mudar</button>
+                </form>
+            </div>
+        </div>
+    </nav>
 
-# Configuração de uploads para os comprovantes de endereço
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# --- CONFIGURAÇÃO DO BANCO DE DADOS (TODAS AS TABELAS UNIFICADAS) ---
-def init_db():
-    conn = sqlite3.connect('database.db')
-    cursor = conn.cursor()
-    
-    # 1. Tabela de Fornecedores
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS fornecedores (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            cnpj TEXT,
-            telefone TEXT,
-            email TEXT,
-            produto_servico TEXT
-        )
-    ''')
-    
-    # 2. Tabela de Funcionários
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS funcionarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            cargo TEXT NOT NULL,
-            telefone TEXT,
-            email TEXT,
-            salario REAL
-        )
-    ''')
-
-    # 3. Tabela de Alunos (Secretaria)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS alunos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            curso_pretendido TEXT,
-            endereco TEXT,
-            telefone TEXT,
-            email TEXT,
-            comprovante_path TEXT
-        )
-    ''')
-
-    # 4. Tabela de Professores (Secretaria)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS professores (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            telefone TEXT,
-            email TEXT,
-            curso TEXT,
-            endereco TEXT,
-            comprovante_path TEXT
-        )
-    ''')
-
-    # 5. Tabela de Turmas / Vínculos de Aulas
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS turmas_aulas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            aluno_id INTEGER,
-            professor_id INTEGER,
-            dia_semana TEXT,
-            horario TEXT,
-            valor_hora_aula REAL,
-            FOREIGN KEY(aluno_id) REFERENCES alunos(id),
-            FOREIGN KEY(professor_id) REFERENCES professores(id)
-        )
-    ''')
-
-    # 6. Tabela de Registro de Aulas Realizadas
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS registro_aulas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            turma_id INTEGER,
-            data_execucao TEXT,
-            status TEXT,
-            valor_pago REAL,
-            financeiro_status TEXT,
-            FOREIGN KEY(turma_id) REFERENCES turmas_aulas(id)
-        )
-    ''')
-
-    # 7. Tabela de AGENDAMENTOS DOS ESTÚDIOS (Recuperada e Ativa)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS agendamentos_estudio (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente_nome TEXT NOT NULL,
-            tipo_servico TEXT NOT NULL,
-            data TEXT NOT NULL,
-            horario TEXT NOT NULL,
-            status TEXT DEFAULT 'Agendado'
-        )
-    ''')
-
-    # 8. Tabela de Movimentações Financeiras Reais
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS movimentacoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tipo TEXT,
-            origem TEXT,
-            descricao TEXT,
-            valor REAL,
-            data TEXT
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()
-
-init_db()
-
-def get_db_connection():
-    conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row
-    return conn
-
-# --- ALTERNAÇÃO DE PERFIL ---
-@app.route('/alternar_usuario/<perfil_selecionado>')
-def alternar_usuario(perfil_selecionado):
-    if perfil_selecionado in ['administrador', 'operador_caixa']:
-        session['perfil'] = perfil_selecionado
-        flash(f"Perfil alterado para {perfil_selecionado.replace('_', ' ').title()}")
-    return redirect(url_for('index'))
-
-# --- ROTA PRINCIPAL ---
-@app.route('/')
-def index():
-    if 'perfil' not in session:
-        session['perfil'] = 'administrador'
+    <div class="container-fluid px-4">
         
-    perfil_atual = session['perfil']
-    
-    conn = get_db_connection()
-    fornecedores = conn.execute('SELECT * FROM fornecedores').fetchall()
-    funcionarios = conn.execute('SELECT * FROM funcionarios').fetchall()
-    alunos = conn.execute('SELECT * FROM alunos').fetchall()
-    professores = conn.execute('SELECT * FROM professores').fetchall()
-    
-    # Busca a agenda dos estúdios que estava sumida
-    agendamentos_estudio = conn.execute('SELECT * FROM agendamentos_estudio ORDER BY data ASC, horario ASC').fetchall()
-    
-    # Busca a grade de turmas da secretaria
-    turmas = conn.execute('''
-        SELECT t.id, a.nome AS aluno_nome, p.nome AS professor_nome, t.dia_semana, t.horario, t.valor_hora_aula
-        FROM turmas_aulas t
-        JOIN alunos a ON t.aluno_id = a.id
-        JOIN professores p ON t.professor_id = p.id
-    ''').fetchall()
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
 
-    # Histórico de aulas dadas
-    aulas_executadas = conn.execute('''
-        SELECT r.id, a.nome AS aluno_nome, p.nome AS professor_nome, r.data_execucao, r.valor_pago, r.financeiro_status
-        FROM registro_aulas r
-        JOIN turmas_aulas t ON r.turma_id = t.id
-        JOIN alunos a ON t.aluno_id = a.id
-        JOIN professores p ON t.professor_id = p.id
-    ''').fetchall()
+        <h4 class="mb-3">Resumo Financeiro</h4>
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card text-white bg-success mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Entradas</h5>
+                        <p class="card-text fs-4">R$ {{ "%.2f"|format(total_entradas) }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-danger mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Saídas</h5>
+                        <p class="card-text fs-4">R$ {{ "%.2f"|format(total_saidas) }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-primary mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Saldo em Caixa</h5>
+                        <p class="card-text fs-4">R$ {{ "%.2f"|format(saldo_caixa) }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    # Fluxo de Caixa Global
-    movs = conn.execute('SELECT * FROM movimentacoes ORDER BY id DESC').fetchall()
-    total_entradas = conn.execute("SELECT SUM(valor) FROM movimentacoes WHERE tipo='Entrada'").fetchone()[0] or 0.0
-    total_saidas = conn.execute("SELECT SUM(valor) FROM movimentacoes WHERE tipo='Saída'").fetchone()[0] or 0.0
-    saldo_caixa = total_entradas - total_saidas
+        <div class="row">
+            <div class="col-md-7">
+                
+                <div class="card mb-4">
+                    <div class="card-header bg-warning text-dark fw-bold">Agendamentos de Estúdio</div>
+                    <div class="card-body">
+                        <form action="/agendar_studio" method="POST" class="row g-2 mb-3">
+                            <div class="col-md-3">
+                                <input type="text" class="form-control" name="cliente_nome" placeholder="Nome do Cliente" required>
+                            </div>
+                            <div class="col-md-3">
+                                <select name="tipo_servico" class="form-select" required>
+                                    <option value="Ensaio">Ensaio</option>
+                                    <option value="Gravação">Gravação</option>
+                                    <option value="Produção">Produção</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="date" class="form-control" name="data" required>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="time" class="form-control" name="horario" required>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="submit" class="btn btn-warning w-100">+</button>
+                            </div>
+                        </form>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Hora</th>
+                                        <th>Cliente</th>
+                                        <th>Serviço</th>
+                                        <th>Status</th>
+                                        <th>Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for agenda in agendamentos %}
+                                    <tr>
+                                        <td>{{ agenda.data }}</td>
+                                        <td>{{ agenda.horario }}</td>
+                                        <td>{{ agenda.cliente_nome }}</td>
+                                        <td>{{ agenda.tipo_servico }}</td>
+                                        <td>{{ agenda.status }}</td>
+                                        <td>
+                                            <form action="/atualizar_status_studio" method="POST" class="d-flex">
+                                                <input type="hidden" name="id" value="{{ agenda.id }}">
+                                                <select name="status" class="form-select form-select-sm me-1">
+                                                    <option value="Agendado" {% if agenda.status == 'Agendado' %}selected{% endif %}>Agendado</option>
+                                                    <option value="Concluído" {% if agenda.status == 'Concluído' %}selected{% endif %}>Concluído</option>
+                                                    <option value="Cancelado" {% if agenda.status == 'Cancelado' %}selected{% endif %}>Cancelado</option>
+                                                </select>
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary">OK</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
 
-    conn.close()
-    
-    return render_template(
-        'index.html', 
-        fornecedores=fornecedores, 
-        funcionarios=funcionarios,
-        alunos=alunos,
-        professores=professores,
-        turmas=turmas,
-        aulas_executadas=aulas_executadas,
-        agendamentos=agendamentos_estudio,  # Reativado aqui!
-        nome_usuario="Deni Miller",
-        perfil=perfil_atual,
-        total_entradas=total_entradas,
-        total_saidas=total_saidas,
-        saldo_caixa=saldo_caixa,
-        movimentacoes=movs
-    )
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white fw-bold">Secretaria - Turmas e Aulas</div>
+                    <div class="card-body">
+                        <form action="/secretaria/turma/add" method="POST" class="row g-2 mb-3">
+                            <div class="col-md-3">
+                                <select name="aluno_id" class="form-select" required>
+                                    <option value="">Selecionar Aluno...</option>
+                                    {% for aluno in alunos %}
+                                    <option value="{{ aluno.id }}">{{ aluno.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select name="professor_id" class="form-select" required>
+                                    <option value="">Selecionar Professor...</option>
+                                    {% for professor in professores %}
+                                    <option value="{{ professor.id }}">{{ professor.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="text" class="form-control" name="dia_semana" placeholder="Dia (Ex: Seg)" required>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="time" class="form-control" name="horario" required>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" step="0.01" class="form-control" name="valor_hora_aula" placeholder="Valor R$" required>
+                            </div>
+                            <div class="col-12 mt-2">
+                                <button type="submit" class="btn btn-info text-white">Adicionar Turma</button>
+                            </div>
+                        </form>
 
-# ================= SEÇÃO SECRETARIA =================
+                        <h6 class="mt-4">Turmas Ativas</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Aluno</th>
+                                        <th>Professor</th>
+                                        <th>Dia/Hora</th>
+                                        <th>Valor</th>
+                                        <th>Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for turma in turmas %}
+                                    <tr>
+                                        <td>{{ turma.aluno_nome }}</td>
+                                        <td>{{ turma.professor_nome }}</td>
+                                        <td>{{ turma.dia_semana }} às {{ turma.horario }}</td>
+                                        <td>R$ {{ "%.2f"|format(turma.valor_hora_aula) }}</td>
+                                        <td>
+                                            <form action="/professor/aula/confirmar" method="POST">
+                                                <input type="hidden" name="turma_id" value="{{ turma.id }}">
+                                                <button type="submit" class="btn btn-sm btn-success">Confirmar Aula</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-@app.route('/secretaria/aluno/add', methods=['POST'])
-def add_aluno():
-    nome = request.form['nome']
-    curso = request.form['curso_pretendido']
-    endereco = request.form['endereco']
-    telefone = request.form['telefone']
-    email = request.form['email']
-    
-    filename = ""
-    if 'comprovante' in request.files:
-        file = request.files['comprovante']
-        if file.filename != '':
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            <div class="col-md-5">
+                
+                <div class="card mb-4">
+                    <div class="card-header bg-dark text-white fw-bold">Lançamento Financeiro Rápido</div>
+                    <div class="card-body">
+                        <form action="/lancar" method="POST">
+                            <div class="mb-2">
+                                <select name="tipo" class="form-select" required>
+                                    <option value="Entrada">Entrada (Receita)</option>
+                                    <option value="Saída">Saída (Despesa)</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <input type="text" name="origem" class="form-control" placeholder="Origem (Ex: Mensalidade, Conta de Luz)" required>
+                            </div>
+                            <div class="mb-2">
+                                <input type="text" name="descricao" class="form-control" placeholder="Descrição detalhada" required>
+                            </div>
+                            <div class="mb-2">
+                                <input type="number" step="0.01" name="valor" class="form-control" placeholder="Valor (R$)" required>
+                            </div>
+                            <div class="mb-2">
+                                <input type="date" name="data_competencia" class="form-control">
+                            </div>
+                            <button type="submit" class="btn btn-dark w-100">Registrar Lançamento</button>
+                        </form>
+                    </div>
+                </div>
 
-    conn = get_db_connection()
-    conn.execute('''
-        INSERT INTO alunos (nome, curso_pretendido, endereco, telefone, email, comprovante_path)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (nome, curso, endereco, telefone, email, filename))
-    conn.commit()
-    conn.close()
-    flash('Aluno matriculado com sucesso!')
-    return redirect(url_for('index'))
+                <div class="card mb-4">
+                    <div class="card-header bg-secondary text-white fw-bold">Cadastros Rápidos</div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="myTab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#aluno" type="button">Novo Aluno</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#professor" type="button">Novo Professor</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content border border-top-0 p-3" id="myTabContent">
+                            
+                            <div class="tab-pane fade show active" id="aluno">
+                                <form action="/secretaria/aluno/add" method="POST" enctype="multipart/form-data">
+                                    <input type="text" name="nome" class="form-control form-control-sm mb-2" placeholder="Nome do Aluno" required>
+                                    <input type="text" name="curso_pretendido" class="form-control form-control-sm mb-2" placeholder="Curso Pretendido">
+                                    <input type="text" name="telefone" class="form-control form-control-sm mb-2" placeholder="Telefone">
+                                    <input type="email" name="email" class="form-control form-control-sm mb-2" placeholder="E-mail">
+                                    <input type="text" name="endereco" class="form-control form-control-sm mb-2" placeholder="Endereço Completo">
+                                    <label class="form-label mb-0 small">Comprovante de Endereço:</label>
+                                    <input type="file" name="comprovante" class="form-control form-control-sm mb-2">
+                                    <button type="submit" class="btn btn-sm btn-primary w-100">Matricular Aluno</button>
+                                </form>
+                            </div>
+                            
+                            <div class="tab-pane fade" id="professor">
+                                <form action="/secretaria/professor/add" method="POST" enctype="multipart/form-data">
+                                    <input type="text" name="nome" class="form-control form-control-sm mb-2" placeholder="Nome do Professor" required>
+                                    <input type="text" name="curso" class="form-control form-control-sm mb-2" placeholder="Instrumento / Curso">
+                                    <input type="text" name="telefone" class="form-control form-control-sm mb-2" placeholder="Telefone">
+                                    <input type="email" name="email" class="form-control form-control-sm mb-2" placeholder="E-mail">
+                                    <input type="text" name="endereco" class="form-control form-control-sm mb-2" placeholder="Endereço Completo">
+                                    <label class="form-label mb-0 small">Documento/Comprovante:</label>
+                                    <input type="file" name="comprovante" class="form-control form-control-sm mb-2">
+                                    <button type="submit" class="btn btn-sm btn-secondary w-100">Cadastrar Professor</button>
+                                </form>
+                            </div>
 
-@app.route('/secretaria/professor/add', methods=['POST'])
-def add_professor():
-    nome = request.form['nome']
-    telefone = request.form['telefone']
-    email = request.form['email']
-    curso = request.form['curso']
-    endereco = request.form['endereco']
-    
-    filename = ""
-    if 'comprovante' in request.files:
-        file = request.files['comprovante']
-        if file.filename != '':
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                        </div>
+                    </div>
+                </div>
 
-    conn = get_db_connection()
-    conn.execute('''
-        INSERT INTO professores (nome, telefone, email, curso, endereco, comprovante_path)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (nome, telefone, email, curso, endereco, filename))
-    conn.commit()
-    conn.close()
-    flash('Professor cadastrado com sucesso!')
-    return redirect(url_for('index'))
+            </div>
+        </div>
+    </div>
 
-@app.route('/secretaria/turma/add', methods=['POST'])
-def add_turma():
-    aluno_id = request.form['aluno_id']
-    professor_id = request.form['professor_id']
-    dia_semana = request.form['dia_semana']
-    horario = request.form['horario']
-    valor = request.form['valor_hora_aula']
-    
-    conn = get_db_connection()
-    conn.execute('''
-        INSERT INTO turmas_aulas (aluno_id, professor_id, dia_semana, horario, valor_hora_aula)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (aluno_id, professor_id, dia_semana, horario, valor))
-    conn.commit()
-    conn.close()
-    flash('Aula agendada na grade da Secretaria!')
-    return redirect(url_for('index'))
-
-@app.route('/professor/aula/confirmar/<int:turma_id>', methods=['POST'])
-def confirmar_aula(turma_id):
-    data_hoje = datetime.today().strftime('%Y-%m-%d %H:%M')
-    conn = get_db_connection()
-    turma = conn.execute('''
-        SELECT t.*, p.nome AS prof_nome, a.nome AS aluno_nome FROM turmas_aulas t
-        JOIN professores p ON t.professor_id = p.id
-        JOIN alunos a ON t.aluno_id = a.id WHERE t.id = ?
-    ''', (turma_id,)).fetchone()
-    
-    if turma:
-        valor = turma['valor_hora_aula']
-        desc_financeiro = f"Repasse: Aula Executada - Prof. {turma['prof_nome']} (Aluno: {turma['aluno_nome']})"
-        
-        conn.execute('INSERT INTO registro_aulas (turma_id, data_execucao, status, valor_pago, financeiro_status) VALUES (?, ?, "Executada", ?, "Enviado para o Financeiro")', (turma_id, data_hoje, valor))
-        conn.execute('INSERT INTO movimentacoes (tipo, origem, descricao, valor, data) VALUES ("Saída", "Matrícula / Mensalidade", ?, ?, ?)', (desc_financeiro, valor, data_hoje.split()[0]))
-        conn.commit()
-        flash(f"Aula confirmada! Custo de R$ {valor:.2f} repassado ao Financeiro.")
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/secretaria/professor/exportar/<int:professor_id>')
-def exportar_professor_csv(professor_id):
-    conn = get_db_connection()
-    prof = conn.execute('SELECT nome FROM professores WHERE id = ?', (professor_id,)).fetchone()
-    if not prof:
-        conn.close()
-        return "Professor não encontrado", 404
-        
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow([f"Extrato de Aulas - Prof. {prof['nome']}"])
-    writer.writerow(['ID', 'Aluno', 'Data Executada', 'Valor Repasse', 'Status'])
-    
-    rows = conn.execute('SELECT r.id, a.nome AS aluno_nome, r.data_execucao, r.valor_pago, r.financeiro_status FROM registro_aulas r JOIN turmas_aulas t ON r.turma_id = t.id JOIN alunos a ON t.aluno_id = a.id WHERE t.professor_id = ?', (professor_id,)).fetchall()
-    
-    total = 0.0
-    for row in rows:
-        writer.writerow([row['id'], row['aluno_nome'], row['data_execucao'], f"R$ {row['valor_pago']:.2f}", row['financeiro_status']])
-        total += row['valor_pago']
-    writer.writerow(['', '', 'TOTAL A PAGAR:', f"R$ {total:.2f}"])
-    conn.close()
-    output.seek(0)
-    return Response(output, mimetype="text/csv", headers={"Content-disposition": f"attachment; filename=extrato_{secure_filename(prof['nome'])}.csv"})
-
-# ================= MÓDULO AGENDAS DOS ESTÚDIOS (RECUPERADO E INTEGRADO) =================
-
-@app.route('/agendar_studio', methods=['POST'])
-def agendar_studio():
-    cliente = request.form['cliente_nome']
-    tipo = request.form['tipo_servico']
-    data = request.form['data']
-    horario = request.form['horario']
-    
-    conn = get_db_connection()
-    # Validação contra agendamentos duplicados no mesmo dia e horário
-    conflito = conn.execute('SELECT * FROM agendamentos_estudio WHERE data = ? AND horario = ? AND status != "Cancelado"', (data, horario)).fetchone()
-    
-    if conflito:
-        conn.close()
-        flash('⚠️ Erro: Este horário já está reservado no estúdio! Escolha outro período.')
-        return redirect(url_for('index'))
-        
-    conn.execute('INSERT INTO agendamentos_estudio (cliente_nome, tipo_servico, data, horario) VALUES (?, ?, ?, ?)', (cliente, tipo, data, horario))
-    conn.commit()
-    conn.close()
-    flash('Sucesso: Horário reservado no estúdio!')
-    return redirect(url_for('index'))
-
-@app.route('/atualizar_status_studio/<int:id>', methods=['POST'])
-def atualizar_status_studio(id):
-    novo_status = request.form['status']
-    conn = get_db_connection()
-    conn.execute('UPDATE agendamentos_estudio SET status = ? WHERE id = ?', (novo_status, id))
-    conn.commit()
-    conn.close()
-    flash('Status do estúdio atualizado!')
-    return redirect(url_for('index'))
-
-# ================= FINANCEIRO E OUTROS =================
-
-@app.route('/lancar', methods=['POST'])
-def lancar():
-    tipo = request.form['tipo']
-    origem = request.form['origem']
-    descricao = request.form['descricao']
-    valor = float(request.form['valor'])
-    data = request.form['data_competencia'] or datetime.today().strftime('%Y-%m-%d')
-    
-    conn = get_db_connection()
-    conn.execute('INSERT INTO movimentacoes (tipo, origem, descricao, valor, data) VALUES (?, ?, ?, ?, ?)', (tipo, origem, descricao, valor, data))
-    conn.commit()
-    conn.close()
-    flash('Movimentação financeira registrada!')
-    return redirect(url_for('index'))
-
-@app.route('/excluir/<int:id>')
-def excluir_movimentacao(id):
-    conn = get_db_connection()
-    conn.execute('DELETE FROM movimentacoes WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    flash('Lançamento excluído!')
-    return redirect(url_for('index'))
-
-@app.route('/admin/fornecedor/add', methods=['POST'])
-def add_fornecedor():
-    conn = get_db_connection()
-    conn.execute('INSERT INTO fornecedores (nome, cnpj, telefone, email, produto_servico) VALUES (?, ?, ?, ?, ?)',
-                 (request.form['nome'], request.form['cnpj'], request.form['telefone'], request.form['email'], request.form['produto_servico']))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/admin/fornecedor/delete/<int:id>')
-def delete_fornecedor(id):
-    conn = get_db_connection()
-    conn.execute('DELETE FROM fornecedores WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/rh/funcionario/add', methods=['POST'])
-def add_funcionario():
-    conn = get_db_connection()
-    conn.execute('INSERT INTO funcionarios (nome, cargo, telefone, email, salario) VALUES (?, ?, ?, ?, ?)',
-                 (request.form['nome'], request.form['cargo'], request.form['telefone'], request.form['email'], request.form['salario']))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/rh/funcionario/delete/<int:id>')
-def delete_funcionario(id):
-    conn = get_db_connection()
-    conn.execute('DELETE FROM funcionarios WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    app.run(debug=True)
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
