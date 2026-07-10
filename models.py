@@ -17,14 +17,14 @@ class Aluno(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     cpf = db.Column(db.String(14), nullable=False, unique=True)
-    email = db.Column(db.String(120)) # Novo campo
-    data_nascimento = db.Column(db.Date) # Novo campo
-    nome_responsavel = db.Column(db.String(100)) # Novo campo
+    email = db.Column(db.String(120))
+    data_nascimento = db.Column(db.Date)
+    nome_responsavel = db.Column(db.String(100))
     endereco_completo = db.Column(db.Text, nullable=False)
     comprovante_endereco = db.Column(db.String(255))
     telefone = db.Column(db.String(20), nullable=False)
     curso = db.Column(db.String(50), nullable=False)
-    nivel = db.Column(db.String(30), nullable=False, default='Iniciante') # Novo campo
+    nivel = db.Column(db.String(30), nullable=False, default='Iniciante')
     data_matricula = db.Column(db.Date, default=datetime.utcnow)
     status = db.Column(db.String(20), nullable=False, default='Ativo')
 
@@ -36,7 +36,9 @@ class Professor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     cpf = db.Column(db.String(14), nullable=False, unique=True)
-    email = db.Column(db.String(120)) # Novo campo
+    email = db.Column(db.String(120))
+    data_nascimento = db.Column(db.Date)
+    data_inicio = db.Column(db.Date, default=datetime.utcnow)
     endereco_completo = db.Column(db.Text, nullable=False)
     comprovante_endereco = db.Column(db.String(255))
     telefone = db.Column(db.String(20), nullable=False)
@@ -76,6 +78,7 @@ class AgendamentoEstudio(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tipo_estudio = db.Column(db.String(20), nullable=False)
     nome_artista = db.Column(db.String(100), nullable=False)
+    rg = db.Column(db.String(20), nullable=False)
     cpf = db.Column(db.String(14), nullable=False)
     endereco_completo = db.Column(db.Text, nullable=False)
     comprovante_endereco = db.Column(db.String(255))
