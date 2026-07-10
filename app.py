@@ -72,7 +72,6 @@ def gerenciar_alunos():
         return redirect(url_for('dashboard'))
         
     if request.method == 'POST':
-        # Tratamento de datas
         data_nasc_str = request.form.get('data_nascimento')
         data_mat_str = request.form.get('data_matricula')
         
@@ -114,42 +113,65 @@ def gerenciar_alunos():
     todos_alunos = Aluno.query.order_by(Aluno.nome).all()
     return render_template('alunos.html', alunos=todos_alunos)
 
-# --- MÓDULO SECRETARIA: EXPORTAR CSV (ATUALIZADO) ---
+# --- MÓDULO SECRETARIA: EDITAR ALUNO ---
+@app.route('/secretaria/alunos/editar/<int:id>', methods=['POST'])
+def editar_aluno(id):
+    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
+        return redirect(url_for('dashboard'))
+
+    aluno = Aluno.query.get_or_404(id)
+    aluno.nome = request.form.get('nome')
+    aluno.email = request.form.get('email')
+    aluno.telefone = request.form.get('telefone')
+    aluno.curso = request.form.get('curso')
+    aluno.nivel = request.form.get('nivel')
+    aluno.status = request.form.get('status')
+    aluno.endereco_completo = request.form.get('endereco')
+    
+    db.session.commit()
+    flash('Dados do aluno atualizados com sucesso!')
+    return redirect(url_for('gerenciar_alunos'))
+
+# --- MÓDULO SECRETARIA: EXCLUIR ALUNO ---
+@app.route('/secretaria/alunos/excluir/<int:id>', methods=['POST'])
+def excluir_aluno(id):
+    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
+        return redirect(url_for('dashboard'))
+
+    aluno = Aluno.query.get_or_404(id)
+    
+    # Remove o arquivo de comprovante do servidor para não ocupar espaço
+    if aluno.comprovante_endereco:
+        caminho_completo = os.path.join(app.root_path, 'static', aluno.comprovante_endereco)
+        if os.path.exists(caminho_completo):
+            os.remove(caminho_completo)
+
+    db.session.delete(aluno)
+    db.session.commit()
+    flash('Aluno excluído do sistema.')
+    return redirect(url_for('gerenciar_alunos'))
+
+# --- MÓDULO SECRETARIA: EXPORTAR CSV ---
 @app.route('/secretaria/alunos/csv')
 def exportar_alunos_csv():
     if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
         return redirect(url_for('dashboard'))
         
     alunos = Aluno.query.all()
-    
     si = StringIO()
     cw = csv.writer(si, delimiter=';') 
     
-    # Adicionamos todas as colunas que você pediu aqui no cabeçalho
     cw.writerow(['Nome', 'CPF', 'Data de Nascimento', 'Email', 'Telefone', 'Responsável', 'Endereço Completo', 'Curso', 'Nível', 'Status', 'Data da Matrícula'])
     
     for a in alunos:
-        # Formatando as datas para o padrão brasileiro (DD/MM/AAAA)
         data_nasc_formatada = a.data_nascimento.strftime('%d/%m/%Y') if a.data_nascimento else ''
         data_mat_formatada = a.data_matricula.strftime('%d/%m/%Y') if a.data_matricula else ''
-        
-        # Inserindo os dados de cada aluno na planilha, na mesma ordem do cabeçalho
         cw.writerow([
-            a.nome, 
-            a.cpf, 
-            data_nasc_formatada, 
-            a.email, 
-            a.telefone, 
-            a.nome_responsavel,
-            a.endereco_completo,
-            a.curso, 
-            a.nivel, 
-            a.status, 
-            data_mat_formatada
+            a.nome, a.cpf, data_nasc_formatada, a.email, a.telefone, a.nome_responsavel,
+            a.endereco_completo, a.curso, a.nivel, a.status, data_mat_formatada
         ])
         
     output = si.getvalue()
-    # Retorna o CSV com codificação UTF-8 BOM para garantir acentos corretos no Excel
     return Response(
         '\ufeff' + output, 
         mimetype="text/csv; charset=utf-8",
@@ -178,13 +200,9 @@ def gerenciar_professores():
             flash('Erro: CPF já cadastrado.')
         else:
             novo_prof = Professor(
-                nome=request.form.get('nome'),
-                cpf=cpf,
-                email=request.form.get('email'),
-                endereco_completo=request.form.get('endereco'),
-                comprovante_endereco=caminho_arquivo,
-                telefone=request.form.get('telefone'),
-                curso=request.form.get('curso'),
+                nome=request.form.get('nome'), cpf=cpf, email=request.form.get('email'),
+                endereco_completo=request.form.get('endereco'), comprovante_endereco=caminho_arquivo,
+                telefone=request.form.get('telefone'), curso=request.form.get('curso'),
                 status=request.form.get('status')
             )
             db.session.add(novo_prof)
