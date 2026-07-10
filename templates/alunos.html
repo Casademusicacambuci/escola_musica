@@ -8,11 +8,10 @@
 </head>
 <body class="bg-light">
 
-    <!-- Barra de Navegação -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="/dashboard">&larr; Voltar ao Painel</a>
-            <span class="navbar-text text-white">Módulo Secretaria | <strong>Alunos</strong></span>
+            <a class="navbar-brand" href="/dashboard">&larr; Voltar</a>
+            <span class="navbar-text text-white">Secretaria | <strong>Alunos</strong></span>
         </div>
     </nav>
 
@@ -21,44 +20,69 @@
         {% with messages = get_flashed_messages() %}
           {% if messages %}
             {% for message in messages %}
-              <div class="alert alert-info text-center" role="alert">
-                {{ message }}
-              </div>
+              <div class="alert alert-info text-center" role="alert">{{ message }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
 
         <div class="row">
-            <!-- Formulário de Nova Matrícula -->
+            <!-- Formulário Completo -->
             <div class="col-lg-4 mb-4">
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <h5 class="card-title mb-3 text-primary">Nova Matrícula</h5>
                         <form method="POST" action="/secretaria/alunos" enctype="multipart/form-data">
+                            
                             <div class="mb-2">
                                 <label class="form-label small mb-1">Nome Completo</label>
                                 <input type="text" class="form-control form-control-sm" name="nome" required>
                             </div>
+                            
                             <div class="row g-2 mb-2">
-                                <div class="col-6">
-                                    <label class="form-label small mb-1">RG</label>
-                                    <input type="text" class="form-control form-control-sm" name="rg" required>
-                                </div>
                                 <div class="col-6">
                                     <label class="form-label small mb-1">CPF</label>
                                     <input type="text" class="form-control form-control-sm" name="cpf" required>
                                 </div>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Nascimento</label>
+                                    <input type="date" class="form-control form-control-sm" name="data_nascimento">
+                                </div>
                             </div>
+                            
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">E-mail</label>
+                                <input type="email" class="form-control form-control-sm" name="email">
+                            </div>
+
                             <div class="mb-2">
                                 <label class="form-label small mb-1">Telefone / WhatsApp</label>
                                 <input type="text" class="form-control form-control-sm" name="telefone" required>
                             </div>
+
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Responsável Legal (Se menor)</label>
+                                <input type="text" class="form-control form-control-sm" name="responsavel" placeholder="Opcional">
+                            </div>
+
                             <div class="row g-2 mb-2">
-                                <div class="col-7">
-                                    <label class="form-label small mb-1">Curso / Instrumento</label>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Instrumento</label>
                                     <input type="text" class="form-control form-control-sm" name="curso" required>
                                 </div>
-                                <div class="col-5">
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Nível</label>
+                                    <select class="form-select form-select-sm" name="nivel" required>
+                                        <option value="Iniciante">Iniciante</option>
+                                        <option value="Básico">Básico</option>
+                                        <option value="Intermediário">Intermediário</option>
+                                        <option value="Avançado">Avançado</option>
+                                        <option value="Profissional">Profissional</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
                                     <label class="form-label small mb-1">Status</label>
                                     <select class="form-select form-select-sm" name="status" required>
                                         <option value="Ativo" selected>Ativo</option>
@@ -66,15 +90,22 @@
                                         <option value="Cancelado">Cancelado</option>
                                     </select>
                                 </div>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Data Matrícula</label>
+                                    <input type="date" class="form-control form-control-sm" name="data_matricula" required>
+                                </div>
                             </div>
+
                             <div class="mb-2">
                                 <label class="form-label small mb-1">Endereço Completo</label>
                                 <textarea class="form-control form-control-sm" name="endereco" rows="2" required></textarea>
                             </div>
+                            
                             <div class="mb-3">
                                 <label class="form-label small mb-1">Comprovante de Endereço</label>
                                 <input class="form-control form-control-sm" type="file" name="comprovante">
                             </div>
+
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-primary btn-sm">Salvar Matrícula</button>
                             </div>
@@ -83,32 +114,36 @@
                 </div>
             </div>
 
-            <!-- Tabela de Alunos Cadastrados -->
+            <!-- Tabela e Exportação -->
             <div class="col-lg-8">
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
-                        <h5 class="card-title mb-3 text-secondary">Alunos Matriculados ({{ alunos|length }})</h5>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="card-title text-secondary mb-0">Alunos Matriculados ({{ alunos|length }})</h5>
+                            <!-- BOTÃO DE GERAR CSV -->
+                            <a href="/secretaria/alunos/csv" class="btn btn-outline-success btn-sm">Gerar Planilha (CSV)</a>
+                        </div>
                         
                         {% if not alunos %}
                             <p class="text-muted text-center py-4">Nenhum aluno cadastrado ainda.</p>
                         {% else %}
                             <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle" style="font-size: 0.9rem;">
+                                <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
                                     <thead class="table-dark">
                                         <tr>
                                             <th>Nome</th>
                                             <th>Curso</th>
+                                            <th>Nível</th>
                                             <th>Status</th>
                                             <th>Telefone</th>
-                                            <th>CPF</th>
-                                            <th>Anexo</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {% for aluno in alunos %}
                                         <tr>
-                                            <td><strong>{{ aluno.nome }}</strong></td>
+                                            <td><strong>{{ aluno.nome }}</strong><br><small class="text-muted">{{ aluno.email }}</small></td>
                                             <td><span class="badge bg-secondary">{{ aluno.curso }}</span></td>
+                                            <td>{{ aluno.nivel }}</td>
                                             <td>
                                                 {% if aluno.status == 'Ativo' %}
                                                     <span class="badge bg-success">Ativo</span>
@@ -119,14 +154,6 @@
                                                 {% endif %}
                                             </td>
                                             <td>{{ aluno.telefone }}</td>
-                                            <td>{{ aluno.cpf }}</td>
-                                            <td>
-                                                {% if aluno.comprovante_endereco %}
-                                                    <a href="{{ url_for('static', filename=aluno.comprovante_endereco) }}" target="_blank" class="btn btn-outline-dark btn-xs py-0 px-1" style="font-size: 0.75rem;">Ver</a>
-                                                {% else %}
-                                                    <span class="text-muted small">N/A</span>
-                                                {% endif %}
-                                            </td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
