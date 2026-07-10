@@ -26,18 +26,15 @@
         {% endwith %}
 
         <div class="row">
-            <!-- Formulário Completo -->
             <div class="col-lg-4 mb-4">
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <h5 class="card-title mb-3 text-primary">Nova Matrícula</h5>
                         <form method="POST" action="/secretaria/alunos" enctype="multipart/form-data">
-                            
                             <div class="mb-2">
                                 <label class="form-label small mb-1">Nome Completo</label>
                                 <input type="text" class="form-control form-control-sm" name="nome" required>
                             </div>
-                            
                             <div class="row g-2 mb-2">
                                 <div class="col-6">
                                     <label class="form-label small mb-1">CPF</label>
@@ -48,22 +45,18 @@
                                     <input type="date" class="form-control form-control-sm" name="data_nascimento">
                                 </div>
                             </div>
-                            
                             <div class="mb-2">
                                 <label class="form-label small mb-1">E-mail</label>
                                 <input type="email" class="form-control form-control-sm" name="email">
                             </div>
-
                             <div class="mb-2">
                                 <label class="form-label small mb-1">Telefone / WhatsApp</label>
                                 <input type="text" class="form-control form-control-sm" name="telefone" required>
                             </div>
-
                             <div class="mb-2">
-                                <label class="form-label small mb-1">Responsável Legal (Se menor)</label>
-                                <input type="text" class="form-control form-control-sm" name="responsavel" placeholder="Opcional">
+                                <label class="form-label small mb-1">Responsável Legal</label>
+                                <input type="text" class="form-control form-control-sm" name="responsavel" placeholder="Se menor de idade">
                             </div>
-
                             <div class="row g-2 mb-2">
                                 <div class="col-6">
                                     <label class="form-label small mb-1">Instrumento</label>
@@ -80,7 +73,6 @@
                                     </select>
                                 </div>
                             </div>
-
                             <div class="row g-2 mb-2">
                                 <div class="col-6">
                                     <label class="form-label small mb-1">Status</label>
@@ -95,17 +87,14 @@
                                     <input type="date" class="form-control form-control-sm" name="data_matricula" required>
                                 </div>
                             </div>
-
                             <div class="mb-2">
                                 <label class="form-label small mb-1">Endereço Completo</label>
                                 <textarea class="form-control form-control-sm" name="endereco" rows="2" required></textarea>
                             </div>
-                            
                             <div class="mb-3">
                                 <label class="form-label small mb-1">Comprovante de Endereço</label>
                                 <input class="form-control form-control-sm" type="file" name="comprovante">
                             </div>
-
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-primary btn-sm">Salvar Matrícula</button>
                             </div>
@@ -114,18 +103,16 @@
                 </div>
             </div>
 
-            <!-- Tabela e Exportação -->
             <div class="col-lg-8">
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="card-title text-secondary mb-0">Alunos Matriculados ({{ alunos|length }})</h5>
-                            <!-- BOTÃO DE GERAR CSV -->
-                            <a href="/secretaria/alunos/csv" class="btn btn-outline-success btn-sm">Gerar Planilha (CSV)</a>
+                            <h5 class="card-title text-secondary mb-0">Matriculados ({{ alunos|length }})</h5>
+                            <a href="/secretaria/alunos/csv" class="btn btn-outline-success btn-sm">Planilha (CSV)</a>
                         </div>
                         
                         {% if not alunos %}
-                            <p class="text-muted text-center py-4">Nenhum aluno cadastrado ainda.</p>
+                            <p class="text-muted text-center py-4">Nenhum aluno cadastrado.</p>
                         {% else %}
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
@@ -133,18 +120,18 @@
                                         <tr>
                                             <th>Nome</th>
                                             <th>Curso</th>
-                                            <th>Nível</th>
-                                            <th>Status</th>
-                                            <th>Telefone</th>
+                                            <th>Nível / Status</th>
+                                            <th>Anexo</th>
+                                            <th class="text-center">Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {% for aluno in alunos %}
                                         <tr>
-                                            <td><strong>{{ aluno.nome }}</strong><br><small class="text-muted">{{ aluno.email }}</small></td>
+                                            <td><strong>{{ aluno.nome }}</strong><br><small class="text-muted">{{ aluno.telefone }}</small></td>
                                             <td><span class="badge bg-secondary">{{ aluno.curso }}</span></td>
-                                            <td>{{ aluno.nivel }}</td>
                                             <td>
+                                                {{ aluno.nivel }}<br>
                                                 {% if aluno.status == 'Ativo' %}
                                                     <span class="badge bg-success">Ativo</span>
                                                 {% elif aluno.status == 'Trancado' %}
@@ -153,8 +140,83 @@
                                                     <span class="badge bg-danger">Cancelado</span>
                                                 {% endif %}
                                             </td>
-                                            <td>{{ aluno.telefone }}</td>
+                                            <td>
+                                                {% if aluno.comprovante_endereco %}
+                                                    <a href="{{ url_for('static', filename=aluno.comprovante_endereco) }}" target="_blank" class="btn btn-outline-dark btn-xs py-0 px-1" style="font-size: 0.75rem;">Ver</a>
+                                                {% else %}
+                                                    <span class="text-muted small">N/A</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-primary btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalEditar{{ aluno.id }}">Editar</button>
+                                                
+                                                <form action="/secretaria/alunos/excluir/{{ aluno.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja apagar os dados deste aluno?');">
+                                                    <button type="submit" class="btn btn-danger btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;">Excluir</button>
+                                                </form>
+                                            </td>
                                         </tr>
+
+                                        <div class="modal fade" id="modalEditar{{ aluno.id }}" tabindex="-1" aria-hidden="true">
+                                          <div class="modal-dialog">
+                                            <div class="modal-content">
+                                              <div class="modal-header bg-primary text-white">
+                                                <h5 class="modal-title">Editar Aluno: {{ aluno.nome }}</h5>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                              </div>
+                                              <form action="/secretaria/alunos/editar/{{ aluno.id }}" method="POST">
+                                                  <div class="modal-body">
+                                                    <div class="mb-2">
+                                                        <label class="form-label small">Nome Completo</label>
+                                                        <input type="text" class="form-control form-control-sm" name="nome" value="{{ aluno.nome }}" required>
+                                                    </div>
+                                                    <div class="row g-2 mb-2">
+                                                        <div class="col-6">
+                                                            <label class="form-label small">Telefone</label>
+                                                            <input type="text" class="form-control form-control-sm" name="telefone" value="{{ aluno.telefone }}" required>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <label class="form-label small">E-mail</label>
+                                                            <input type="email" class="form-control form-control-sm" name="email" value="{{ aluno.email }}">
+                                                        </div>
+                                                    </div>
+                                                    <div class="row g-2 mb-2">
+                                                        <div class="col-4">
+                                                            <label class="form-label small">Curso</label>
+                                                            <input type="text" class="form-control form-control-sm" name="curso" value="{{ aluno.curso }}" required>
+                                                        </div>
+                                                        <div class="col-4">
+                                                            <label class="form-label small">Nível</label>
+                                                            <select class="form-select form-select-sm" name="nivel">
+                                                                <option value="Iniciante" {% if aluno.nivel == 'Iniciante' %}selected{% endif %}>Iniciante</option>
+                                                                <option value="Básico" {% if aluno.nivel == 'Básico' %}selected{% endif %}>Básico</option>
+                                                                <option value="Intermediário" {% if aluno.nivel == 'Intermediário' %}selected{% endif %}>Intermediário</option>
+                                                                <option value="Avançado" {% if aluno.nivel == 'Avançado' %}selected{% endif %}>Avançado</option>
+                                                                <option value="Profissional" {% if aluno.nivel == 'Profissional' %}selected{% endif %}>Profissional</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-4">
+                                                            <label class="form-label small">Status</label>
+                                                            <select class="form-select form-select-sm" name="status">
+                                                                <option value="Ativo" {% if aluno.status == 'Ativo' %}selected{% endif %}>Ativo</option>
+                                                                <option value="Trancado" {% if aluno.status == 'Trancado' %}selected{% endif %}>Trancado</option>
+                                                                <option value="Cancelado" {% if aluno.status == 'Cancelado' %}selected{% endif %}>Cancelado</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label class="form-label small">Endereço Completo</label>
+                                                        <textarea class="form-control form-control-sm" name="endereco" rows="2" required>{{ aluno.endereco_completo }}</textarea>
+                                                    </div>
+                                                  </div>
+                                                  <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                                                    <button type="submit" class="btn btn-primary btn-sm">Salvar Alterações</button>
+                                                  </div>
+                                              </form>
+                                            </div>
+                                          </div>
+                                        </div>
+
                                         {% endfor %}
                                     </tbody>
                                 </table>
@@ -166,5 +228,6 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
