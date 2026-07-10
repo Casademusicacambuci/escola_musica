@@ -1,9 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import text  # Importante para atualizar o banco de dados
+from sqlalchemy import text
 import os
 
-from models import db, Usuario, Aluno
+from models import db, Usuario, Aluno, Professor
 
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_cambuci_2026' 
@@ -19,12 +19,17 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
     
-    # Atualiza o banco de dados com a nova coluna caso ela não exista
     try:
         db.session.execute(text("ALTER TABLE alunos ADD COLUMN status VARCHAR(20) DEFAULT 'Ativo'"))
         db.session.commit()
     except Exception:
-        db.session.rollback() # A coluna já existe, ignora o erro
+        db.session.rollback()
+        
+    try:
+        db.session.execute(text("ALTER TABLE professores ADD COLUMN status VARCHAR(20) DEFAULT 'Ativo'"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     
     admin_existente = Usuario.query.filter_by(username='admin').first()
     if not admin_existente:
@@ -36,6 +41,9 @@ with app.app_context():
         db.session.add(novo_admin)
         db.session.commit()
 
+# ==============================================================================
+# SISTEMA DE LOGIN E SESSÃO
+# ==============================================================================
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -71,10 +79,13 @@ def dashboard():
     nome = session.get('nome')
     return render_template('dashboard.html', nome=nome, role=role)
 
+# ==============================================================================
+# MÓDULO 02 - SECRETARIA: GESTÃO DE ALUNOS
+# ==============================================================================
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
     if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
-        flash('Acesso negado. Você não tem permissão para acessar este módulo.')
+        flash('Acesso negado.')
         return redirect(url_for('dashboard'))
         
     if request.method == 'POST':
@@ -84,7 +95,7 @@ def gerenciar_alunos():
         endereco = request.form.get('endereco')
         telefone = request.form.get('telefone')
         curso = request.form.get('curso')
-        status = request.form.get('status') # Puxando o novo campo
+        status = request.form.get('status')
         
         arquivo = request.files.get('comprovante')
         caminho_arquivo = None
@@ -99,10 +110,9 @@ def gerenciar_alunos():
             flash('Erro: Já existe um aluno cadastrado com este CPF.')
         else:
             novo_aluno = Aluno(
-                nome=nome, rg=rg, cpf=cpf, 
-                endereco_completo=endereco, 
-                comprovante_endereco=caminho_arquivo,
-                telefone=telefone, curso=curso, status=status
+                nome=nome, rg=rg, cpf=cpf, endereco_completo=endereco, 
+                comprovante_endereco=caminho_arquivo, telefone=telefone, 
+                curso=curso, status=status
             )
             db.session.add(novo_aluno)
             db.session.commit()
@@ -111,6 +121,49 @@ def gerenciar_alunos():
 
     todos_alunos = Aluno.query.order_by(Aluno.nome).all()
     return render_template('alunos.html', alunos=todos_alunos)
+
+# ==============================================================================
+# MÓDULO 02 - SECRETARIA: GESTÃO DE PROFESSORES
+# ==============================================================================
+@app.route('/secretaria/professores', methods=['GET', 'POST'])
+def gerenciar_professores():
+    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
+        flash('Acesso negado.')
+        return redirect(url_for('dashboard'))
+        
+    if request.method == 'POST':
+        nome = request.form.get('nome')
+        rg = request.form.get('rg')
+        cpf = request.form.get('cpf')
+        endereco = request.form.get('endereco')
+        telefone = request.form.get('telefone')
+        curso = request.form.get('curso')
+        status = request.form.get('status')
+        
+        arquivo = request.files.get('comprovante')
+        caminho_arquivo = None
+        if arquivo and arquivo.filename != '':
+            extensao = arquivo.filename.split('.')[-1]
+            nome_arquivo = f"comprovante_prof_{cpf}.{extensao}"
+            arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo))
+            caminho_arquivo = f"uploads/{nome_arquivo}"
+
+        prof_existente = Professor.query.filter_by(cpf=cpf).first()
+        if prof_existente:
+            flash('Erro: Já existe um professor cadastrado com este CPF.')
+        else:
+            novo_prof = Professor(
+                nome=nome, rg=rg, cpf=cpf, endereco_completo=endereco, 
+                comprovante_endereco=caminho_arquivo, telefone=telefone, 
+                curso=curso, status=status
+            )
+            db.session.add(novo_prof)
+            db.session.commit()
+            flash('Professor cadastrado com sucesso!')
+            return redirect(url_for('gerenciar_professores'))
+
+    todos_professores = Professor.query.order_by(Professor.nome).all()
+    return render_template('professores.html', professores=todos_professores)
 
 if __name__ == '__main__':
     app.run(debug=True)
