@@ -1,25 +1,27 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
 
-# Importando o banco e a tabela de Usuários lá do seu models.py
-from models import db, Usuario
+# Importando o banco e as tabelas lá do seu models.py
+from models import db, Usuario, Aluno
 
 app = Flask(__name__)
-# Chave secreta necessária para manter o usuário logado com segurança
 app.secret_key = 'chave_secreta_cambuci_2026' 
 
 # Configuração do Banco de Dados SQLite
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cambuci_crm.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Configuração para upload de arquivos (Comprovantes de endereço)
+UPLOAD_FOLDER = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True) # Cria a pasta se ela não existir
+
 # Inicializando o banco junto com o app
 db.init_app(app)
 
-# Cria o banco e um usuário Admin padrão se não existir
 with app.app_context():
     db.create_all()
-    
-    # Verifica se já existe um admin. Se não, cria um para o primeiro acesso.
     admin_existente = Usuario.query.filter_by(username='admin').first()
     if not admin_existente:
         senha_criptografada = generate_password_hash('admin123')
@@ -41,16 +43,12 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        
         usuario = Usuario.query.filter_by(username=username).first()
         
-        # Verifica se o usuário existe e se a senha bate
         if usuario and check_password_hash(usuario.password_hash, password):
-            # Salva os dados na sessão (usuário está logado)
             session['usuario_id'] = usuario.id
             session['role'] = usuario.role
             session['nome'] = usuario.nome_completo
-            
             return redirect(url_for('dashboard'))
         else:
             flash('Usuário ou senha incorretos. Tente novamente.')
@@ -59,31 +57,77 @@ def login():
 
 @app.route('/logout')
 def logout():
-    session.clear() # Limpa a sessão (desloga)
+    session.clear()
     return redirect(url_for('login'))
 
 # ==============================================================================
-# ROTAS PRINCIPAIS (COM TRAVAS DE SEGURANÇA)
+# PAINEL PRINCIPAL
 # ==============================================================================
 
 @app.route('/')
 def index():
-    # Se já estiver logado, vai pro dashboard. Se não, vai pro login.
     if 'usuario_id' in session:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
 @app.route('/dashboard')
 def dashboard():
-    # Trava de segurança: se não tem sessão, manda pro login
     if 'usuario_id' not in session:
         return redirect(url_for('login'))
         
     role = session.get('role')
     nome = session.get('nome')
-    
-    # Agora ele vai chamar um arquivo HTML de verdade e passar os dados do usuário
     return render_template('dashboard.html', nome=nome, role=role)
+
+# ==============================================================================
+# MÓDULO 02 - SECRETARIA: GESTÃO DE ALUNOS
+# ==============================================================================
+
+@app.route('/secretaria/alunos', methods=['GET', 'POST'])
+def gerenciar_alunos():
+    # Trava de segurança: apenas admin e secretaria podem acessar
+    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
+        flash('Acesso negado. Você não tem permissão para acessar este módulo.')
+        return redirect(url_for('dashboard'))
+        
+    if request.method == 'POST':
+        nome = request.form.get('nome')
+        rg = request.form.get('rg')
+        cpf = request.form.get('cpf')
+        endereco = request.form.get('endereco')
+        telefone = request.form.get('telefone')
+        curso = request.form.get('curso')
+        
+        # Tratamento do arquivo de comprovante de endereço
+        arquivo = request.files.get('comprovante')
+        caminho_arquivo = None
+        if arquivo and arquivo.filename != '':
+            # Salva o arquivo na pasta static/uploads com o CPF do aluno no nome para não duplicar
+            extensao = arquivo.filename.split('.')[-1]
+            nome_arquivo = f"comprovante_{cpf}.{extensao}"
+            arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo))
+            caminho_arquivo = f"uploads/{nome_arquivo}"
+
+        # Verifica se o CPF já está cadastrado
+        aluno_existente = Aluno.query.filter_by(cpf=cpf).first()
+        if aluno_existente:
+            flash('Erro: Já existe um aluno cadastrado com este CPF.')
+        else:
+            # Salva no banco de dados SQLite
+            novo_aluno = Aluno(
+                nome=nome, rg=rg, cpf=cpf, 
+                endereco_completo=endereco, 
+                comprovante_endereco=caminho_arquivo,
+                telefone=telefone, curso=curso
+            )
+            db.session.add(novo_aluno)
+            db.session.commit()
+            flash('Aluno matriculado com sucesso!')
+            return redirect(url_for('gerenciar_alunos'))
+
+    # Busca todos os alunos cadastrados para exibir na tabela
+    todos_alunos = Aluno.query.order_by(Aluno.nome).all()
+    return render_template('alunos.html', alunos=todos_alunos)
 
 if __name__ == '__main__':
     app.run(debug=True)
