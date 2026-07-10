@@ -82,14 +82,8 @@ def dashboard():
     role = session.get('role')
     nome = session.get('nome')
     
-    # Aqui, no futuro, faremos o redirecionamento ou exibiremos 
-    # botões diferentes dependendo se o role for 'caixa', 'secretaria', 'admin', etc.
-    return f"""
-    <h1>Bem-vindo(a), {nome}!</h1>
-    <p>Seu nível de acesso no sistema é: <strong>{role.upper()}</strong>.</p>
-    <p>O sistema base está configurado e seguro!</p>
-    <a href='/logout'>Sair do Sistema</a>
-    """
+    # Agora ele vai chamar um arquivo HTML de verdade e passar os dados do usuário
+    return render_template('dashboard.html', nome=nome, role=role)
 
 if __name__ == '__main__':
     app.run(debug=True)
