@@ -19,8 +19,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 db.init_app(app)
 
 with app.app_context():
-    db.drop_all() # Limpa o banco de testes antigo
-    db.create_all() # Cria o banco com a estrutura profissional nova
+    db.create_all() 
     
     admin_existente = Usuario.query.filter_by(username='admin').first()
     if not admin_existente:
@@ -115,7 +114,7 @@ def gerenciar_alunos():
     todos_alunos = Aluno.query.order_by(Aluno.nome).all()
     return render_template('alunos.html', alunos=todos_alunos)
 
-# --- MÓDULO SECRETARIA: EXPORTAR CSV ---
+# --- MÓDULO SECRETARIA: EXPORTAR CSV (ATUALIZADO) ---
 @app.route('/secretaria/alunos/csv')
 def exportar_alunos_csv():
     if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
@@ -123,24 +122,38 @@ def exportar_alunos_csv():
         
     alunos = Aluno.query.all()
     
-    # Criando o arquivo CSV na memória
     si = StringIO()
-    cw = csv.writer(si, delimiter=';') # Ponto e vírgula para abrir bem no Excel em português
-    cw.writerow(['Nome', 'CPF', 'Email', 'Telefone', 'Curso', 'Nivel', 'Status', 'Data Matricula', 'Responsavel'])
+    cw = csv.writer(si, delimiter=';') 
+    
+    # Adicionamos todas as colunas que você pediu aqui no cabeçalho
+    cw.writerow(['Nome', 'CPF', 'Data de Nascimento', 'Email', 'Telefone', 'Responsável', 'Endereço Completo', 'Curso', 'Nível', 'Status', 'Data da Matrícula'])
     
     for a in alunos:
+        # Formatando as datas para o padrão brasileiro (DD/MM/AAAA)
+        data_nasc_formatada = a.data_nascimento.strftime('%d/%m/%Y') if a.data_nascimento else ''
+        data_mat_formatada = a.data_matricula.strftime('%d/%m/%Y') if a.data_matricula else ''
+        
+        # Inserindo os dados de cada aluno na planilha, na mesma ordem do cabeçalho
         cw.writerow([
-            a.nome, a.cpf, a.email, a.telefone, a.curso, 
-            a.nivel, a.status, 
-            a.data_matricula.strftime('%d/%m/%Y') if a.data_matricula else '',
-            a.nome_responsavel
+            a.nome, 
+            a.cpf, 
+            data_nasc_formatada, 
+            a.email, 
+            a.telefone, 
+            a.nome_responsavel,
+            a.endereco_completo,
+            a.curso, 
+            a.nivel, 
+            a.status, 
+            data_mat_formatada
         ])
         
     output = si.getvalue()
+    # Retorna o CSV com codificação UTF-8 BOM para garantir acentos corretos no Excel
     return Response(
-        output,
-        mimetype="text/csv",
-        headers={"Content-Disposition": "attachment;filename=relatorio_alunos.csv"}
+        '\ufeff' + output, 
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment;filename=relatorio_completo_alunos.csv"}
     )
 
 # --- MÓDULO SECRETARIA: PROFESSORES ---
