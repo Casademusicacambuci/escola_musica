@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -21,7 +20,6 @@
 </head>
 <body>
 
-    <!-- Barra de Navegação Superior -->
     <nav class="navbar navbar-expand-lg navbar-dark mb-4">
         <div class="container">
             <a class="navbar-brand" href="#">CRM | Casa de Música Cambuci</a>
@@ -32,13 +30,11 @@
         </div>
     </nav>
 
-    <!-- Grade de Módulos -->
     <div class="container">
         <h3 class="mb-4 text-center">Painel de Controle</h3>
         
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
             
-            <!-- Módulo 01: Financeiro -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role != 'admin' %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
@@ -49,18 +45,16 @@
                 </div>
             </div>
 
-            <!-- Módulo 02: Secretaria -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'secretaria'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
                         <h5 class="card-title text-primary">02. Secretaria</h5>
                         <p class="card-text text-muted small">Alunos, Professores, Aulas e Boletos.</p>
-                        <a href="#" class="btn btn-primary btn-sm w-100 {% if role not in ['admin', 'secretaria'] %} disabled {% endif %}">Acessar</a>
+                        <a href="/secretaria/alunos" class="btn btn-primary btn-sm w-100 {% if role not in ['admin', 'secretaria'] %} disabled {% endif %}">Acessar</a>
                     </div>
                 </div>
             </div>
 
-            <!-- Módulo 03: Estúdio Gravação -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'estudio'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
@@ -71,7 +65,6 @@
                 </div>
             </div>
 
-            <!-- Módulo 04: Estúdio Videoclipe -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'estudio'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
@@ -82,7 +75,6 @@
                 </div>
             </div>
 
-            <!-- Módulo 05: Estúdio Ensaio -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'estudio'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
@@ -93,7 +85,6 @@
                 </div>
             </div>
 
-            <!-- Módulo 06: Loja -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'loja'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
@@ -104,7 +95,6 @@
                 </div>
             </div>
 
-            <!-- Módulo 07: Caixa -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'caixa', 'secretaria', 'loja'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
@@ -115,7 +105,6 @@
                 </div>
             </div>
 
-            <!-- Módulo 08: Estoque -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'loja'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
