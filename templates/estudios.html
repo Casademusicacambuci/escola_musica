@@ -78,7 +78,7 @@
                             <div class="row g-2 mb-2">
                                 <div class="col-6">
                                     <label class="form-label small mb-0">Valor (R$)</label>
-                                    <input type="number" step="0.01" class="form-control form-control-sm" name="valor" placeholder="Ex: 150,00" required>
+                                    <input type="number" step="0.01" class="form-control form-control-sm" name="valor" placeholder="Ex: 150.00" required>
                                 </div>
                                 <div class="col-6">
                                     <label class="form-label small mb-0">Técnico/Responsável</label>
@@ -132,7 +132,8 @@
                                             <th>Data / Hora</th>
                                             <th>Estúdio</th>
                                             <th>Cliente</th>
-                                            <th>Técnico / Valor</th>
+                                            <th>Técnico</th>
+                                            <th>Valor Total</th>
                                             <th>Status</th>
                                             <th class="text-center">Ações</th>
                                         </tr>
@@ -147,7 +148,8 @@
                                                     <a href="{{ url_for('static', filename=ag.comprovante_endereco) }}" target="_blank" class="text-decoration-none small">Ver Anexo</a>
                                                 {% endif %}
                                             </td>
-                                            <td>{{ ag.nome_tecnico }}<br><strong class="text-success">R$ {{ "%.2f"|format(ag.valor) }}</strong></td>
+                                            <td>{{ ag.nome_tecnico }}</td>
+                                            <td><strong class="text-success">R$ {{ "%.2f"|format(ag.valor) }}</strong></td>
                                             <td>
                                                 {% if ag.status_pagamento == 'Pago' %}
                                                     <span class="badge bg-success mb-1 w-100">$$ Pago</span>
@@ -206,7 +208,7 @@
                                                       </div>
                                                       <div class="row g-2 mb-2">
                                                           <div class="col-6">
-                                                              <label class="form-label small mb-0">Valor (R$)</label>
+                                                              <label class="form-label small mb-0">Valor Total (R$)</label>
                                                               <input type="number" step="0.01" class="form-control form-control-sm" name="valor" value="{{ ag.valor }}" required>
                                                           </div>
                                                           <div class="col-6">
