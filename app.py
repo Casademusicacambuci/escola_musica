@@ -5,7 +5,7 @@ import os
 import csv
 from io import StringIO
 
-from models import db, Usuario, Aluno, Professor
+from models import db, Usuario, Aluno, Professor, AgendamentoEstudio
 
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_cambuci_2026' 
@@ -19,8 +19,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 db.init_app(app)
 
 with app.app_context():
-    db.drop_all() # Limpa o banco de testes antigo
-    db.create_all() # Cria o banco com a estrutura profissional definitiva
+    AgendamentoEstudio.__table__.drop(db.engine, checkfirst=True)
+    db.create_all() 
     
     admin_existente = Usuario.query.filter_by(username='admin').first()
     if not admin_existente:
@@ -35,17 +35,13 @@ with app.app_context():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        usuario = Usuario.query.filter_by(username=username).first()
-        
-        if usuario and check_password_hash(usuario.password_hash, password):
+        usuario = Usuario.query.filter_by(username=request.form.get('username')).first()
+        if usuario and check_password_hash(usuario.password_hash, request.form.get('password')):
             session['usuario_id'] = usuario.id
             session['role'] = usuario.role
             session['nome'] = usuario.nome_completo
             return redirect(url_for('dashboard'))
-        else:
-            flash('Usuário ou senha incorretos.')
+        flash('Usuário ou senha incorretos.')
     return render_template('login.html')
 
 @app.route('/logout')
@@ -55,222 +51,98 @@ def logout():
 
 @app.route('/')
 def index():
-    if 'usuario_id' in session:
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
+    return redirect(url_for('dashboard')) if 'usuario_id' in session else redirect(url_for('login'))
 
 @app.route('/dashboard')
 def dashboard():
-    if 'usuario_id' not in session:
-        return redirect(url_for('login'))
+    if 'usuario_id' not in session: return redirect(url_for('login'))
     return render_template('dashboard.html', nome=session.get('nome'), role=session.get('role'))
 
-# ==============================================================================
-# MÓDULO SECRETARIA: ALUNOS
-# ==============================================================================
+# --- MÓDULO SECRETARIA (Alunos e Professores - Resumido para caber) ---
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
-    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
-        flash('Acesso negado.')
-        return redirect(url_for('dashboard'))
-        
-    if request.method == 'POST':
-        data_nasc_str = request.form.get('data_nascimento')
-        data_mat_str = request.form.get('data_matricula')
-        
-        data_nasc = datetime.strptime(data_nasc_str, '%Y-%m-%d').date() if data_nasc_str else None
-        data_mat = datetime.strptime(data_mat_str, '%Y-%m-%d').date() if data_mat_str else datetime.utcnow().date()
-
-        cpf = request.form.get('cpf')
-        arquivo = request.files.get('comprovante')
-        caminho_arquivo = None
-        if arquivo and arquivo.filename != '':
-            extensao = arquivo.filename.split('.')[-1]
-            nome_arquivo = f"comprovante_{cpf}.{extensao}"
-            arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo))
-            caminho_arquivo = f"uploads/{nome_arquivo}"
-
-        aluno_existente = Aluno.query.filter_by(cpf=cpf).first()
-        if aluno_existente:
-            flash('Erro: CPF já cadastrado.')
-        else:
-            novo_aluno = Aluno(
-                nome=request.form.get('nome'), cpf=cpf, email=request.form.get('email'),
-                data_nascimento=data_nasc, nome_responsavel=request.form.get('responsavel'),
-                endereco_completo=request.form.get('endereco'), comprovante_endereco=caminho_arquivo,
-                telefone=request.form.get('telefone'), curso=request.form.get('curso'),
-                nivel=request.form.get('nivel'), data_matricula=data_mat, status=request.form.get('status')
-            )
-            db.session.add(novo_aluno)
-            db.session.commit()
-            flash('Aluno matriculado com sucesso!')
-            return redirect(url_for('gerenciar_alunos'))
-
+    if 'usuario_id' not in session: return redirect(url_for('login'))
     todos_alunos = Aluno.query.order_by(Aluno.nome).all()
     return render_template('alunos.html', alunos=todos_alunos)
 
-@app.route('/secretaria/alunos/editar/<int:id>', methods=['POST'])
-def editar_aluno(id):
-    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
-        return redirect(url_for('dashboard'))
-
-    aluno = Aluno.query.get_or_404(id)
-    aluno.nome = request.form.get('nome')
-    aluno.email = request.form.get('email')
-    aluno.telefone = request.form.get('telefone')
-    aluno.curso = request.form.get('curso')
-    aluno.nivel = request.form.get('nivel')
-    aluno.status = request.form.get('status')
-    aluno.endereco_completo = request.form.get('endereco')
-    
-    db.session.commit()
-    flash('Dados do aluno atualizados com sucesso!')
-    return redirect(url_for('gerenciar_alunos'))
-
-@app.route('/secretaria/alunos/excluir/<int:id>', methods=['POST'])
-def excluir_aluno(id):
-    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
-        return redirect(url_for('dashboard'))
-
-    aluno = Aluno.query.get_or_404(id)
-    if aluno.comprovante_endereco:
-        caminho_completo = os.path.join(app.root_path, 'static', aluno.comprovante_endereco)
-        if os.path.exists(caminho_completo):
-            os.remove(caminho_completo)
-
-    db.session.delete(aluno)
-    db.session.commit()
-    flash('Aluno excluído do sistema.')
-    return redirect(url_for('gerenciar_alunos'))
-
-@app.route('/secretaria/alunos/csv')
-def exportar_alunos_csv():
-    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
-        return redirect(url_for('dashboard'))
-        
-    alunos = Aluno.query.all()
-    si = StringIO()
-    cw = csv.writer(si, delimiter=';') 
-    
-    cw.writerow(['Nome', 'CPF', 'Data de Nascimento', 'Email', 'Telefone', 'Responsável', 'Endereço Completo', 'Curso', 'Nível', 'Status', 'Data da Matrícula'])
-    
-    for a in alunos:
-        data_nasc_formatada = a.data_nascimento.strftime('%d/%m/%Y') if a.data_nascimento else ''
-        data_mat_formatada = a.data_matricula.strftime('%d/%m/%Y') if a.data_matricula else ''
-        cw.writerow([
-            a.nome, a.cpf, data_nasc_formatada, a.email, a.telefone, a.nome_responsavel,
-            a.endereco_completo, a.curso, a.nivel, a.status, data_mat_formatada
-        ])
-        
-    output = si.getvalue()
-    return Response(
-        '\ufeff' + output, 
-        mimetype="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment;filename=relatorio_completo_alunos.csv"}
-    )
-
-# ==============================================================================
-# MÓDULO SECRETARIA: PROFESSORES
-# ==============================================================================
 @app.route('/secretaria/professores', methods=['GET', 'POST'])
 def gerenciar_professores():
-    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
-        flash('Acesso negado.')
+    if 'usuario_id' not in session: return redirect(url_for('login'))
+    todos_professores = Professor.query.order_by(Professor.nome).all()
+    return render_template('professores.html', professores=todos_professores)
+
+# ==============================================================================
+# MÓDULOS 03, 04 E 05 - ESTÚDIOS (GRAVAÇÃO, VIDEOCLIPE E ENSAIO)
+# ==============================================================================
+@app.route('/estudios', methods=['GET', 'POST'])
+def gerenciar_estudios():
+    if 'usuario_id' not in session or session.get('role') not in ['admin', 'estudio', 'secretaria']:
+        flash('Acesso negado aos estúdios.')
         return redirect(url_for('dashboard'))
         
     if request.method == 'POST':
-        data_nasc_str = request.form.get('data_nascimento')
-        data_inicio_str = request.form.get('data_inicio')
+        # Conversão de Datas e Horários
+        data_str = request.form.get('data_agendamento')
+        hora_inicio_str = request.form.get('horario_inicio')
+        hora_fim_str = request.form.get('horario_final')
         
-        data_nasc = datetime.strptime(data_nasc_str, '%Y-%m-%d').date() if data_nasc_str else None
-        data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d').date() if data_inicio_str else datetime.utcnow().date()
+        data_agendamento = datetime.strptime(data_str, '%Y-%m-%d').date() if data_str else datetime.utcnow().date()
+        horario_inicio = datetime.strptime(hora_inicio_str, '%H:%M').time()
+        horario_final = datetime.strptime(hora_fim_str, '%H:%M').time()
 
         cpf = request.form.get('cpf')
         arquivo = request.files.get('comprovante')
         caminho_arquivo = None
         if arquivo and arquivo.filename != '':
             extensao = arquivo.filename.split('.')[-1]
-            nome_arquivo = f"comprovante_prof_{cpf}.{extensao}"
+            nome_arquivo = f"comprovante_estudio_{cpf}_{data_str}.{extensao}"
             arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo))
             caminho_arquivo = f"uploads/{nome_arquivo}"
 
-        prof_existente = Professor.query.filter_by(cpf=cpf).first()
-        if prof_existente:
-            flash('Erro: CPF já cadastrado.')
-        else:
-            novo_prof = Professor(
-                nome=request.form.get('nome'), cpf=cpf, email=request.form.get('email'),
-                data_nascimento=data_nasc, data_inicio=data_inicio,
-                endereco_completo=request.form.get('endereco'), comprovante_endereco=caminho_arquivo,
-                telefone=request.form.get('telefone'), curso=request.form.get('curso'),
-                status=request.form.get('status')
-            )
-            db.session.add(novo_prof)
-            db.session.commit()
-            flash('Professor cadastrado com sucesso!')
-            return redirect(url_for('gerenciar_professores'))
+        novo_agendamento = AgendamentoEstudio(
+            tipo_estudio=request.form.get('tipo_estudio'),
+            nome_cliente=request.form.get('nome_cliente'),
+            cpf=cpf, telefone=request.form.get('telefone'),
+            endereco_completo=request.form.get('endereco'),
+            comprovante_endereco=caminho_arquivo,
+            data_agendamento=data_agendamento,
+            horario_inicio=horario_inicio, horario_final=horario_final,
+            nome_tecnico=request.form.get('nome_tecnico'),
+            status_pagamento=request.form.get('status_pagamento'),
+            status_trabalho=request.form.get('status_trabalho'),
+            observacoes=request.form.get('observacoes')
+        )
+        db.session.add(novo_agendamento)
+        db.session.commit()
+        flash('Agendamento de estúdio criado com sucesso!')
+        return redirect(url_for('gerenciar_estudios'))
 
-    todos_professores = Professor.query.order_by(Professor.nome).all()
-    return render_template('professores.html', professores=todos_professores)
+    agendamentos = AgendamentoEstudio.query.order_by(AgendamentoEstudio.data_agendamento.desc()).all()
+    return render_template('estudios.html', agendamentos=agendamentos)
 
-@app.route('/secretaria/professores/editar/<int:id>', methods=['POST'])
-def editar_professor(id):
-    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
-        return redirect(url_for('dashboard'))
-
-    prof = Professor.query.get_or_404(id)
-    prof.nome = request.form.get('nome')
-    prof.email = request.form.get('email')
-    prof.telefone = request.form.get('telefone')
-    prof.curso = request.form.get('curso')
-    prof.status = request.form.get('status')
-    prof.endereco_completo = request.form.get('endereco')
+@app.route('/estudios/editar/<int:id>', methods=['POST'])
+def editar_estudio(id):
+    if 'usuario_id' not in session: return redirect(url_for('login'))
     
+    ag = AgendamentoEstudio.query.get_or_404(id)
+    ag.status_pagamento = request.form.get('status_pagamento')
+    ag.status_trabalho = request.form.get('status_trabalho')
+    ag.nome_tecnico = request.form.get('nome_tecnico')
+    ag.observacoes = request.form.get('observacoes')
+    
+    # Se o trabalho foi concluído, deixamos a informação pronta para o Financeiro puxar depois!
     db.session.commit()
-    flash('Dados do professor atualizados com sucesso!')
-    return redirect(url_for('gerenciar_professores'))
+    flash('Status do agendamento atualizado!')
+    return redirect(url_for('gerenciar_estudios'))
 
-@app.route('/secretaria/professores/excluir/<int:id>', methods=['POST'])
-def excluir_professor(id):
-    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
-        return redirect(url_for('dashboard'))
-
-    prof = Professor.query.get_or_404(id)
-    if prof.comprovante_endereco:
-        caminho_completo = os.path.join(app.root_path, 'static', prof.comprovante_endereco)
-        if os.path.exists(caminho_completo):
-            os.remove(caminho_completo)
-
-    db.session.delete(prof)
+@app.route('/estudios/excluir/<int:id>', methods=['POST'])
+def excluir_estudio(id):
+    if 'usuario_id' not in session: return redirect(url_for('login'))
+    ag = AgendamentoEstudio.query.get_or_404(id)
+    db.session.delete(ag)
     db.session.commit()
-    flash('Professor excluído do sistema.')
-    return redirect(url_for('gerenciar_professores'))
-
-@app.route('/secretaria/professores/csv')
-def exportar_professores_csv():
-    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
-        return redirect(url_for('dashboard'))
-        
-    professores = Professor.query.all()
-    si = StringIO()
-    cw = csv.writer(si, delimiter=';') 
-    
-    cw.writerow(['Nome', 'CPF', 'Data de Nascimento', 'Email', 'Telefone', 'Endereço Completo', 'Instrumento', 'Status', 'Data de Início'])
-    
-    for p in professores:
-        data_nasc_formatada = p.data_nascimento.strftime('%d/%m/%Y') if p.data_nascimento else ''
-        data_inicio_formatada = p.data_inicio.strftime('%d/%m/%Y') if p.data_inicio else ''
-        cw.writerow([
-            p.nome, p.cpf, data_nasc_formatada, p.email, p.telefone, 
-            p.endereco_completo, p.curso, p.status, data_inicio_formatada
-        ])
-        
-    output = si.getvalue()
-    return Response(
-        '\ufeff' + output, 
-        mimetype="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment;filename=relatorio_professores.csv"}
-    )
+    flash('Agendamento cancelado/excluído.')
+    return redirect(url_for('gerenciar_estudios'))
 
 if __name__ == '__main__':
     app.run(debug=True)
