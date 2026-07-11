@@ -18,7 +18,7 @@
         {% with messages = get_flashed_messages() %}
           {% if messages %}
             {% for message in messages %}
-              <div class="alert alert-info text-center">{{ message }}</div>
+              <div class="alert alert-danger text-center fw-bold">{{ message }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
@@ -34,14 +34,14 @@
                             <div class="mb-3">
                                 <label class="form-label fw-bold small">Selecione o Estúdio</label>
                                 <select class="form-select border-danger" name="tipo_estudio" required>
-                                    <option value="Módulo 03 - Gravação Audio">Módulo 03 - Gravação Áudio</option>
-                                    <option value="Módulo 04 - Videoclipe">Módulo 04 - Videoclipe</option>
-                                    <option value="Módulo 05 - Ensaio">Módulo 05 - Ensaio</option>
+                                    <option value="Gravação (Áudio)">Módulo - Gravação (Áudio)</option>
+                                    <option value="Videoclipe">Módulo - Videoclipe</option>
+                                    <option value="Ensaio">Módulo - Ensaio</option>
                                 </select>
                             </div>
 
                             <hr>
-                            <h6 class="small text-muted mb-2">Dados do Cliente (Segurança)</h6>
+                            <h6 class="small text-muted mb-2">Dados do Cliente</h6>
                             <div class="mb-2">
                                 <input type="text" class="form-control form-control-sm" name="nome_cliente" placeholder="Nome do Artista/Cliente" required>
                             </div>
@@ -58,8 +58,8 @@
                             </div>
 
                             <hr>
-                            <h6 class="small text-muted mb-2">Detalhes Operacionais</h6>
-                            <div class="row g-2 mb-2">
+                            <h6 class="small text-muted mb-2">Data e Horário</h6>
+                            <div class="row g-2 mb-3">
                                 <div class="col-12">
                                     <input type="date" class="form-control form-control-sm" name="data_agendamento" required>
                                 </div>
@@ -73,12 +73,20 @@
                                 </div>
                             </div>
 
-                            <div class="mb-2">
-                                <label class="form-label small mb-0">Técnico Responsável</label>
-                                <input type="text" class="form-control form-control-sm" name="nome_tecnico" placeholder="Nome do Técnico p/ Cachê" required>
+                            <hr>
+                            <h6 class="small text-muted mb-2">Financeiro e Operacional</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label small mb-0">Valor (R$)</label>
+                                    <input type="number" step="0.01" class="form-control form-control-sm" name="valor" placeholder="Ex: 150,00" required>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small mb-0">Técnico/Responsável</label>
+                                    <input type="text" class="form-control form-control-sm" name="nome_tecnico" placeholder="Nome do Técnico" required>
+                                </div>
                             </div>
 
-                            <div class="row g-2 mb-3">
+                            <div class="row g-2 mb-2">
                                 <div class="col-6">
                                     <label class="form-label small mb-0">Pagamento</label>
                                     <select class="form-select form-select-sm" name="status_pagamento">
@@ -95,8 +103,13 @@
                                 </div>
                             </div>
 
+                            <div class="mb-3">
+                                <label class="form-label small mb-0">Observações (Opcional)</label>
+                                <textarea class="form-control form-control-sm" name="observacoes" rows="2" placeholder="Detalhes do ensaio, microfones, etc..."></textarea>
+                            </div>
+
                             <div class="d-grid">
-                                <button type="submit" class="btn btn-danger btn-sm">Confirmar Agendamento</button>
+                                <button type="submit" class="btn btn-danger btn-sm fw-bold">Confirmar Agendamento</button>
                             </div>
                         </form>
                     </div>
@@ -107,7 +120,7 @@
             <div class="col-lg-8">
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
-                        <h5 class="card-title text-secondary mb-3">Agenda dos Estúdios</h5>
+                        <h5 class="card-title text-secondary mb-3">Agenda Oficial</h5>
                         
                         {% if not agendamentos %}
                             <p class="text-muted text-center py-4">Nenhum estúdio agendado.</p>
@@ -119,7 +132,7 @@
                                             <th>Data / Hora</th>
                                             <th>Estúdio</th>
                                             <th>Cliente</th>
-                                            <th>Técnico / Cache</th>
+                                            <th>Técnico / Valor</th>
                                             <th>Status</th>
                                             <th class="text-center">Ações</th>
                                         </tr>
@@ -127,23 +140,21 @@
                                     <tbody>
                                         {% for ag in agendamentos %}
                                         <tr>
-                                            <td><strong>{{ ag.data_agendamento.strftime('%d/%m') }}</strong><br>{{ ag.horario_inicio.strftime('%H:%M') }} às {{ ag.horario_final.strftime('%H:%M') }}</td>
+                                            <td><strong>{{ ag.data_agendamento.strftime('%d/%m/%Y') }}</strong><br>{{ ag.horario_inicio.strftime('%H:%M') }} às {{ ag.horario_final.strftime('%H:%M') }}</td>
                                             <td>{{ ag.tipo_estudio }}</td>
                                             <td>{{ ag.nome_cliente }}<br>
                                                 {% if ag.comprovante_endereco %}
                                                     <a href="{{ url_for('static', filename=ag.comprovante_endereco) }}" target="_blank" class="text-decoration-none small">Ver Anexo</a>
                                                 {% endif %}
                                             </td>
-                                            <td>{{ ag.nome_tecnico }}</td>
+                                            <td>{{ ag.nome_tecnico }}<br><strong class="text-success">R$ {{ "%.2f"|format(ag.valor) }}</strong></td>
                                             <td>
-                                                <!-- Selos de Pagamento -->
                                                 {% if ag.status_pagamento == 'Pago' %}
                                                     <span class="badge bg-success mb-1 w-100">$$ Pago</span>
                                                 {% else %}
                                                     <span class="badge bg-warning text-dark mb-1 w-100">A Pagar</span>
                                                 {% endif %}
                                                 <br>
-                                                <!-- Selos de Serviço -->
                                                 {% if ag.status_trabalho == 'Concluído' %}
                                                     <span class="badge bg-primary w-100">Concluído</span>
                                                 {% else %}
@@ -151,7 +162,7 @@
                                                 {% endif %}
                                             </td>
                                             <td class="text-center">
-                                                <button type="button" class="btn btn-outline-danger btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalEditar{{ ag.id }}">Atualizar</button>
+                                                <button type="button" class="btn btn-outline-danger btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalEditar{{ ag.id }}">Editar</button>
                                                 
                                                 <form action="/estudios/excluir/{{ ag.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Cancelar este agendamento?');">
                                                     <button type="submit" class="btn btn-dark btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;">X</button>
@@ -159,41 +170,79 @@
                                             </td>
                                         </tr>
 
-                                        <!-- Modal de Atualização de Status -->
+                                        <!-- Modal de Edição Completa -->
                                         <div class="modal fade" id="modalEditar{{ ag.id }}" tabindex="-1" aria-hidden="true">
-                                          <div class="modal-dialog modal-sm">
+                                          <div class="modal-dialog">
                                             <div class="modal-content">
                                               <div class="modal-header bg-danger text-white">
-                                                <h6 class="modal-title">Atualizar Status</h6>
+                                                <h6 class="modal-title">Editar Agendamento: {{ ag.nome_cliente }}</h6>
                                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                               </div>
                                               <form action="/estudios/editar/{{ ag.id }}" method="POST">
                                                   <div class="modal-body">
-                                                      <p class="small text-muted mb-3">Técnico: {{ ag.nome_tecnico }}</p>
-                                                      
-                                                      <label class="form-label small">Técnico Responsável</label>
-                                                      <input type="text" class="form-control form-control-sm mb-2" name="nome_tecnico" value="{{ ag.nome_tecnico }}">
-                                                      
-                                                      <label class="form-label small">Pagamento</label>
-                                                      <select class="form-select form-select-sm mb-2" name="status_pagamento">
-                                                          <option value="A Pagar" {% if ag.status_pagamento == 'A Pagar' %}selected{% endif %}>A Pagar</option>
-                                                          <option value="Pago" {% if ag.status_pagamento == 'Pago' %}selected{% endif %}>Pago</option>
-                                                      </select>
-
-                                                      <label class="form-label small">Serviço</label>
-                                                      <select class="form-select form-select-sm mb-2" name="status_trabalho">
-                                                          <option value="Agendado" {% if ag.status_trabalho == 'Agendado' %}selected{% endif %}>Agendado</option>
-                                                          <option value="Concluído" {% if ag.status_trabalho == 'Concluído' %}selected{% endif %}>Concluído (Enviar para Financeiro)</option>
-                                                      </select>
+                                                      <div class="row g-2 mb-2">
+                                                          <div class="col-12">
+                                                              <label class="form-label small mb-0">Estúdio</label>
+                                                              <select class="form-select form-select-sm" name="tipo_estudio">
+                                                                <option value="Gravação (Áudio)" {% if ag.tipo_estudio == 'Gravação (Áudio)' %}selected{% endif %}>Gravação (Áudio)</option>
+                                                                <option value="Videoclipe" {% if ag.tipo_estudio == 'Videoclipe' %}selected{% endif %}>Videoclipe</option>
+                                                                <option value="Ensaio" {% if ag.tipo_estudio == 'Ensaio' %}selected{% endif %}>Ensaio</option>
+                                                              </select>
+                                                          </div>
+                                                      </div>
+                                                      <div class="row g-2 mb-2">
+                                                          <div class="col-4">
+                                                              <label class="form-label small mb-0">Data</label>
+                                                              <input type="date" class="form-control form-control-sm" name="data_agendamento" value="{{ ag.data_agendamento }}" required>
+                                                          </div>
+                                                          <div class="col-4">
+                                                              <label class="form-label small mb-0">Início</label>
+                                                              <input type="time" class="form-control form-control-sm" name="horario_inicio" value="{{ ag.horario_inicio.strftime('%H:%M') }}" required>
+                                                          </div>
+                                                          <div class="col-4">
+                                                              <label class="form-label small mb-0">Fim</label>
+                                                              <input type="time" class="form-control form-control-sm" name="horario_final" value="{{ ag.horario_final.strftime('%H:%M') }}" required>
+                                                          </div>
+                                                      </div>
+                                                      <div class="row g-2 mb-2">
+                                                          <div class="col-6">
+                                                              <label class="form-label small mb-0">Valor (R$)</label>
+                                                              <input type="number" step="0.01" class="form-control form-control-sm" name="valor" value="{{ ag.valor }}" required>
+                                                          </div>
+                                                          <div class="col-6">
+                                                              <label class="form-label small mb-0">Técnico</label>
+                                                              <input type="text" class="form-control form-control-sm" name="nome_tecnico" value="{{ ag.nome_tecnico }}" required>
+                                                          </div>
+                                                      </div>
+                                                      <div class="row g-2 mb-2">
+                                                          <div class="col-6">
+                                                              <label class="form-label small mb-0">Pagamento</label>
+                                                              <select class="form-select form-select-sm" name="status_pagamento">
+                                                                  <option value="A Pagar" {% if ag.status_pagamento == 'A Pagar' %}selected{% endif %}>A Pagar</option>
+                                                                  <option value="Pago" {% if ag.status_pagamento == 'Pago' %}selected{% endif %}>Pago</option>
+                                                              </select>
+                                                          </div>
+                                                          <div class="col-6">
+                                                              <label class="form-label small mb-0">Serviço</label>
+                                                              <select class="form-select form-select-sm" name="status_trabalho">
+                                                                  <option value="Agendado" {% if ag.status_trabalho == 'Agendado' %}selected{% endif %}>Agendado</option>
+                                                                  <option value="Concluído" {% if ag.status_trabalho == 'Concluído' %}selected{% endif %}>Concluído</option>
+                                                              </select>
+                                                          </div>
+                                                      </div>
+                                                      <div class="mb-2">
+                                                          <label class="form-label small mb-0">Observações</label>
+                                                          <textarea class="form-control form-control-sm" name="observacoes" rows="2">{{ ag.observacoes }}</textarea>
+                                                      </div>
                                                   </div>
                                                   <div class="modal-footer">
-                                                    <button type="submit" class="btn btn-danger btn-sm w-100">Salvar</button>
+                                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                                                    <button type="submit" class="btn btn-danger btn-sm">Salvar Alterações</button>
                                                   </div>
                                               </form>
                                             </div>
                                           </div>
                                         </div>
-
                                         {% endfor %}
                                     </tbody>
                                 </table>
