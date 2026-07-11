@@ -8,10 +8,7 @@
     <style>
         body { background-color: #f4f6f9; }
         .navbar { background-color: #212529; }
-        .card-modulo {
-            transition: transform 0.2s;
-            height: 100%;
-        }
+        .card-modulo { transition: transform 0.2s; height: 100%; }
         .card-modulo:hover { transform: translateY(-5px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
         .modulo-bloqueado { opacity: 0.5; filter: grayscale(100%); cursor: not-allowed; }
         .modulo-bloqueado:hover { transform: none; box-shadow: none; }
@@ -32,9 +29,8 @@
     <div class="container">
         <h3 class="mb-4 text-center">Painel de Controle</h3>
         
-        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4 mb-5">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-5">
             
-            <!-- Módulo 01: Financeiro -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role != 'admin' %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
@@ -45,7 +41,6 @@
                 </div>
             </div>
 
-            <!-- Módulo 02: Secretaria -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'secretaria'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
@@ -59,66 +54,41 @@
                 </div>
             </div>
 
-            <!-- Módulo 03: Estúdio Gravação -->
+            <!-- UNIFICADO: CENTRAL DE ESTÚDIOS -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'estudio', 'secretaria'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
-                        <h5 class="card-title text-danger">03. Gravação</h5>
-                        <p class="card-text text-muted small">Controle de Gravações.</p>
-                        <a href="/estudios" class="btn btn-danger btn-sm w-100 {% if role not in ['admin', 'estudio', 'secretaria'] %} disabled {% endif %}">Acessar</a>
+                        <h5 class="card-title text-danger">03. Estúdios (Central)</h5>
+                        <p class="card-text text-muted small">Gravação, Videoclipe e Ensaios.</p>
+                        <a href="/estudios" class="btn btn-danger btn-sm w-100 {% if role not in ['admin', 'estudio', 'secretaria'] %} disabled {% endif %}">Acessar Agenda</a>
                     </div>
                 </div>
             </div>
 
-            <!-- Módulo 04: Estúdio Videoclipe -->
-            <div class="col">
-                <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'estudio', 'secretaria'] %} modulo-bloqueado {% endif %}">
-                    <div class="card-body">
-                        <h5 class="card-title text-danger">04. Videoclipe</h5>
-                        <p class="card-text text-muted small">Produção de Vídeo.</p>
-                        <a href="/estudios" class="btn btn-danger btn-sm w-100 {% if role not in ['admin', 'estudio', 'secretaria'] %} disabled {% endif %}">Acessar</a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Módulo 05: Estúdio Ensaio -->
-            <div class="col">
-                <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'estudio', 'secretaria'] %} modulo-bloqueado {% endif %}">
-                    <div class="card-body">
-                        <h5 class="card-title text-danger">05. Ensaio</h5>
-                        <p class="card-text text-muted small">Salas de Ensaio.</p>
-                        <a href="/estudios" class="btn btn-danger btn-sm w-100 {% if role not in ['admin', 'estudio', 'secretaria'] %} disabled {% endif %}">Acessar</a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Módulo 06: Loja -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'loja'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
-                        <h5 class="card-title text-info">06. Loja & Luthier</h5>
+                        <h5 class="card-title text-info">04. Loja & Luthier</h5>
                         <p class="card-text text-muted small">Vendas e Serviços.</p>
                         <a href="#" class="btn btn-info text-white btn-sm w-100 {% if role not in ['admin', 'loja'] %} disabled {% endif %}">Acessar</a>
                     </div>
                 </div>
             </div>
 
-            <!-- Módulo 07: Caixa -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'caixa', 'secretaria', 'loja'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
-                        <h5 class="card-title text-warning">07. Caixa</h5>
+                        <h5 class="card-title text-warning">05. Caixa</h5>
                         <p class="card-text text-muted small">Entradas e Saídas.</p>
                         <a href="#" class="btn btn-warning text-dark btn-sm w-100 {% if role not in ['admin', 'caixa', 'secretaria', 'loja'] %} disabled {% endif %}">Acessar</a>
                     </div>
                 </div>
             </div>
 
-            <!-- Módulo 08: Estoque -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'loja'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
-                        <h5 class="card-title text-secondary">08. Estoque</h5>
+                        <h5 class="card-title text-secondary">06. Estoque</h5>
                         <p class="card-text text-muted small">Código de Barras.</p>
                         <a href="#" class="btn btn-secondary btn-sm w-100 {% if role not in ['admin', 'loja'] %} disabled {% endif %}">Acessar</a>
                     </div>
