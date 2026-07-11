@@ -42,30 +42,27 @@ class Professor(db.Model):
     curso = db.Column(db.String(50), nullable=False)
     status = db.Column(db.String(20), nullable=False, default='Ativo')
 
-# --- MÓDULOS DE ESTÚDIO ATUALIZADOS ---
 class AgendamentoEstudio(db.Model):
     __tablename__ = 'agendamentos_estudio'
     id = db.Column(db.Integer, primary_key=True)
-    tipo_estudio = db.Column(db.String(50), nullable=False) # Gravação, Videoclipe ou Ensaio
+    tipo_estudio = db.Column(db.String(50), nullable=False)
     
-    # Dados completos do cliente/artista
     nome_cliente = db.Column(db.String(100), nullable=False)
     cpf = db.Column(db.String(14), nullable=False)
     telefone = db.Column(db.String(20), nullable=False)
     endereco_completo = db.Column(db.Text, nullable=False)
     comprovante_endereco = db.Column(db.String(255))
     
-    # Dados do Agendamento
     data_agendamento = db.Column(db.Date, nullable=False)
     horario_inicio = db.Column(db.Time, nullable=False)
     horario_final = db.Column(db.Time, nullable=False)
     
-    # Controle Operacional e Financeiro
     nome_tecnico = db.Column(db.String(100), nullable=False)
+    valor = db.Column(db.Float, nullable=False, default=0.0) # NOVO CAMPO: VALOR
     status_pagamento = db.Column(db.String(20), nullable=False, default='A Pagar')
     status_trabalho = db.Column(db.String(20), nullable=False, default='Agendado')
     
-    observacoes = db.Column(db.Text)
+    observacoes = db.Column(db.Text) # NOVO CAMPO: OBSERVAÇÕES
     lancamento_caixa_id = db.Column(db.Integer, db.ForeignKey('lancamentos_caixa.id'), nullable=True)
 
 class LancamentoCaixa(db.Model):
