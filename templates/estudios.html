@@ -7,10 +7,13 @@
 </head>
 <body class="bg-light">
 
+    <!-- Navbar com o Logotipo -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-danger mb-4">
         <div class="container">
-            <a class="navbar-brand" href="/dashboard">&larr; Voltar</a>
-            <span class="navbar-text text-white">Central de <strong>Estúdios</strong></span>
+            <a class="navbar-brand d-flex align-items-center" href="/dashboard">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" height="30" class="me-2 rounded bg-white p-1">
+                <span>&larr; Voltar | Central de <strong>Estúdios</strong></span>
+            </a>
         </div>
     </nav>
 
@@ -135,7 +138,7 @@
                                             <th>Técnico</th>
                                             <th>Valor Total</th>
                                             <th>Status</th>
-                                            <th class="text-center">Ações</th>
+                                            <th class="text-center" style="min-width: 110px;">Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -164,15 +167,22 @@
                                                 {% endif %}
                                             </td>
                                             <td class="text-center">
-                                                <button type="button" class="btn btn-outline-danger btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalEditar{{ ag.id }}">Editar</button>
+                                                <!-- Botão WhatsApp Confirmação Cliente -->
+                                                <a href="https://wa.me/55{{ ag.telefone|replace(' ', '')|replace('-', '')|replace('(', '')|replace(')', '') }}?text=Olá%20{{ ag.nome_cliente }},%20tudo%20bem?%20%E2%9C%A8%20Passando%20para%20confirmar%20seu%20agendamento%20de%20{{ ag.tipo_estudio }}%20na%20*Casa%20de%20Música%20Cambuci*.%20%F0%9F%8E%B5%0A%0A%F0%9F%93%85%20*Data:*%20{{ ag.data_agendamento.strftime('%d/%m/%Y') }}%0A%E2%8F%B0%20*Horário:*%20{{ ag.horario_inicio.strftime('%H:%M') }}%20às%20{{ ag.horario_final.strftime('%H:%M') }}%0A%0AQualquer%20dúvida,%20estamos%20à%20disposição!" 
+                                                   target="_blank" class="btn btn-success btn-xs py-0 px-1 mb-1 w-100" style="font-size: 0.75rem;">
+                                                   Confirmar (Whats)
+                                                </a>
                                                 
-                                                <form action="/estudios/excluir/{{ ag.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Cancelar este agendamento?');">
-                                                    <button type="submit" class="btn btn-dark btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;">X</button>
-                                                </form>
+                                                <div class="d-flex justify-content-center gap-1">
+                                                    <button type="button" class="btn btn-outline-danger btn-xs py-0 px-1" style="font-size: 0.75rem; flex: 1;" data-bs-toggle="modal" data-bs-target="#modalEditar{{ ag.id }}">Editar</button>
+                                                    <form action="/estudios/excluir/{{ ag.id }}" method="POST" style="display:inline; flex: 1;" onsubmit="return confirm('Cancelar este agendamento?');">
+                                                        <button type="submit" class="btn btn-dark btn-xs py-0 px-1 w-100" style="font-size: 0.75rem;">X</button>
+                                                    </form>
+                                                </div>
                                             </td>
                                         </tr>
 
-                                        <!-- Modal de Edição Completa -->
+                                        <!-- Modal de Edição -->
                                         <div class="modal fade" id="modalEditar{{ ag.id }}" tabindex="-1" aria-hidden="true">
                                           <div class="modal-dialog">
                                             <div class="modal-content">
