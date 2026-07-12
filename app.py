@@ -1,11 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, Response
+from flask import Flask, render_template, request, redirect, url_for, flash, session, Response, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import os
 import csv
 from io import StringIO
 
-from models import db, Usuario, Aluno, Professor, AgendamentoEstudio
+from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula
 
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_cambuci_2026' 
@@ -19,7 +19,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 db.init_app(app)
 
 with app.app_context():
-    AgendamentoEstudio.__table__.drop(db.engine, checkfirst=True)
+    # Recria APENAS a tabela de aulas para as novas colunas
+    Aula.__table__.drop(db.engine, checkfirst=True)
     db.create_all() 
     
     admin_existente = Usuario.query.filter_by(username='admin').first()
@@ -58,9 +59,9 @@ def dashboard():
     if 'usuario_id' not in session: return redirect(url_for('login'))
     return render_template('dashboard.html', nome=session.get('nome'), role=session.get('role'))
 
-# --- MÓDULO SECRETARIA (Omitido visualmente, mas não apague se for copiar de arquivos separados.
-# Como estou te passando o código completo, as rotas continuam aqui embaixo para copiar e colar).
-
+# ==============================================================================
+# SECRETARIA: ALUNOS E PROFESSORES
+# ==============================================================================
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
     if 'usuario_id' not in session: return redirect(url_for('login'))
@@ -193,6 +194,85 @@ def exportar_professores_csv():
         cw.writerow([p.nome, p.cpf, data_nasc, p.email, p.telefone, p.endereco_completo, p.curso, p.status, data_inicio])
     return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_professores.csv"})
 
+
+# ==============================================================================
+# SECRETARIA: AGENDA DE AULAS (O "MATCH" PERFEITO)
+# ==============================================================================
+@app.route('/secretaria/aulas', methods=['GET', 'POST'])
+def gerenciar_aulas():
+    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
+        flash('Acesso negado.')
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        aluno_id = request.form.get('aluno_id')
+        professor_id = request.form.get('professor_id')
+        instrumento = request.form.get('instrumento')
+        data_aula = datetime.strptime(request.form.get('data_aula'), '%Y-%m-%d').date()
+        hora_inicio = datetime.strptime(request.form.get('horario_inicio'), '%H:%M').time()
+        hora_fim = datetime.strptime(request.form.get('horario_final'), '%H:%M').time()
+        status = request.form.get('status')
+        observacoes = request.form.get('observacoes')
+
+        nova_aula = Aula(
+            aluno_id=aluno_id, professor_id=professor_id, instrumento=instrumento,
+            data_aula=data_aula, horario_inicio=hora_inicio, horario_final=hora_fim,
+            status=status, observacoes=observacoes
+        )
+        db.session.add(nova_aula)
+        db.session.commit()
+        flash('Aula agendada com sucesso!')
+        return redirect(url_for('gerenciar_aulas'))
+
+    # Puxa apenas alunos e professores Ativos para os menus
+    alunos = Aluno.query.filter_by(status='Ativo').order_by(Aluno.nome).all()
+    professores = Professor.query.filter_by(status='Ativo').order_by(Professor.nome).all()
+    aulas = Aula.query.order_by(Aula.data_aula.desc(), Aula.horario_inicio.desc()).all()
+    
+    return render_template('aulas.html', alunos=alunos, professores=professores, aulas=aulas)
+
+@app.route('/secretaria/aulas/editar/<int:id>', methods=['POST'])
+def editar_aula(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    aula = Aula.query.get_or_404(id)
+    
+    aula.aluno_id = request.form.get('aluno_id')
+    aula.professor_id = request.form.get('professor_id')
+    aula.instrumento = request.form.get('instrumento')
+    aula.data_aula = datetime.strptime(request.form.get('data_aula'), '%Y-%m-%d').date()
+    aula.horario_inicio = datetime.strptime(request.form.get('horario_inicio'), '%H:%M').time()
+    aula.horario_final = datetime.strptime(request.form.get('horario_final'), '%H:%M').time()
+    aula.status = request.form.get('status')
+    aula.observacoes = request.form.get('observacoes')
+    
+    db.session.commit()
+    flash('Aula atualizada com sucesso!')
+    return redirect(url_for('gerenciar_aulas'))
+
+@app.route('/secretaria/aulas/excluir/<int:id>', methods=['POST'])
+def excluir_aula(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    aula = Aula.query.get_or_404(id)
+    db.session.delete(aula)
+    db.session.commit()
+    flash('Aula excluída.')
+    return redirect(url_for('gerenciar_aulas'))
+
+# API para alimentar o Calendário Visual com as aulas
+@app.route('/secretaria/aulas/api')
+def api_aulas_calendario():
+    aulas = Aula.query.all()
+    eventos = []
+    for aula in aulas:
+        cor = '#198754' if aula.status == 'Concluída' else ('#dc3545' if aula.status == 'Cancelada' else '#0d6efd')
+        eventos.append({
+            'title': f'{aula.aluno.nome} ({aula.instrumento}) - Prof: {aula.professor.nome}',
+            'start': f"{aula.data_aula}T{aula.horario_inicio}",
+            'end': f"{aula.data_aula}T{aula.horario_final}",
+            'color': cor
+        })
+    return jsonify(eventos)
+
 # ==============================================================================
 # MÓDULOS DE ESTÚDIOS: CENTRAL UNIFICADA
 # ==============================================================================
@@ -212,7 +292,6 @@ def gerenciar_estudios():
         horario_inicio = datetime.strptime(hora_inicio_str, '%H:%M').time()
         horario_final = datetime.strptime(hora_fim_str, '%H:%M').time()
 
-        # TRAVA DE SEGURANÇA: Impede dois agendamentos no mesmo estúdio ao mesmo tempo
         conflito = AgendamentoEstudio.query.filter(
             AgendamentoEstudio.tipo_estudio == tipo_estudio,
             AgendamentoEstudio.data_agendamento == data_agendamento,
@@ -262,7 +341,6 @@ def editar_estudio(id):
     novo_fim = datetime.strptime(request.form.get('horario_final'), '%H:%M').time()
     novo_tipo = request.form.get('tipo_estudio')
 
-    # Checa conflito na hora da edição também (ignorando o próprio agendamento atual)
     conflito = AgendamentoEstudio.query.filter(
         AgendamentoEstudio.id != id,
         AgendamentoEstudio.tipo_estudio == novo_tipo,
