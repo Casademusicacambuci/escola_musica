@@ -10,8 +10,10 @@
 
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="/dashboard">&larr; Voltar</a>
-            <span class="navbar-text text-white">Secretaria | <strong class="text-info">Professores</strong></span>
+            <a class="navbar-brand d-flex align-items-center" href="/dashboard">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" height="30" class="me-2 rounded bg-white p-1">
+                <span>&larr; Voltar | Secretaria: <strong class="text-info">Professores</strong></span>
+            </a>
         </div>
     </nav>
 
@@ -147,7 +149,6 @@
                                             </td>
                                         </tr>
 
-                                        <!-- Janela Flutuante (Modal) de Edição do Professor -->
                                         <div class="modal fade" id="modalEditarProf{{ prof.id }}" tabindex="-1" aria-hidden="true">
                                           <div class="modal-dialog">
                                             <div class="modal-content">
