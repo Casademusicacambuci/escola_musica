@@ -10,8 +10,10 @@
 
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="/dashboard">&larr; Voltar</a>
-            <span class="navbar-text text-white">Secretaria | <strong>Alunos</strong></span>
+            <a class="navbar-brand d-flex align-items-center" href="/dashboard">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" height="30" class="me-2 rounded bg-white p-1">
+                <span>&larr; Voltar | Secretaria: <strong>Alunos</strong></span>
+            </a>
         </div>
     </nav>
 
@@ -149,7 +151,6 @@
                                             </td>
                                             <td class="text-center">
                                                 <button type="button" class="btn btn-primary btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalEditar{{ aluno.id }}">Editar</button>
-                                                
                                                 <form action="/secretaria/alunos/excluir/{{ aluno.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja apagar os dados deste aluno?');">
                                                     <button type="submit" class="btn btn-danger btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;">Excluir</button>
                                                 </form>
