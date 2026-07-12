@@ -16,12 +16,12 @@
 </head>
 <body>
 
-    <a class="navbar-brand d-flex align-items-center" href="/dashboard">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" height="30" class="me-2 rounded bg-white p-1">
-    <span>CRM | Casa de Música Cambuci</span>
-</a>
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="#">CRM | Casa de Música Cambuci</a>
+            <a class="navbar-brand d-flex align-items-center" href="/dashboard">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" height="30" class="me-2 rounded bg-white p-1">
+                <span>CRM | Casa de Música Cambuci</span>
+            </a>
             <div class="d-flex text-white align-items-center">
                 <span class="me-3 d-none d-md-block">Olá, <strong>{{ nome }}</strong> (Nível: {{ role | upper }})</span>
                 <a href="/logout" class="btn btn-outline-light btn-sm">Sair</a>
