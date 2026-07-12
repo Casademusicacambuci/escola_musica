@@ -49,12 +49,12 @@
                         <div class="d-grid gap-2">
                             <a href="/secretaria/alunos" class="btn btn-primary btn-sm {% if role not in ['admin', 'secretaria'] %} disabled {% endif %}">Alunos</a>
                             <a href="/secretaria/professores" class="btn btn-outline-primary btn-sm {% if role not in ['admin', 'secretaria'] %} disabled {% endif %}">Professores</a>
+                            <a href="/secretaria/aulas" class="btn btn-dark btn-sm fw-bold {% if role not in ['admin', 'secretaria'] %} disabled {% endif %}">Agenda de Aulas</a>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- UNIFICADO: CENTRAL DE ESTÚDIOS -->
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'estudio', 'secretaria'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
