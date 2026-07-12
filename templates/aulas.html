@@ -12,17 +12,17 @@
       document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById('calendar');
         var calendar = new FullCalendar.Calendar(calendarEl, {
-          initialView: 'timeGridWeek', // Visão da Semana com horários
+          initialView: 'timeGridWeek', 
           headerToolbar: {
             left: 'prev,next today',
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay'
           },
           locale: 'pt-br',
-          slotMinTime: '08:00:00', // Começa às 8h
-          slotMaxTime: '23:00:00', // Termina às 23h
+          slotMinTime: '08:00:00', 
+          slotMaxTime: '23:00:00', 
           allDaySlot: false,
-          events: '/secretaria/aulas/api' // Puxa os dados que o app.py manda
+          events: '/secretaria/aulas/api' 
         });
         calendar.render();
       });
@@ -54,7 +54,6 @@
                         <h5 class="card-title mb-3 text-primary">Agendar Aula</h5>
                         <form method="POST" action="/secretaria/aulas">
                             
-                            <!-- O sistema já puxa os nomes direto do Banco de Dados! -->
                             <div class="mb-2">
                                 <label class="form-label small mb-0">Aluno</label>
                                 <select class="form-select form-select-sm" name="aluno_id" required>
@@ -120,14 +119,12 @@
             <!-- Calendário e Lista -->
             <div class="col-lg-8">
                 
-                <!-- Aqui entra o Calendário Visual -->
                 <div class="card shadow-sm border-0 mb-4">
                     <div class="card-body p-2">
                         <div id='calendar' style="min-height: 400px; font-size: 0.85rem;"></div>
                     </div>
                 </div>
 
-                <!-- Tabela de Gestão Rápida -->
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <h5 class="card-title text-secondary mb-3">Lista de Aulas</h5>
@@ -143,7 +140,7 @@
                                             <th>Aluno (Inst.)</th>
                                             <th>Professor</th>
                                             <th>Status</th>
-                                            <th class="text-center">Ações Rápidas</th>
+                                            <th class="text-center" style="min-width: 140px;">Ações Rápidas</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -162,18 +159,24 @@
                                                 {% endif %}
                                             </td>
                                             <td class="text-center">
-                                                <!-- Botão Mágico do WhatsApp (Abre com texto pronto) -->
+                                                <!-- Botão WhatsApp Aluno -->
                                                 <a href="https://wa.me/55{{ aula.aluno.telefone|replace(' ', '')|replace('-', '')|replace('(', '')|replace(')', '') }}?text=Olá%20{{ aula.aluno.nome }},%20passando%20para%20lembrar%20da%20sua%20aula%20de%20{{ aula.instrumento }}%20na%20Casa%20de%20Música%20Cambuci%20hoje%20às%20{{ aula.horario_inicio.strftime('%H:%M') }}!" 
-                                                   target="_blank" class="btn btn-success btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;">
-                                                   Lembrar
+                                                   target="_blank" class="btn btn-success btn-xs py-0 px-1 mb-1 w-100" style="font-size: 0.75rem;">
+                                                   Avisar Aluno
                                                 </a>
-                                                <br>
-                                                <!-- Botão de Editar -->
-                                                <button type="button" class="btn btn-outline-primary btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalEditar{{ aula.id }}">Editar</button>
                                                 
-                                                <form action="/secretaria/aulas/excluir/{{ aula.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Excluir este registro?');">
-                                                    <button type="submit" class="btn btn-dark btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;">X</button>
-                                                </form>
+                                                <!-- Botão WhatsApp Professor -->
+                                                <a href="https://wa.me/55{{ aula.professor.telefone|replace(' ', '')|replace('-', '')|replace('(', '')|replace(')', '') }}?text=Olá%20Prof.%20{{ aula.professor.nome }},%20passando%20para%20lembrar%20da%20sua%20aula%20de%20{{ aula.instrumento }}%20com%20o(a)%20aluno(a)%20{{ aula.aluno.nome }}%20hoje%20às%20{{ aula.horario_inicio.strftime('%H:%M') }}!" 
+                                                   target="_blank" class="btn btn-outline-success btn-xs py-0 px-1 mb-1 w-100" style="font-size: 0.75rem;">
+                                                   Avisar Prof.
+                                                </a>
+
+                                                <div class="d-flex justify-content-center gap-1">
+                                                    <button type="button" class="btn btn-outline-primary btn-xs py-0 px-1" style="font-size: 0.75rem; flex: 1;" data-bs-toggle="modal" data-bs-target="#modalEditar{{ aula.id }}">Editar</button>
+                                                    <form action="/secretaria/aulas/excluir/{{ aula.id }}" method="POST" style="display:inline; flex: 1;" onsubmit="return confirm('Excluir este registro?');">
+                                                        <button type="submit" class="btn btn-dark btn-xs py-0 px-1 w-100" style="font-size: 0.75rem;">X</button>
+                                                    </form>
+                                                </div>
                                             </td>
                                         </tr>
 
