@@ -81,7 +81,7 @@ class AgendamentoEstudio(db.Model):
     observacoes = db.Column(db.Text) 
 
 # ==========================================
-# MÓDULO 01 - FINANCEIRO & BACKOFFICE (NOVOS!)
+# MÓDULO 01 - FINANCEIRO & BACKOFFICE 
 # ==========================================
 
 class Fornecedor(db.Model):
@@ -91,7 +91,9 @@ class Fornecedor(db.Model):
     cnpj_cpf = db.Column(db.String(20), nullable=False, unique=True)
     telefone = db.Column(db.String(20))
     email = db.Column(db.String(120))
-    categoria = db.Column(db.String(50)) # Ex: Manutenção, Limpeza, Loja
+    endereco_completo = db.Column(db.Text)
+    chave_pix = db.Column(db.String(100))
+    categoria = db.Column(db.String(50)) 
     status = db.Column(db.String(20), default='Ativo')
     contas_a_pagar = db.relationship('ContaPagar', backref='fornecedor', lazy=True)
 
@@ -100,8 +102,15 @@ class Funcionario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     cpf = db.Column(db.String(14), nullable=False, unique=True)
-    cargo = db.Column(db.String(50), nullable=False) # Ex: Atendente, Técnico, Limpeza
-    tipo_contrato = db.Column(db.String(30)) # CLT, PJ, Freelancer
+    email = db.Column(db.String(120))
+    telefone = db.Column(db.String(20))
+    data_nascimento = db.Column(db.Date)
+    endereco_completo = db.Column(db.Text)
+    chave_pix = db.Column(db.String(100))
+    comprovante_endereco = db.Column(db.String(255))
+    cargo = db.Column(db.String(50), nullable=False)
+    tipo_contrato = db.Column(db.String(30)) 
+    data_admissao = db.Column(db.Date, default=datetime.utcnow)
     salario_base = db.Column(db.Float, default=0.0)
     status = db.Column(db.String(20), default='Ativo')
 
@@ -109,13 +118,13 @@ class ContaReceber(db.Model):
     __tablename__ = 'contas_receber'
     id = db.Column(db.Integer, primary_key=True)
     descricao = db.Column(db.String(200), nullable=False)
-    modulo_origem = db.Column(db.String(50), nullable=False) # Ex: 'Estúdio', 'Mensalidade', 'Loja'
-    origem_id = db.Column(db.Integer) # ID do agendamento ou aluno
+    modulo_origem = db.Column(db.String(50), nullable=False) 
+    origem_id = db.Column(db.Integer) 
     valor = db.Column(db.Float, nullable=False)
     data_vencimento = db.Column(db.Date, nullable=False)
     data_pagamento = db.Column(db.Date, nullable=True)
-    status = db.Column(db.String(20), nullable=False, default='Pendente') # Pendente, Pago, Atrasado
-    forma_pagamento = db.Column(db.String(50)) # Pix, Cartão, Dinheiro
+    status = db.Column(db.String(20), nullable=False, default='Pendente') 
+    forma_pagamento = db.Column(db.String(50)) 
 
 class ContaPagar(db.Model):
     __tablename__ = 'contas_pagar'
@@ -126,12 +135,12 @@ class ContaPagar(db.Model):
     data_vencimento = db.Column(db.Date, nullable=False)
     data_pagamento = db.Column(db.Date, nullable=True)
     status = db.Column(db.String(20), nullable=False, default='Pendente')
-    anexo_nf = db.Column(db.String(255)) # Caminho para a Nota Fiscal / Boleto salvo
+    anexo_nf = db.Column(db.String(255)) 
 
 class FluxoCaixa(db.Model):
     __tablename__ = 'fluxo_caixa'
     id = db.Column(db.Integer, primary_key=True)
-    tipo = db.Column(db.String(10), nullable=False) # 'Entrada' ou 'Saída'
+    tipo = db.Column(db.String(10), nullable=False) 
     valor = db.Column(db.Float, nullable=False)
     descricao = db.Column(db.String(200), nullable=False)
     categoria = db.Column(db.String(50), nullable=False)
@@ -146,7 +155,7 @@ class Produto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     codigo_barras = db.Column(db.String(50), unique=True, nullable=False)
     nome = db.Column(db.String(100), nullable=False)
-    categoria = db.Column(db.String(50), nullable=False) # Ex: Lanchonete, Instrumentos, Acessórios
+    categoria = db.Column(db.String(50), nullable=False) 
     preco_custo = db.Column(db.Float, nullable=False, default=0.0)
     preco_venda = db.Column(db.Float, nullable=False)
     quantidade_estoque = db.Column(db.Integer, nullable=False, default=0)
