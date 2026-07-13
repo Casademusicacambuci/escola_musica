@@ -10,6 +10,14 @@
         .cupom-fiscal { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); min-height: 400px; }
         .table-pdv th, .table-pdv td { font-size: 0.9rem; }
         .total-display { font-size: 2.5rem; font-weight: bold; color: #198754; }
+        
+        /* Oculta tudo na hora de imprimir, menos o cupom de fechamento */
+        @media print {
+            body * { visibility: hidden; }
+            #modalFechamentoContent, #modalFechamentoContent * { visibility: visible; }
+            #modalFechamentoContent { position: absolute; left: 0; top: 0; width: 100%; border: none; box-shadow: none; }
+            .btn-close, .btn-print { display: none !important; }
+        }
     </style>
 </head>
 <body>
@@ -20,14 +28,15 @@
                 <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" height="30" class="me-2 rounded bg-white p-1">
                 <span>&larr; Voltar | <strong>Caixa Livre (PDV)</strong></span>
             </a>
-            <span class="navbar-text text-dark fw-bold">
-                Operador: {{ session.nome }}
-            </span>
+            <div class="d-flex align-items-center">
+                <span class="navbar-text text-dark fw-bold d-none d-md-block me-3">Operador: {{ session.nome }}</span>
+                <!-- BOTÃO DE FECHAMENTO DE CAIXA -->
+                <button class="btn btn-dark btn-sm fw-bold shadow-sm" onclick="abrirFechamento()">&#128274; Fechar Caixa (Leitura Z)</button>
+            </div>
         </div>
     </nav>
 
     <div class="container mb-5">
-        
         <div class="row">
             <!-- ÁREA DE BUSCA (LEITOR DE CÓDIGO) -->
             <div class="col-lg-7 mb-4">
@@ -38,7 +47,6 @@
                             <input type="text" class="form-control border-warning" id="codigoInput" placeholder="Bipe ou digite o código e aperte Enter..." autofocus>
                             <button class="btn btn-warning fw-bold" type="button" onclick="buscarProduto()">Inserir</button>
                         </div>
-                        <small class="text-muted mt-2 d-block">Dica: O leitor USB já aperta 'Enter' automaticamente.</small>
                     </div>
                 </div>
 
@@ -49,11 +57,11 @@
                         <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <label class="small fw-bold">Forma de Pagamento</label>
-                                <select class="form-select form-select-lg" id="formaPagamento">
+                                <select class="form-select form-select-lg border-success" id="formaPagamento">
+                                    <option value="Dinheiro">Dinheiro (Espécie)</option>
                                     <option value="Pix">Pix (QR Code / Transferência)</option>
                                     <option value="Cartão de Crédito">Cartão de Crédito</option>
                                     <option value="Cartão de Débito">Cartão de Débito</option>
-                                    <option value="Dinheiro">Dinheiro (Espécie)</option>
                                 </select>
                             </div>
                             <div class="col-6">
@@ -61,7 +69,7 @@
                                 <input type="text" class="form-control form-control-lg" id="cpfCliente" placeholder="000.000.000-00">
                             </div>
                         </div>
-                        <button class="btn btn-success btn-lg w-100 fw-bold" onclick="finalizarVenda()">COBRAR E FINALIZAR</button>
+                        <button class="btn btn-success btn-lg w-100 fw-bold" onclick="finalizarVenda()">COBRAR E FINALIZAR (ENTER)</button>
                     </div>
                 </div>
             </div>
@@ -84,9 +92,7 @@
                                     <th></th>
                                 </tr>
                             </thead>
-                            <tbody id="listaItens">
-                                <!-- Os itens bipados aparecerão aqui via JavaScript -->
-                            </tbody>
+                            <tbody id="listaItens"></tbody>
                         </table>
                     </div>
 
@@ -99,13 +105,55 @@
         </div>
     </div>
 
-    <!-- SCRIPT DO PDV (A MÁGICA DA TELA) -->
+    <!-- MODAL DE FECHAMENTO DE CAIXA -->
+    <div class="modal fade" id="modalFechamento" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content" id="modalFechamentoContent">
+          <div class="modal-header bg-dark text-white">
+            <h6 class="modal-title fw-bold">FECHAMENTO DE CAIXA (HOJE)</h6>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body text-center" style="font-family: monospace;">
+              <h5 class="fw-bold mb-0">CASA DE MÚSICA CAMBUCI</h5>
+              <p class="small text-muted mb-4">Relatório Diário - Leitura Z</p>
+              
+              <div class="d-flex justify-content-between border-bottom pb-1 mb-2">
+                  <span>Dinheiro na Gaveta:</span>
+                  <strong id="resumoDinheiro">R$ 0.00</strong>
+              </div>
+              <div class="d-flex justify-content-between border-bottom pb-1 mb-2">
+                  <span>Recebido via PIX:</span>
+                  <strong id="resumoPix">R$ 0.00</strong>
+              </div>
+              <div class="d-flex justify-content-between border-bottom pb-1 mb-2">
+                  <span>Cartão de Crédito:</span>
+                  <strong id="resumoCredito">R$ 0.00</strong>
+              </div>
+              <div class="d-flex justify-content-between border-bottom pb-1 mb-3">
+                  <span>Cartão de Débito:</span>
+                  <strong id="resumoDebito">R$ 0.00</strong>
+              </div>
+              
+              <div class="bg-light p-2 rounded border">
+                  <h6 class="mb-0 text-muted">TOTAL GERAL DO DIA</h6>
+                  <h4 class="fw-bold text-success mb-0" id="resumoTotal">R$ 0.00</h4>
+              </div>
+          </div>
+          <div class="modal-footer justify-content-center btn-print">
+            <button type="button" class="btn btn-secondary btn-sm w-100 mb-1" data-bs-dismiss="modal">Fechar Janela</button>
+            <button type="button" class="btn btn-dark btn-sm w-100 fw-bold" onclick="window.print()">🖨️ Imprimir Fechamento</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCRIPT DO PDV E FECHAMENTO -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let carrinho = [];
         let total = 0.0;
         const inputCodigo = document.getElementById('codigoInput');
 
-        // Fica escutando o "Enter" do leitor de código de barras
         inputCodigo.addEventListener("keypress", function(event) {
             if (event.key === "Enter") {
                 event.preventDefault();
@@ -116,33 +164,21 @@
         function buscarProduto() {
             const codigo = inputCodigo.value.trim();
             if(!codigo) return;
-
-            // Chama a API do nosso sistema (app.py) escondido
             fetch(`/api/produto/${codigo}`)
                 .then(response => response.json())
                 .then(produto => {
-                    if (produto.erro) {
-                        alert(produto.erro);
-                    } else {
-                        adicionarAoCarrinho(produto);
-                    }
+                    if (produto.erro) { alert(produto.erro); } 
+                    else { adicionarAoCarrinho(produto); }
                     inputCodigo.value = '';
                     inputCodigo.focus();
                 });
         }
 
         function adicionarAoCarrinho(produto) {
-            // Verifica se o item já está no carrinho para somar a quantidade
             let itemExistente = carrinho.find(i => i.id === produto.id);
-            if (itemExistente) {
-                itemExistente.quantidade += 1;
-            } else {
-                carrinho.push({
-                    id: produto.id,
-                    nome: produto.nome,
-                    preco: produto.preco,
-                    quantidade: 1
-                });
+            if (itemExistente) { itemExistente.quantidade += 1; } 
+            else {
+                carrinho.push({ id: produto.id, nome: produto.nome, preco: produto.preco, quantidade: 1 });
             }
             atualizarTela();
         }
@@ -157,11 +193,9 @@
             const tbody = document.getElementById('listaItens');
             tbody.innerHTML = '';
             total = 0.0;
-
             carrinho.forEach((item, index) => {
                 let subtotal = item.quantidade * item.preco;
                 total += subtotal;
-
                 let tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${item.quantidade}x</td>
@@ -171,27 +205,14 @@
                 `;
                 tbody.appendChild(tr);
             });
-
             document.getElementById('valorTotal').innerText = `R$ ${total.toFixed(2)}`;
         }
 
         function finalizarVenda() {
-            if (carrinho.length === 0) {
-                alert("O carrinho está vazio!");
-                return;
-            }
-
+            if (carrinho.length === 0) { alert("O carrinho está vazio!"); return; }
             const formaPgto = document.getElementById('formaPagamento').value;
-            const cpf = document.getElementById('cpfCliente').value;
+            const dadosVenda = { itens: carrinho, total: total, forma_pagamento: formaPgto };
 
-            const dadosVenda = {
-                itens: carrinho,
-                total: total,
-                forma_pagamento: formaPgto,
-                cpf: cpf
-            };
-
-            // Envia a venda para o Banco de Dados (app.py)
             fetch('/caixa/finalizar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -200,15 +221,26 @@
             .then(response => response.json())
             .then(data => {
                 if (data.sucesso) {
-                    alert("✅ Venda finalizada com sucesso! O valor já foi para o Financeiro.");
-                    carrinho = [];
-                    atualizarTela();
-                    document.getElementById('cpfCliente').value = '';
-                    inputCodigo.focus();
-                } else {
-                    alert("Erro ao finalizar venda.");
-                }
+                    alert("✅ Venda finalizada! Valor computado no Financeiro.");
+                    carrinho = []; atualizarTela(); inputCodigo.focus();
+                } else { alert("Erro ao finalizar venda."); }
             });
+        }
+
+        // FUNÇÃO DE FECHAMENTO DE CAIXA
+        function abrirFechamento() {
+            fetch('/caixa/fechamento')
+                .then(response => response.json())
+                .then(dados => {
+                    document.getElementById('resumoDinheiro').innerText = `R$ ${dados.Dinheiro.toFixed(2)}`;
+                    document.getElementById('resumoPix').innerText = `R$ ${dados.Pix.toFixed(2)}`;
+                    document.getElementById('resumoCredito').innerText = `R$ ${dados.Cartao_Credito.toFixed(2)}`;
+                    document.getElementById('resumoDebito').innerText = `R$ ${dados.Cartao_Debito.toFixed(2)}`;
+                    document.getElementById('resumoTotal').innerText = `R$ ${dados.Total.toFixed(2)}`;
+                    
+                    var modal = new bootstrap.Modal(document.getElementById('modalFechamento'));
+                    modal.show();
+                });
         }
     </script>
 </body>
