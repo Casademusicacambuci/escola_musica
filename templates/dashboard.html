@@ -72,18 +72,8 @@
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'loja'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
                         <h5 class="card-title text-info">04. Loja & Luthier</h5>
-                        <p class="card-text text-muted small">Vendas e Serviços.</p>
-                        <a href="#" class="btn btn-info text-white btn-sm w-100 {% if role not in ['admin', 'loja'] %} disabled {% endif %}">Acessar</a>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col">
-                <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'caixa', 'secretaria', 'loja'] %} modulo-bloqueado {% endif %}">
-                    <div class="card-body">
-                        <h5 class="card-title text-warning">05. Caixa</h5>
-                        <p class="card-text text-muted small">Entradas e Saídas.</p>
-                        <a href="#" class="btn btn-warning text-dark btn-sm w-100 {% if role not in ['admin', 'caixa', 'secretaria', 'loja'] %} disabled {% endif %}">Acessar</a>
+                        <p class="card-text text-muted small">Serviços e Manutenção.</p>
+                        <a href="#" class="btn btn-info text-white btn-sm w-100 {% if role not in ['admin', 'loja'] %} disabled {% endif %}">Em breve</a>
                     </div>
                 </div>
             </div>
@@ -91,9 +81,19 @@
             <div class="col">
                 <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'loja'] %} modulo-bloqueado {% endif %}">
                     <div class="card-body">
-                        <h5 class="card-title text-secondary">06. Estoque</h5>
-                        <p class="card-text text-muted small">Código de Barras.</p>
-                        <a href="#" class="btn btn-secondary btn-sm w-100 {% if role not in ['admin', 'loja'] %} disabled {% endif %}">Acessar</a>
+                        <h5 class="card-title text-secondary">05. Estoque</h5>
+                        <p class="card-text text-muted small">Produtos, Café e Códigos de Barras.</p>
+                        <a href="/estoque" class="btn btn-secondary btn-sm w-100 {% if role not in ['admin', 'loja'] %} disabled {% endif %}">Acessar Estoque</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'caixa', 'secretaria', 'loja'] %} modulo-bloqueado {% endif %}">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning">06. Caixa (PDV Único)</h5>
+                        <p class="card-text text-muted small">Frente de Caixa e Recibos.</p>
+                        <a href="/caixa" class="btn btn-warning text-dark btn-sm w-100 fw-bold {% if role not in ['admin', 'caixa', 'secretaria', 'loja'] %} disabled {% endif %}">Abrir PDV</a>
                     </div>
                 </div>
             </div>
