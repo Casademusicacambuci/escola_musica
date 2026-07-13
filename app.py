@@ -5,7 +5,8 @@ import os
 import csv
 from io import StringIO
 
-from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula
+# Importando todas as tabelas (incluindo as novas do Financeiro)
+from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula, Fornecedor, Funcionario, ContaReceber, ContaPagar, FluxoCaixa, Produto
 
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_cambuci_2026' 
@@ -19,9 +20,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 db.init_app(app)
 
 with app.app_context():
-    # Recria APENAS a tabela de aulas para as novas colunas
-    Aula.__table__.drop(db.engine, checkfirst=True)
-    db.create_all() 
+    db.create_all() # Garante que as novas tabelas financeiras sejam criadas sem apagar os alunos
     
     admin_existente = Usuario.query.filter_by(username='admin').first()
     if not admin_existente:
@@ -60,7 +59,7 @@ def dashboard():
     return render_template('dashboard.html', nome=session.get('nome'), role=session.get('role'))
 
 # ==============================================================================
-# SECRETARIA: ALUNOS E PROFESSORES
+# SECRETARIA (ALUNOS, PROFESSORES E AULAS)
 # ==============================================================================
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
@@ -181,29 +180,9 @@ def excluir_professor(id):
     flash('Professor excluído.')
     return redirect(url_for('gerenciar_professores'))
 
-@app.route('/secretaria/professores/csv')
-def exportar_professores_csv():
-    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    professores = Professor.query.all()
-    si = StringIO()
-    cw = csv.writer(si, delimiter=';') 
-    cw.writerow(['Nome', 'CPF', 'Data de Nascimento', 'Email', 'Telefone', 'Endereço Completo', 'Instrumento', 'Status', 'Data de Início'])
-    for p in professores:
-        data_nasc = p.data_nascimento.strftime('%d/%m/%Y') if p.data_nascimento else ''
-        data_inicio = p.data_inicio.strftime('%d/%m/%Y') if p.data_inicio else ''
-        cw.writerow([p.nome, p.cpf, data_nasc, p.email, p.telefone, p.endereco_completo, p.curso, p.status, data_inicio])
-    return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_professores.csv"})
-
-
-# ==============================================================================
-# SECRETARIA: AGENDA DE AULAS (O "MATCH" PERFEITO)
-# ==============================================================================
 @app.route('/secretaria/aulas', methods=['GET', 'POST'])
 def gerenciar_aulas():
-    if 'usuario_id' not in session or session.get('role') not in ['admin', 'secretaria']:
-        flash('Acesso negado.')
-        return redirect(url_for('dashboard'))
-
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     if request.method == 'POST':
         aluno_id = request.form.get('aluno_id')
         professor_id = request.form.get('professor_id')
@@ -213,38 +192,29 @@ def gerenciar_aulas():
         hora_fim = datetime.strptime(request.form.get('horario_final'), '%H:%M').time()
         status = request.form.get('status')
         observacoes = request.form.get('observacoes')
-
-        nova_aula = Aula(
-            aluno_id=aluno_id, professor_id=professor_id, instrumento=instrumento,
+        nova_aula = Aula(aluno_id=aluno_id, professor_id=professor_id, instrumento=instrumento,
             data_aula=data_aula, horario_inicio=hora_inicio, horario_final=hora_fim,
-            status=status, observacoes=observacoes
-        )
+            status=status, observacoes=observacoes)
         db.session.add(nova_aula)
         db.session.commit()
         flash('Aula agendada com sucesso!')
         return redirect(url_for('gerenciar_aulas'))
 
-    # Puxa apenas alunos e professores Ativos para os menus
     alunos = Aluno.query.filter_by(status='Ativo').order_by(Aluno.nome).all()
     professores = Professor.query.filter_by(status='Ativo').order_by(Professor.nome).all()
     aulas = Aula.query.order_by(Aula.data_aula.desc(), Aula.horario_inicio.desc()).all()
-    
     return render_template('aulas.html', alunos=alunos, professores=professores, aulas=aulas)
 
 @app.route('/secretaria/aulas/editar/<int:id>', methods=['POST'])
 def editar_aula(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     aula = Aula.query.get_or_404(id)
-    
-    aula.aluno_id = request.form.get('aluno_id')
-    aula.professor_id = request.form.get('professor_id')
+    aula.aluno_id = request.form.get('aluno_id'); aula.professor_id = request.form.get('professor_id')
     aula.instrumento = request.form.get('instrumento')
     aula.data_aula = datetime.strptime(request.form.get('data_aula'), '%Y-%m-%d').date()
     aula.horario_inicio = datetime.strptime(request.form.get('horario_inicio'), '%H:%M').time()
     aula.horario_final = datetime.strptime(request.form.get('horario_final'), '%H:%M').time()
-    aula.status = request.form.get('status')
-    aula.observacoes = request.form.get('observacoes')
-    
+    aula.status = request.form.get('status'); aula.observacoes = request.form.get('observacoes')
     db.session.commit()
     flash('Aula atualizada com sucesso!')
     return redirect(url_for('gerenciar_aulas'))
@@ -258,7 +228,6 @@ def excluir_aula(id):
     flash('Aula excluída.')
     return redirect(url_for('gerenciar_aulas'))
 
-# API para alimentar o Calendário Visual com as aulas
 @app.route('/secretaria/aulas/api')
 def api_aulas_calendario():
     aulas = Aula.query.all()
@@ -274,33 +243,27 @@ def api_aulas_calendario():
     return jsonify(eventos)
 
 # ==============================================================================
-# MÓDULOS DE ESTÚDIOS: CENTRAL UNIFICADA
+# ESTÚDIOS (INTEGRADO COM FINANCEIRO)
 # ==============================================================================
 @app.route('/estudios', methods=['GET', 'POST'])
 def gerenciar_estudios():
-    if 'usuario_id' not in session or session.get('role') not in ['admin', 'estudio', 'secretaria']:
-        flash('Acesso negado aos estúdios.')
-        return redirect(url_for('dashboard'))
-        
+    if 'usuario_id' not in session: return redirect(url_for('login'))
     if request.method == 'POST':
         tipo_estudio = request.form.get('tipo_estudio')
         data_str = request.form.get('data_agendamento')
         hora_inicio_str = request.form.get('horario_inicio')
         hora_fim_str = request.form.get('horario_final')
-        
         data_agendamento = datetime.strptime(data_str, '%Y-%m-%d').date()
         horario_inicio = datetime.strptime(hora_inicio_str, '%H:%M').time()
         horario_final = datetime.strptime(hora_fim_str, '%H:%M').time()
 
         conflito = AgendamentoEstudio.query.filter(
-            AgendamentoEstudio.tipo_estudio == tipo_estudio,
-            AgendamentoEstudio.data_agendamento == data_agendamento,
-            AgendamentoEstudio.horario_inicio < horario_final,
-            AgendamentoEstudio.horario_final > horario_inicio
+            AgendamentoEstudio.tipo_estudio == tipo_estudio, AgendamentoEstudio.data_agendamento == data_agendamento,
+            AgendamentoEstudio.horario_inicio < horario_final, AgendamentoEstudio.horario_final > horario_inicio
         ).first()
 
         if conflito:
-            flash(f'Erro: O {tipo_estudio} já está reservado neste dia das {conflito.horario_inicio.strftime("%H:%M")} às {conflito.horario_final.strftime("%H:%M")}.')
+            flash(f'Erro: O {tipo_estudio} já está reservado neste dia.')
             return redirect(url_for('gerenciar_estudios'))
 
         cpf = request.form.get('cpf')
@@ -325,6 +288,18 @@ def gerenciar_estudios():
         )
         db.session.add(novo_agendamento)
         db.session.commit()
+        
+        # MAGICA DA INTEGRAÇÃO: Se já cadastrou como Concluído, vai pro Financeiro!
+        if request.form.get('status_trabalho') == 'Concluído':
+            nova_conta = ContaReceber(
+                descricao=f"{tipo_estudio} - Cliente: {novo_agendamento.nome_cliente} (Téc: {novo_agendamento.nome_tecnico})",
+                modulo_origem="Estúdio", origem_id=novo_agendamento.id, valor=valor_limpo,
+                data_vencimento=data_agendamento, status='Pago' if request.form.get('status_pagamento') == 'Pago' else 'Pendente',
+                data_pagamento=datetime.utcnow().date() if request.form.get('status_pagamento') == 'Pago' else None
+            )
+            db.session.add(nova_conta)
+            db.session.commit()
+
         flash('Agendamento de estúdio criado com sucesso!')
         return redirect(url_for('gerenciar_estudios'))
 
@@ -342,40 +317,151 @@ def editar_estudio(id):
     novo_tipo = request.form.get('tipo_estudio')
 
     conflito = AgendamentoEstudio.query.filter(
-        AgendamentoEstudio.id != id,
-        AgendamentoEstudio.tipo_estudio == novo_tipo,
-        AgendamentoEstudio.data_agendamento == nova_data,
-        AgendamentoEstudio.horario_inicio < novo_fim,
+        AgendamentoEstudio.id != id, AgendamentoEstudio.tipo_estudio == novo_tipo,
+        AgendamentoEstudio.data_agendamento == nova_data, AgendamentoEstudio.horario_inicio < novo_fim,
         AgendamentoEstudio.horario_final > novo_inicio
     ).first()
 
     if conflito:
-        flash(f'Erro ao editar: Choque de horário com outra reserva ({conflito.horario_inicio.strftime("%H:%M")} às {conflito.horario_final.strftime("%H:%M")}).')
+        flash(f'Erro ao editar: Choque de horário com outra reserva.')
         return redirect(url_for('gerenciar_estudios'))
 
-    ag.tipo_estudio = novo_tipo
-    ag.data_agendamento = nova_data
-    ag.horario_inicio = novo_inicio
-    ag.horario_final = novo_fim
+    ag.tipo_estudio = novo_tipo; ag.data_agendamento = nova_data
+    ag.horario_inicio = novo_inicio; ag.horario_final = novo_fim
     ag.nome_tecnico = request.form.get('nome_tecnico')
     valor_str = request.form.get('valor', '0')
     ag.valor = float(valor_str.replace(',', '.')) if valor_str else 0.0
-    ag.status_pagamento = request.form.get('status_pagamento')
-    ag.status_trabalho = request.form.get('status_trabalho')
+    novo_status_pag = request.form.get('status_pagamento')
+    novo_status_trab = request.form.get('status_trabalho')
+    ag.status_pagamento = novo_status_pag
+    ag.status_trabalho = novo_status_trab
     ag.observacoes = request.form.get('observacoes')
     
     db.session.commit()
-    flash('Agendamento atualizado com sucesso!')
+
+    # MÁGICA DA INTEGRAÇÃO: Atualiza ou cria a conta no Financeiro
+    conta_existente = ContaReceber.query.filter_by(modulo_origem='Estúdio', origem_id=ag.id).first()
+    if conta_existente:
+        conta_existente.valor = ag.valor
+        conta_existente.status = 'Pago' if novo_status_pag == 'Pago' else 'Pendente'
+        if novo_status_pag == 'Pago' and not conta_existente.data_pagamento:
+            conta_existente.data_pagamento = datetime.utcnow().date()
+        db.session.commit()
+    elif not conta_existente and novo_status_trab == 'Concluído':
+        nova_conta = ContaReceber(
+            descricao=f"{ag.tipo_estudio} - Cliente: {ag.nome_cliente} (Téc: {ag.nome_tecnico})",
+            modulo_origem="Estúdio", origem_id=ag.id, valor=ag.valor,
+            data_vencimento=ag.data_agendamento, status='Pago' if novo_status_pag == 'Pago' else 'Pendente',
+            data_pagamento=datetime.utcnow().date() if novo_status_pag == 'Pago' else None
+        )
+        db.session.add(nova_conta)
+        db.session.commit()
+
+    flash('Agendamento atualizado!')
     return redirect(url_for('gerenciar_estudios'))
 
 @app.route('/estudios/excluir/<int:id>', methods=['POST'])
 def excluir_estudio(id):
     if 'usuario_id' not in session: return redirect(url_for('login'))
     ag = AgendamentoEstudio.query.get_or_404(id)
+    # Exclui a conta vinculada no financeiro se existir
+    conta_vinculada = ContaReceber.query.filter_by(modulo_origem='Estúdio', origem_id=ag.id).first()
+    if conta_vinculada:
+        db.session.delete(conta_vinculada)
     db.session.delete(ag)
     db.session.commit()
     flash('Agendamento excluído.')
     return redirect(url_for('gerenciar_estudios'))
+
+# ==============================================================================
+# MÓDULO 01 - FINANCEIRO & BACKOFFICE
+# ==============================================================================
+@app.route('/financeiro', methods=['GET'])
+def financeiro_dashboard():
+    if 'usuario_id' not in session or session.get('role') != 'admin':
+        flash('Acesso negado ao Financeiro.')
+        return redirect(url_for('dashboard'))
+    
+    # Cálculos para o Resumo
+    contas_receber = ContaReceber.query.order_by(ContaReceber.data_vencimento).all()
+    contas_pagar = ContaPagar.query.order_by(ContaPagar.data_vencimento).all()
+    
+    total_recebido = sum(c.valor for c in contas_receber if c.status == 'Pago')
+    total_a_receber = sum(c.valor for c in contas_receber if c.status == 'Pendente')
+    
+    total_pago = sum(c.valor for c in contas_pagar if c.status == 'Pago')
+    total_a_pagar = sum(c.valor for c in contas_pagar if c.status == 'Pendente')
+    
+    saldo_atual = total_recebido - total_pago
+
+    # Listas para Cadastros
+    fornecedores = Fornecedor.query.all()
+    funcionarios = Funcionario.query.all()
+
+    return render_template('financeiro.html', 
+                           receber=contas_receber, pagar=contas_pagar, 
+                           fornecedores=fornecedores, funcionarios=funcionarios,
+                           t_recebido=total_recebido, t_a_receber=total_a_receber,
+                           t_pago=total_pago, t_a_pagar=total_a_pagar, saldo=saldo_atual)
+
+# Rota para cadastrar Nova Conta a Pagar (com Anexo)
+@app.route('/financeiro/pagar/nova', methods=['POST'])
+def nova_conta_pagar():
+    if 'usuario_id' not in session or session.get('role') != 'admin': return redirect(url_for('dashboard'))
+    
+    arquivo = request.files.get('anexo_nf')
+    caminho_arquivo = None
+    if arquivo and arquivo.filename != '':
+        extensao = arquivo.filename.split('.')[-1]
+        nome_arquivo = f"nf_despesa_{datetime.now().strftime('%Y%m%d%H%M%S')}.{extensao}"
+        arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo))
+        caminho_arquivo = f"uploads/{nome_arquivo}"
+
+    valor_str = request.form.get('valor', '0')
+    valor_limpo = float(valor_str.replace(',', '.'))
+    data_venc = datetime.strptime(request.form.get('data_vencimento'), '%Y-%m-%d').date()
+
+    nova_conta = ContaPagar(
+        descricao=request.form.get('descricao'),
+        fornecedor_id=request.form.get('fornecedor_id') if request.form.get('fornecedor_id') else None,
+        valor=valor_limpo,
+        data_vencimento=data_venc,
+        status=request.form.get('status'),
+        data_pagamento=datetime.utcnow().date() if request.form.get('status') == 'Pago' else None,
+        anexo_nf=caminho_arquivo
+    )
+    db.session.add(nova_conta)
+    db.session.commit()
+    flash('Despesa cadastrada no Contas a Pagar!')
+    return redirect(url_for('financeiro_dashboard'))
+
+# Rota para cadastrar Fornecedor
+@app.route('/financeiro/fornecedor/novo', methods=['POST'])
+def novo_fornecedor():
+    if 'usuario_id' not in session or session.get('role') != 'admin': return redirect(url_for('dashboard'))
+    novo_forn = Fornecedor(
+        razao_social=request.form.get('razao_social'), cnpj_cpf=request.form.get('cnpj_cpf'),
+        telefone=request.form.get('telefone'), email=request.form.get('email'), categoria=request.form.get('categoria')
+    )
+    db.session.add(novo_forn)
+    db.session.commit()
+    flash('Fornecedor cadastrado!')
+    return redirect(url_for('financeiro_dashboard'))
+
+# Rota para cadastrar Funcionario/Técnico
+@app.route('/financeiro/funcionario/novo', methods=['POST'])
+def novo_funcionario():
+    if 'usuario_id' not in session or session.get('role') != 'admin': return redirect(url_for('dashboard'))
+    valor_str = request.form.get('salario_base', '0')
+    valor_limpo = float(valor_str.replace(',', '.')) if valor_str else 0.0
+    novo_func = Funcionario(
+        nome=request.form.get('nome'), cpf=request.form.get('cpf'), cargo=request.form.get('cargo'),
+        tipo_contrato=request.form.get('tipo_contrato'), salario_base=valor_limpo
+    )
+    db.session.add(novo_func)
+    db.session.commit()
+    flash('Funcionário/Técnico cadastrado!')
+    return redirect(url_for('financeiro_dashboard'))
 
 if __name__ == '__main__':
     app.run(debug=True)
