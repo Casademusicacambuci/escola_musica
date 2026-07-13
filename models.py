@@ -3,6 +3,9 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
+# ==========================================
+# MÓDULOS DE BASE (USUÁRIOS E SECRETARIA)
+# ==========================================
 class Usuario(db.Model):
     __tablename__ = 'usuarios'
     id = db.Column(db.Integer, primary_key=True)
@@ -27,9 +30,7 @@ class Aluno(db.Model):
     nivel = db.Column(db.String(30), nullable=False, default='Iniciante')
     data_matricula = db.Column(db.Date, default=datetime.utcnow)
     status = db.Column(db.String(20), nullable=False, default='Ativo')
-    
     aulas = db.relationship('Aula', backref='aluno', lazy=True)
-    boletos = db.relationship('Boleto', backref='aluno', lazy=True)
 
 class Professor(db.Model):
     __tablename__ = 'professores'
@@ -44,7 +45,6 @@ class Professor(db.Model):
     telefone = db.Column(db.String(20), nullable=False)
     curso = db.Column(db.String(50), nullable=False)
     status = db.Column(db.String(20), nullable=False, default='Ativo')
-    
     aulas = db.relationship('Aula', backref='professor', lazy=True)
 
 class Aula(db.Model):
@@ -59,6 +59,9 @@ class Aula(db.Model):
     status = db.Column(db.String(20), nullable=False, default='Agendada')
     observacoes = db.Column(db.Text)
 
+# ==========================================
+# MÓDULOS DE ESTÚDIO (03, 04, 05)
+# ==========================================
 class AgendamentoEstudio(db.Model):
     __tablename__ = 'agendamentos_estudio'
     id = db.Column(db.Integer, primary_key=True)
@@ -76,72 +79,74 @@ class AgendamentoEstudio(db.Model):
     status_pagamento = db.Column(db.String(20), nullable=False, default='A Pagar')
     status_trabalho = db.Column(db.String(20), nullable=False, default='Agendado')
     observacoes = db.Column(db.Text) 
-    lancamento_caixa_id = db.Column(db.Integer, db.ForeignKey('lancamentos_caixa.id'), nullable=True)
 
-class LancamentoCaixa(db.Model):
-    __tablename__ = 'lancamentos_caixa'
-    id = db.Column(db.Integer, primary_key=True)
-    subdivisao = db.Column(db.String(30), nullable=False)
-    tipo = db.Column(db.String(15), nullable=False, default='recebimento')
-    valor = db.Column(db.Float, nullable=False)
-    descricao = db.Column(db.String(255))
-    data_lancamento = db.Column(db.DateTime, default=datetime.utcnow)
-    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
-    agendamentos = db.relationship('AgendamentoEstudio', backref='lancamento_caixa', lazy=True)
+# ==========================================
+# MÓDULO 01 - FINANCEIRO & BACKOFFICE (NOVOS!)
+# ==========================================
 
-class Boleto(db.Model):
-    __tablename__ = 'boletos'
+class Fornecedor(db.Model):
+    __tablename__ = 'fornecedores'
     id = db.Column(db.Integer, primary_key=True)
-    aluno_id = db.Column(db.Integer, db.ForeignKey('alunos.id'), nullable=False)
+    razao_social = db.Column(db.String(150), nullable=False)
+    cnpj_cpf = db.Column(db.String(20), nullable=False, unique=True)
+    telefone = db.Column(db.String(20))
+    email = db.Column(db.String(120))
+    categoria = db.Column(db.String(50)) # Ex: Manutenção, Limpeza, Loja
+    status = db.Column(db.String(20), default='Ativo')
+    contas_a_pagar = db.relationship('ContaPagar', backref='fornecedor', lazy=True)
+
+class Funcionario(db.Model):
+    __tablename__ = 'funcionarios'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    cpf = db.Column(db.String(14), nullable=False, unique=True)
+    cargo = db.Column(db.String(50), nullable=False) # Ex: Atendente, Técnico, Limpeza
+    tipo_contrato = db.Column(db.String(30)) # CLT, PJ, Freelancer
+    salario_base = db.Column(db.Float, default=0.0)
+    status = db.Column(db.String(20), default='Ativo')
+
+class ContaReceber(db.Model):
+    __tablename__ = 'contas_receber'
+    id = db.Column(db.Integer, primary_key=True)
+    descricao = db.Column(db.String(200), nullable=False)
+    modulo_origem = db.Column(db.String(50), nullable=False) # Ex: 'Estúdio', 'Mensalidade', 'Loja'
+    origem_id = db.Column(db.Integer) # ID do agendamento ou aluno
     valor = db.Column(db.Float, nullable=False)
     data_vencimento = db.Column(db.Date, nullable=False)
-    status = db.Column(db.String(20), nullable=False, default='gerado')
-    data_pagamento = db.Column(db.DateTime)
+    data_pagamento = db.Column(db.Date, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='Pendente') # Pendente, Pago, Atrasado
+    forma_pagamento = db.Column(db.String(50)) # Pix, Cartão, Dinheiro
 
-class Recado(db.Model):
-    __tablename__ = 'recados'
+class ContaPagar(db.Model):
+    __tablename__ = 'contas_pagar'
     id = db.Column(db.Integer, primary_key=True)
-    destinatario_tipo = db.Column(db.String(20), nullable=False)
-    destinatario_id = db.Column(db.Integer, nullable=False)
-    mensagem = db.Column(db.Text, nullable=False)
-    data_envio = db.Column(db.DateTime, default=datetime.utcnow)
-    enviado = db.Column(db.Boolean, default=False)
-
-class OrdemLuthier(db.Model):
-    __tablename__ = 'ordens_luthier'
-    id = db.Column(db.Integer, primary_key=True)
-    nome_cliente = db.Column(db.String(100), nullable=False)
-    instrumento = db.Column(db.String(50), nullable=False)
-    conserto_a_ser_feito = db.Column(db.Text, nullable=False)
-    data_entrada = db.Column(db.Date, nullable=False, default=datetime.utcnow)
-    data_retirada = db.Column(db.Date)
+    descricao = db.Column(db.String(200), nullable=False)
+    fornecedor_id = db.Column(db.Integer, db.ForeignKey('fornecedores.id'), nullable=True)
     valor = db.Column(db.Float, nullable=False)
-    status_pagamento = db.Column(db.String(20), nullable=False, default='a_pagar')
+    data_vencimento = db.Column(db.Date, nullable=False)
+    data_pagamento = db.Column(db.Date, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='Pendente')
+    anexo_nf = db.Column(db.String(255)) # Caminho para a Nota Fiscal / Boleto salvo
 
+class FluxoCaixa(db.Model):
+    __tablename__ = 'fluxo_caixa'
+    id = db.Column(db.Integer, primary_key=True)
+    tipo = db.Column(db.String(10), nullable=False) # 'Entrada' ou 'Saída'
+    valor = db.Column(db.Float, nullable=False)
+    descricao = db.Column(db.String(200), nullable=False)
+    categoria = db.Column(db.String(50), nullable=False)
+    data_movimento = db.Column(db.DateTime, default=datetime.utcnow)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
+
+# ==========================================
+# MÓDULOS DE LOJA / ESTOQUE
+# ==========================================
 class Produto(db.Model):
     __tablename__ = 'produtos'
     id = db.Column(db.Integer, primary_key=True)
     codigo_barras = db.Column(db.String(50), unique=True, nullable=False)
     nome = db.Column(db.String(100), nullable=False)
-    categoria = db.Column(db.String(20), nullable=False)
+    categoria = db.Column(db.String(50), nullable=False) # Ex: Lanchonete, Instrumentos, Acessórios
+    preco_custo = db.Column(db.Float, nullable=False, default=0.0)
     preco_venda = db.Column(db.Float, nullable=False)
     quantidade_estoque = db.Column(db.Integer, nullable=False, default=0)
-
-class HistoricoEstoque(db.Model):
-    __tablename__ = 'historico_estoque'
-    id = db.Column(db.Integer, primary_key=True)
-    produto_id = db.Column(db.Integer, db.ForeignKey('produtos.id'), nullable=False)
-    quantidade = db.Column(db.Integer, nullable=False)
-    tipo_movimentacao = db.Column(db.String(10), nullable=False)
-    data_movimentacao = db.Column(db.DateTime, default=datetime.utcnow)
-    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
-
-class NotaFiscal(db.Model):
-    __tablename__ = 'notas_fiscais'
-    id = db.Column(db.Integer, primary_key=True)
-    numero_nf = db.Column(db.String(50), unique=True, nullable=False)
-    tipo_nf = db.Column(db.String(20), nullable=False)
-    valor_total = db.Column(db.Float, nullable=False)
-    data_emissao = db.Column(db.DateTime, default=datetime.utcnow)
-    origem_tipo = db.Column(db.String(50))
-    origem_id = db.Column(db.Integer)
