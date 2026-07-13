@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Estoque - Casa de Música Cambuci</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-secondary mb-4">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="/dashboard">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" height="30" class="me-2 rounded bg-white p-1">
+                <span>&larr; Voltar | Gestão de <strong>Estoque</strong></span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mb-5">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-secondary text-center fw-bold">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <!-- Formulário Novo Produto -->
+            <div class="col-lg-4 mb-4">
+                <div class="card shadow-sm border-0 border-top border-secondary border-3">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3 text-secondary">Cadastrar Produto</h5>
+                        <form method="POST" action="/estoque/novo">
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-primary">Código de Barras</label>
+                                <input type="text" class="form-control form-control-sm border-primary" name="codigo_barras" placeholder="BiPe o produto aqui..." autofocus required>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label small mb-0">Nome do Produto</label>
+                                <input type="text" class="form-control form-control-sm" name="nome" placeholder="Ex: Encordoamento Violão Rouxinol" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small mb-0">Categoria / Origem</label>
+                                <select class="form-select form-select-sm" name="categoria" required>
+                                    <option value="Loja">Loja (Acessórios, Instrumentos)</option>
+                                    <option value="Lanchonete">Lanchonete / Café</option>
+                                    <option value="Uso Interno">Uso Interno / Estúdio</option>
+                                </select>
+                            </div>
+
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <label class="form-label small mb-0">Preço de Custo (R$)</label>
+                                    <input type="number" step="0.01" class="form-control form-control-sm" name="preco_custo" placeholder="0.00" required>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small mb-0 fw-bold">Preço de Venda (R$)</label>
+                                    <input type="number" step="0.01" class="form-control form-control-sm" name="preco_venda" placeholder="0.00" required>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small mb-0">Quantidade em Estoque</label>
+                                <input type="number" class="form-control form-control-sm" name="quantidade_estoque" value="0" required>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-secondary btn-sm fw-bold">Salvar no Estoque</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabela de Estoque -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h5 class="card-title text-secondary mb-3">Produtos Cadastrados</h5>
+                        
+                        {% if not produtos %}
+                            <p class="text-muted text-center py-4">Nenhum produto cadastrado no estoque.</p>
+                        {% else %}
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Cód. Barras</th>
+                                            <th>Produto</th>
+                                            <th>Categoria</th>
+                                            <th>Custo / Venda</th>
+                                            <th class="text-center">Qtd.</th>
+                                            <th class="text-center">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for p in produtos %}
+                                        <tr>
+                                            <td class="text-muted">{{ p.codigo_barras }}</td>
+                                            <td><strong>{{ p.nome }}</strong></td>
+                                            <td><span class="badge bg-secondary">{{ p.categoria }}</span></td>
+                                            <td>
+                                                <small class="text-muted">C: R$ {{ "%.2f"|format(p.preco_custo) }}</small><br>
+                                                <strong class="text-success">V: R$ {{ "%.2f"|format(p.preco_venda) }}</strong>
+                                            </td>
+                                            <td class="text-center">
+                                                {% if p.quantidade_estoque <= 5 %}
+                                                    <span class="badge bg-danger fs-6">{{ p.quantidade_estoque }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-primary fs-6">{{ p.quantidade_estoque }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-outline-secondary btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalEditar{{ p.id }}">Editar</button>
+                                                <form action="/estoque/excluir/{{ p.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Excluir este produto do estoque?');">
+                                                    <button type="submit" class="btn btn-dark btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;">X</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Modal de Edição -->
+                                        <div class="modal fade" id="modalEditar{{ p.id }}" tabindex="-1" aria-hidden="true">
+                                          <div class="modal-dialog">
+                                            <div class="modal-content">
+                                              <div class="modal-header bg-secondary text-white">
+                                                <h6 class="modal-title">Editar Produto</h6>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                              </div>
+                                              <form action="/estoque/editar/{{ p.id }}" method="POST">
+                                                  <div class="modal-body">
+                                                      <div class="mb-2">
+                                                          <label class="small mb-0">Código de Barras</label>
+                                                          <input type="text" class="form-control form-control-sm" name="codigo_barras" value="{{ p.codigo_barras }}" required>
+                                                      </div>
+                                                      <div class="mb-2">
+                                                          <label class="small mb-0">Nome do Produto</label>
+                                                          <input type="text" class="form-control form-control-sm" name="nome" value="{{ p.nome }}" required>
+                                                      </div>
+                                                      <div class="mb-3">
+                                                          <label class="small mb-0">Categoria</label>
+                                                          <select class="form-select form-select-sm" name="categoria" required>
+                                                              <option value="Loja" {% if p.categoria == 'Loja' %}selected{% endif %}>Loja</option>
+                                                              <option value="Lanchonete" {% if p.categoria == 'Lanchonete' %}selected{% endif %}>Lanchonete</option>
+                                                              <option value="Uso Interno" {% if p.categoria == 'Uso Interno' %}selected{% endif %}>Uso Interno</option>
+                                                          </select>
+                                                      </div>
+                                                      <div class="row g-2 mb-2">
+                                                          <div class="col-4">
+                                                              <label class="small mb-0">Custo</label>
+                                                              <input type="number" step="0.01" class="form-control form-control-sm" name="preco_custo" value="{{ p.preco_custo }}" required>
+                                                          </div>
+                                                          <div class="col-4">
+                                                              <label class="small mb-0">Venda</label>
+                                                              <input type="number" step="0.01" class="form-control form-control-sm" name="preco_venda" value="{{ p.preco_venda }}" required>
+                                                          </div>
+                                                          <div class="col-4">
+                                                              <label class="small mb-0">Estoque</label>
+                                                              <input type="number" class="form-control form-control-sm" name="quantidade_estoque" value="{{ p.quantidade_estoque }}" required>
+                                                          </div>
+                                                      </div>
+                                                  </div>
+                                                  <div class="modal-footer">
+                                                    <button type="submit" class="btn btn-secondary btn-sm w-100">Salvar Alterações</button>
+                                                  </div>
+                                              </form>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
