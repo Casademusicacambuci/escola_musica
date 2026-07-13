@@ -20,7 +20,11 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 db.init_app(app)
 
 with app.app_context():
-    db.create_all() # Garante que as novas tabelas financeiras sejam criadas sem apagar os alunos
+    # Recria apenas as tabelas Fornecedor e Funcionario para adicionar os novos campos (como Chave PIX e Endereço)
+    Fornecedor.__table__.drop(db.engine, checkfirst=True)
+    Funcionario.__table__.drop(db.engine, checkfirst=True)
+    
+    db.create_all() # Garante que as novas tabelas sejam criadas sem apagar os alunos e estúdios
     
     admin_existente = Usuario.query.filter_by(username='admin').first()
     if not admin_existente:
@@ -404,6 +408,47 @@ def financeiro_dashboard():
                            t_recebido=total_recebido, t_a_receber=total_a_receber,
                            t_pago=total_pago, t_a_pagar=total_a_pagar, saldo=saldo_atual)
 
+# Rota para Exportar Planilha Financeira
+@app.route('/financeiro/exportar', methods=['POST'])
+def exportar_financeiro():
+    if 'usuario_id' not in session or session.get('role') != 'admin': return redirect(url_for('dashboard'))
+    
+    data_inicio_str = request.form.get('data_inicio')
+    data_fim_str = request.form.get('data_fim')
+    tipo_relatorio = request.form.get('tipo_relatorio')
+
+    data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d').date() if data_inicio_str else datetime.min.date()
+    data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d').date() if data_fim_str else datetime.max.date()
+
+    si = StringIO()
+    cw = csv.writer(si, delimiter=';')
+
+    # Cabeçalho da Planilha
+    cw.writerow([f'RELATORIO FINANCEIRO - CASA DE MUSICA CAMBUCI'])
+    cw.writerow([f'Periodo: {data_inicio_str} ate {data_fim_str}'])
+    cw.writerow([])
+
+    if tipo_relatorio in ['receitas', 'ambos']:
+        cw.writerow(['--- ENTRADAS (A RECEBER / RECEBIDAS) ---'])
+        cw.writerow(['Vencimento', 'Data Pagamento', 'Origem', 'Descricao', 'Valor (R$)', 'Status'])
+        receitas = ContaReceber.query.filter(ContaReceber.data_vencimento >= data_inicio, ContaReceber.data_vencimento <= data_fim).order_by(ContaReceber.data_vencimento).all()
+        for r in receitas:
+            dp = r.data_pagamento.strftime('%d/%m/%Y') if r.data_pagamento else ''
+            cw.writerow([r.data_vencimento.strftime('%d/%m/%Y'), dp, r.modulo_origem, r.descricao, r.valor, r.status])
+        cw.writerow([])
+
+    if tipo_relatorio in ['despesas', 'ambos']:
+        cw.writerow(['--- SAIDAS (A PAGAR / PAGAS) ---'])
+        cw.writerow(['Vencimento', 'Data Pagamento', 'Fornecedor', 'Descricao', 'Valor (R$)', 'Status'])
+        despesas = ContaPagar.query.filter(ContaPagar.data_vencimento >= data_inicio, ContaPagar.data_vencimento <= data_fim).order_by(ContaPagar.data_vencimento).all()
+        for d in despesas:
+            dp = d.data_pagamento.strftime('%d/%m/%Y') if d.data_pagamento else ''
+            forn_nome = d.fornecedor.razao_social if d.fornecedor else 'Avulso'
+            cw.writerow([d.data_vencimento.strftime('%d/%m/%Y'), dp, forn_nome, d.descricao, d.valor, d.status])
+
+    output = si.getvalue()
+    return Response('\ufeff' + output, mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_financeiro.csv"})
+
 # Rota para cadastrar Nova Conta a Pagar (com Anexo)
 @app.route('/financeiro/pagar/nova', methods=['POST'])
 def nova_conta_pagar():
@@ -424,9 +469,7 @@ def nova_conta_pagar():
     nova_conta = ContaPagar(
         descricao=request.form.get('descricao'),
         fornecedor_id=request.form.get('fornecedor_id') if request.form.get('fornecedor_id') else None,
-        valor=valor_limpo,
-        data_vencimento=data_venc,
-        status=request.form.get('status'),
+        valor=valor_limpo, data_vencimento=data_venc, status=request.form.get('status'),
         data_pagamento=datetime.utcnow().date() if request.form.get('status') == 'Pago' else None,
         anexo_nf=caminho_arquivo
     )
@@ -435,32 +478,53 @@ def nova_conta_pagar():
     flash('Despesa cadastrada no Contas a Pagar!')
     return redirect(url_for('financeiro_dashboard'))
 
-# Rota para cadastrar Fornecedor
+# Rota para cadastrar Fornecedor Completo
 @app.route('/financeiro/fornecedor/novo', methods=['POST'])
 def novo_fornecedor():
     if 'usuario_id' not in session or session.get('role') != 'admin': return redirect(url_for('dashboard'))
     novo_forn = Fornecedor(
         razao_social=request.form.get('razao_social'), cnpj_cpf=request.form.get('cnpj_cpf'),
-        telefone=request.form.get('telefone'), email=request.form.get('email'), categoria=request.form.get('categoria')
+        telefone=request.form.get('telefone'), email=request.form.get('email'),
+        endereco_completo=request.form.get('endereco'), chave_pix=request.form.get('chave_pix'),
+        categoria=request.form.get('categoria'), status=request.form.get('status')
     )
     db.session.add(novo_forn)
     db.session.commit()
     flash('Fornecedor cadastrado!')
     return redirect(url_for('financeiro_dashboard'))
 
-# Rota para cadastrar Funcionario/Técnico
+# Rota para cadastrar Funcionario Completo
 @app.route('/financeiro/funcionario/novo', methods=['POST'])
 def novo_funcionario():
     if 'usuario_id' not in session or session.get('role') != 'admin': return redirect(url_for('dashboard'))
+    
+    arquivo = request.files.get('comprovante')
+    caminho_arquivo = None
+    if arquivo and arquivo.filename != '':
+        extensao = arquivo.filename.split('.')[-1]
+        nome_arquivo = f"comprovante_func_{request.form.get('cpf')}.{extensao}"
+        arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo))
+        caminho_arquivo = f"uploads/{nome_arquivo}"
+
     valor_str = request.form.get('salario_base', '0')
     valor_limpo = float(valor_str.replace(',', '.')) if valor_str else 0.0
+    
+    data_nasc_str = request.form.get('data_nascimento')
+    data_nasc = datetime.strptime(data_nasc_str, '%Y-%m-%d').date() if data_nasc_str else None
+    
+    data_adm_str = request.form.get('data_admissao')
+    data_adm = datetime.strptime(data_adm_str, '%Y-%m-%d').date() if data_adm_str else datetime.utcnow().date()
+
     novo_func = Funcionario(
-        nome=request.form.get('nome'), cpf=request.form.get('cpf'), cargo=request.form.get('cargo'),
-        tipo_contrato=request.form.get('tipo_contrato'), salario_base=valor_limpo
+        nome=request.form.get('nome'), cpf=request.form.get('cpf'), email=request.form.get('email'),
+        telefone=request.form.get('telefone'), data_nascimento=data_nasc, endereco_completo=request.form.get('endereco'),
+        chave_pix=request.form.get('chave_pix'), cargo=request.form.get('cargo'),
+        tipo_contrato=request.form.get('tipo_contrato'), salario_base=valor_limpo,
+        data_admissao=data_adm, status=request.form.get('status'), comprovante_endereco=caminho_arquivo
     )
     db.session.add(novo_func)
     db.session.commit()
-    flash('Funcionário/Técnico cadastrado!')
+    flash('Funcionário cadastrado com sucesso!')
     return redirect(url_for('financeiro_dashboard'))
 
 if __name__ == '__main__':
