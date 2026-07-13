@@ -527,5 +527,73 @@ def novo_funcionario():
     flash('Funcionário cadastrado com sucesso!')
     return redirect(url_for('financeiro_dashboard'))
 
+# ==============================================================================
+# ESTOQUE (PRODUTOS, LOJA E LANCHONETE)
+# ==============================================================================
+@app.route('/estoque', methods=['GET'])
+def gerenciar_estoque():
+    if 'usuario_id' not in session or session.get('role') not in ['admin', 'loja', 'caixa']:
+        flash('Acesso negado ao Estoque.')
+        return redirect(url_for('dashboard'))
+    
+    produtos = Produto.query.order_by(Produto.nome).all()
+    return render_template('estoque.html', produtos=produtos)
+
+@app.route('/estoque/novo', methods=['POST'])
+def novo_produto():
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    
+    codigo = request.form.get('codigo_barras')
+    if Produto.query.filter_by(codigo_barras=codigo).first():
+        flash('Erro: Já existe um produto com este código de barras.')
+        return redirect(url_for('gerenciar_estoque'))
+
+    pcusto_str = request.form.get('preco_custo', '0')
+    pvenda_str = request.form.get('preco_venda', '0')
+    
+    novo_prod = Produto(
+        codigo_barras=codigo,
+        nome=request.form.get('nome'),
+        categoria=request.form.get('categoria'),
+        preco_custo=float(pcusto_str.replace(',', '.')),
+        preco_venda=float(pvenda_str.replace(',', '.')),
+        quantidade_estoque=int(request.form.get('quantidade_estoque', '0'))
+    )
+    db.session.add(novo_prod)
+    db.session.commit()
+    flash('Produto cadastrado com sucesso!')
+    return redirect(url_for('gerenciar_estoque'))
+
+@app.route('/estoque/editar/<int:id>', methods=['POST'])
+def editar_produto(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    p = Produto.query.get_or_404(id)
+    
+    novo_codigo = request.form.get('codigo_barras')
+    conflito = Produto.query.filter(Produto.id != id, Produto.codigo_barras == novo_codigo).first()
+    if conflito:
+        flash('Erro: Já existe outro produto com este código de barras.')
+        return redirect(url_for('gerenciar_estoque'))
+
+    p.codigo_barras = novo_codigo
+    p.nome = request.form.get('nome')
+    p.categoria = request.form.get('categoria')
+    p.preco_custo = float(request.form.get('preco_custo').replace(',', '.'))
+    p.preco_venda = float(request.form.get('preco_venda').replace(',', '.'))
+    p.quantidade_estoque = int(request.form.get('quantidade_estoque'))
+    
+    db.session.commit()
+    flash('Produto atualizado com sucesso!')
+    return redirect(url_for('gerenciar_estoque'))
+
+@app.route('/estoque/excluir/<int:id>', methods=['POST'])
+def excluir_produto(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    p = Produto.query.get_or_404(id)
+    db.session.delete(p)
+    db.session.commit()
+    flash('Produto excluído.')
+    return redirect(url_for('gerenciar_estoque'))
+
 if __name__ == '__main__':
     app.run(debug=True)
