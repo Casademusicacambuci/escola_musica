@@ -5,7 +5,7 @@ import os
 import csv
 from io import StringIO
 
-# Importando todas as tabelas (incluindo as novas do Financeiro)
+# Importando todas as tabelas 
 from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula, Fornecedor, Funcionario, ContaReceber, ContaPagar, FluxoCaixa, Produto
 
 app = Flask(__name__)
@@ -20,11 +20,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 db.init_app(app)
 
 with app.app_context():
-    # Recria apenas as tabelas Fornecedor e Funcionario para adicionar os novos campos (como Chave PIX e Endereço)
-    Fornecedor.__table__.drop(db.engine, checkfirst=True)
-    Funcionario.__table__.drop(db.engine, checkfirst=True)
-    
-    db.create_all() # Garante que as novas tabelas sejam criadas sem apagar os alunos e estúdios
+    db.create_all() # Garante que as tabelas existam sem apagar nenhum dado
     
     admin_existente = Usuario.query.filter_by(username='admin').first()
     if not admin_existente:
@@ -594,6 +590,71 @@ def excluir_produto(id):
     db.session.commit()
     flash('Produto excluído.')
     return redirect(url_for('gerenciar_estoque'))
+
+# ==============================================================================
+# CAIXA PDV (FRENTE DE CAIXA ÚNICA)
+# ==============================================================================
+@app.route('/caixa', methods=['GET'])
+def caixa_pdv():
+    if 'usuario_id' not in session or session.get('role') not in ['admin', 'caixa', 'loja', 'secretaria']:
+        flash('Acesso negado ao Caixa PDV.')
+        return redirect(url_for('dashboard'))
+    return render_template('caixa.html')
+
+@app.route('/api/produto/<codigo>')
+def api_buscar_produto(codigo):
+    if 'usuario_id' not in session: return jsonify({'erro': 'Não autorizado'})
+    
+    produto = Produto.query.filter_by(codigo_barras=codigo).first()
+    if produto:
+        if produto.quantidade_estoque <= 0:
+            return jsonify({'erro': f'Produto "{produto.nome}" sem estoque!'})
+        return jsonify({
+            'id': produto.id,
+            'nome': produto.nome,
+            'preco': produto.preco_venda
+        })
+    else:
+        return jsonify({'erro': 'Produto não encontrado.'})
+
+@app.route('/caixa/finalizar', methods=['POST'])
+def finalizar_venda():
+    if 'usuario_id' not in session: return jsonify({'sucesso': False})
+    
+    dados = request.get_json()
+    itens = dados.get('itens', [])
+    total = dados.get('total', 0.0)
+    forma_pagamento = dados.get('forma_pagamento', 'Dinheiro')
+    
+    if not itens or total <= 0:
+        return jsonify({'sucesso': False, 'erro': 'Carrinho vazio'})
+
+    descricao_venda = "Venda PDV: "
+    for item in itens:
+        # Dá baixa no Estoque
+        produto = Produto.query.get(item['id'])
+        if produto:
+            produto.quantidade_estoque -= item['quantidade']
+            descricao_venda += f"{item['quantidade']}x {produto.nome}, "
+    
+    # Remove a última vírgula da descrição
+    descricao_venda = descricao_venda.rstrip(', ')
+
+    # Lança automaticamente no Financeiro (Conta a Receber já como PAGO)
+    nova_receita = ContaReceber(
+        descricao=descricao_venda,
+        modulo_origem="Loja / PDV",
+        valor=total,
+        data_vencimento=datetime.utcnow().date(),
+        data_pagamento=datetime.utcnow().date(),
+        status="Pago",
+        forma_pagamento=forma_pagamento
+    )
+    
+    db.session.add(nova_receita)
+    db.session.commit()
+    
+    return jsonify({'sucesso': True})
 
 if __name__ == '__main__':
     app.run(debug=True)
