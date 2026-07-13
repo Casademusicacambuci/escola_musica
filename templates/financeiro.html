@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Financeiro - Casa de Música Cambuci</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success mb-4">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="/dashboard">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" height="30" class="me-2 rounded bg-white p-1">
+                <span>&larr; Voltar | <strong>Financeiro & Backoffice</strong></span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mb-5">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-success text-center fw-bold">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <!-- ABAS DE NAVEGAÇÃO -->
+        <ul class="nav nav-tabs mb-4" id="financeiroTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold text-success" id="resumo-tab" data-bs-toggle="tab" data-bs-target="#resumo" type="button" role="tab">Visão Geral</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold text-primary" id="receber-tab" data-bs-toggle="tab" data-bs-target="#receber" type="button" role="tab">A Receber (Entradas)</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold text-danger" id="pagar-tab" data-bs-toggle="tab" data-bs-target="#pagar" type="button" role="tab">A Pagar (Saídas)</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold text-secondary" id="cadastros-tab" data-bs-toggle="tab" data-bs-target="#cadastros" type="button" role="tab">Cadastros (RH / Fornec.)</button>
+          </li>
+        </ul>
+
+        <!-- CONTEÚDO DAS ABAS -->
+        <div class="tab-content" id="financeiroTabsContent">
+          
+          <!-- ABA 1: VISÃO GERAL -->
+          <div class="tab-pane fade show active" id="resumo" role="tabpanel">
+              <div class="row text-center mb-4">
+                  <div class="col-md-4 mb-3">
+                      <div class="card border-0 shadow-sm border-bottom border-primary border-3">
+                          <div class="card-body">
+                              <h6 class="text-muted">A Receber Pendente</h6>
+                              <h3 class="text-primary">R$ {{ "%.2f"|format(t_a_receber) }}</h3>
+                          </div>
+                      </div>
+                  </div>
+                  <div class="col-md-4 mb-3">
+                      <div class="card border-0 shadow-sm border-bottom border-danger border-3">
+                          <div class="card-body">
+                              <h6 class="text-muted">Despesas A Pagar</h6>
+                              <h3 class="text-danger">R$ {{ "%.2f"|format(t_a_pagar) }}</h3>
+                          </div>
+                      </div>
+                  </div>
+                  <div class="col-md-4 mb-3">
+                      <div class="card border-0 shadow-sm border-bottom border-success border-3 bg-dark text-white">
+                          <div class="card-body">
+                              <h6 class="text-light">SALDO ATUAL EM CAIXA</h6>
+                              <h3 class="text-success">R$ {{ "%.2f"|format(saldo) }}</h3>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <!-- ABA 2: A RECEBER -->
+          <div class="tab-pane fade" id="receber" role="tabpanel">
+              <div class="card shadow-sm border-0 border-top border-primary border-3">
+                  <div class="card-body">
+                      <h5 class="card-title text-primary mb-3">Contas a Receber (Estúdios e Mensalidades)</h5>
+                      <div class="table-responsive">
+                          <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
+                              <thead class="table-light">
+                                  <tr>
+                                      <th>Vencimento</th>
+                                      <th>Origem</th>
+                                      <th>Descrição / Cliente</th>
+                                      <th>Valor</th>
+                                      <th>Status</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  {% for r in receber %}
+                                  <tr>
+                                      <td>{{ r.data_vencimento.strftime('%d/%m/%Y') }}</td>
+                                      <td><span class="badge bg-secondary">{{ r.modulo_origem }}</span></td>
+                                      <td>{{ r.descricao }}</td>
+                                      <td><strong class="text-primary">R$ {{ "%.2f"|format(r.valor) }}</strong></td>
+                                      <td>
+                                          {% if r.status == 'Pago' %}
+                                            <span class="badge bg-success">Recebido</span>
+                                          {% else %}
+                                            <span class="badge bg-warning text-dark">Pendente</span>
+                                          {% endif %}
+                                      </td>
+                                  </tr>
+                                  {% endfor %}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <!-- ABA 3: A PAGAR E ANEXO DE NFs -->
+          <div class="tab-pane fade" id="pagar" role="tabpanel">
+              <div class="row">
+                  <div class="col-lg-4 mb-3">
+                      <div class="card shadow-sm border-0">
+                          <div class="card-body">
+                              <h6 class="text-danger mb-3">Lançar Nova Despesa</h6>
+                              <form method="POST" action="/financeiro/pagar/nova" enctype="multipart/form-data">
+                                  <div class="mb-2">
+                                      <label class="small">Descrição da Compra / Conta</label>
+                                      <input type="text" class="form-control form-control-sm" name="descricao" required>
+                                  </div>
+                                  <div class="mb-2">
+                                      <label class="small">Fornecedor (Opcional)</label>
+                                      <select class="form-select form-select-sm" name="fornecedor_id">
+                                          <option value="">Sem Fornecedor / Avulso</option>
+                                          {% for f in fornecedores %}
+                                            <option value="{{ f.id }}">{{ f.razao_social }}</option>
+                                          {% endfor %}
+                                      </select>
+                                  </div>
+                                  <div class="row g-2 mb-2">
+                                      <div class="col-6">
+                                          <label class="small">Valor (R$)</label>
+                                          <input type="number" step="0.01" class="form-control form-control-sm" name="valor" required>
+                                      </div>
+                                      <div class="col-6">
+                                          <label class="small">Vencimento</label>
+                                          <input type="date" class="form-control form-control-sm" name="data_vencimento" required>
+                                      </div>
+                                  </div>
+                                  <div class="mb-2">
+                                      <label class="small">Status do Pagamento</label>
+                                      <select class="form-select form-select-sm" name="status">
+                                          <option value="Pendente">A Pagar (Pendente)</option>
+                                          <option value="Pago">Já Pago</option>
+                                      </select>
+                                  </div>
+                                  <div class="mb-3">
+                                      <label class="small fw-bold text-primary">Anexar NF ou Boleto (Foto/PDF)</label>
+                                      <input type="file" class="form-control form-control-sm border-primary" name="anexo_nf">
+                                  </div>
+                                  <button type="submit" class="btn btn-danger btn-sm w-100">Registrar Despesa</button>
+                              </form>
+                          </div>
+                      </div>
+                  </div>
+                  <div class="col-lg-8">
+                      <div class="card shadow-sm border-0 border-top border-danger border-3">
+                          <div class="card-body">
+                              <h5 class="card-title text-danger mb-3">Contas a Pagar</h5>
+                              <div class="table-responsive">
+                                  <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
+                                      <thead class="table-light">
+                                          <tr>
+                                              <th>Vencimento</th>
+                                              <th>Descrição</th>
+                                              <th>Valor</th>
+                                              <th>Status</th>
+                                              <th>Documento (NF)</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody>
+                                          {% for p in pagar %}
+                                          <tr>
+                                              <td>{{ p.data_vencimento.strftime('%d/%m/%Y') }}</td>
+                                              <td>{{ p.descricao }}</td>
+                                              <td><strong class="text-danger">R$ {{ "%.2f"|format(p.valor) }}</strong></td>
+                                              <td>
+                                                  {% if p.status == 'Pago' %}
+                                                    <span class="badge bg-success">Pago</span>
+                                                  {% else %}
+                                                    <span class="badge bg-warning text-dark">Pendente</span>
+                                                  {% endif %}
+                                              </td>
+                                              <td>
+                                                  {% if p.anexo_nf %}
+                                                    <a href="{{ url_for('static', filename=p.anexo_nf) }}" target="_blank" class="btn btn-outline-dark btn-xs py-0 px-1" style="font-size:0.75rem;">Ver NF</a>
+                                                  {% else %}
+                                                    <span class="text-muted small">Sem Anexo</span>
+                                                  {% endif %}
+                                              </td>
+                                          </tr>
+                                          {% endfor %}
+                                      </tbody>
+                                  </table>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <!-- ABA 4: CADASTROS DE RH E FORNECEDORES -->
+          <div class="tab-pane fade" id="cadastros" role="tabpanel">
+              <div class="row">
+                  <!-- Cadastro Fornecedor -->
+                  <div class="col-md-6 mb-3">
+                      <div class="card shadow-sm border-0">
+                          <div class="card-body bg-light">
+                              <h6 class="text-secondary">Novo Fornecedor</h6>
+                              <form method="POST" action="/financeiro/fornecedor/novo">
+                                  <div class="mb-2"><input type="text" class="form-control form-control-sm" name="razao_social" placeholder="Razão Social / Nome Fantasia" required></div>
+                                  <div class="row g-2 mb-2">
+                                      <div class="col-6"><input type="text" class="form-control form-control-sm" name="cnpj_cpf" placeholder="CNPJ ou CPF" required></div>
+                                      <div class="col-6"><input type="text" class="form-control form-control-sm" name="telefone" placeholder="WhatsApp"></div>
+                                  </div>
+                                  <button type="submit" class="btn btn-secondary btn-sm w-100">Salvar Fornecedor</button>
+                              </form>
+                          </div>
+                      </div>
+                  </div>
+                  <!-- Cadastro Funcionario -->
+                  <div class="col-md-6 mb-3">
+                      <div class="card shadow-sm border-0">
+                          <div class="card-body bg-light">
+                              <h6 class="text-secondary">Novo Funcionário / Técnico</h6>
+                              <form method="POST" action="/financeiro/funcionario/novo">
+                                  <div class="mb-2"><input type="text" class="form-control form-control-sm" name="nome" placeholder="Nome Completo" required></div>
+                                  <div class="row g-2 mb-2">
+                                      <div class="col-6"><input type="text" class="form-control form-control-sm" name="cpf" placeholder="CPF" required></div>
+                                      <div class="col-6"><input type="text" class="form-control form-control-sm" name="cargo" placeholder="Cargo (Ex: Técnico)" required></div>
+                                  </div>
+                                  <button type="submit" class="btn btn-secondary btn-sm w-100">Salvar Funcionário</button>
+                              </form>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
