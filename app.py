@@ -171,7 +171,7 @@ def editar_professor(id):
     prof.telefone = request.form.get('telefone'); prof.curso = request.form.get('curso')
     prof.status = request.form.get('status'); prof.endereco_completo = request.form.get('endereco')
     db.session.commit()
-    flash('Dados do professor atualizados!')
+    flash('Dados atualizados!')
     return redirect(url_for('gerenciar_professores'))
 
 @app.route('/secretaria/professores/excluir/<int:id>', methods=['POST'])
@@ -185,7 +185,6 @@ def excluir_professor(id):
     flash('Professor excluído.')
     return redirect(url_for('gerenciar_professores'))
 
-# Correção do CSV de Professores que dava Not Found
 @app.route('/secretaria/professores/csv')
 def exportar_professores_csv():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
@@ -278,7 +277,6 @@ def gerenciar_estudios():
         db.session.add(novo_agendamento)
         db.session.commit()
         
-        # Quando conclui, envia para o financeiro como "Pendente" ou "Pago"
         if request.form.get('status_trabalho') == 'Concluído':
             nova_conta = ContaReceber(
                 descricao=f"{tipo_estudio} - Cliente: {novo_agendamento.nome_cliente}",
@@ -304,6 +302,23 @@ def editar_estudio(id):
     ag.status_pagamento = request.form.get('status_pagamento')
     ag.status_trabalho = request.form.get('status_trabalho')
     db.session.commit()
+
+    conta = ContaReceber.query.filter_by(modulo_origem='Estúdio', origem_id=ag.id).first()
+    if conta:
+        conta.valor = ag.valor
+        conta.status = 'Pago' if ag.status_pagamento == 'Pago' else 'Pendente'
+        if ag.status_pagamento == 'Pago' and not conta.data_pagamento:
+            conta.data_pagamento = datetime.utcnow().date()
+        db.session.commit()
+    elif not conta and ag.status_trabalho == 'Concluído':
+        nova_conta = ContaReceber(
+            descricao=f"{ag.tipo_estudio} - Cliente: {ag.nome_cliente}",
+            modulo_origem="Estúdio", origem_id=ag.id, valor=ag.valor,
+            data_vencimento=ag.data_agendamento, status='Pago' if ag.status_pagamento == 'Pago' else 'Pendente',
+            data_pagamento=datetime.utcnow().date() if ag.status_pagamento == 'Pago' else None
+        )
+        db.session.add(nova_conta)
+        db.session.commit()
     return redirect(url_for('gerenciar_estudios'))
 
 @app.route('/estudios/excluir/<int:id>', methods=['POST'])
@@ -314,44 +329,69 @@ def excluir_estudio(id):
     return redirect(url_for('gerenciar_estudios'))
 
 # ==============================================================================
-# MÓDULO FINANCEIRO
+# MÓDULO 01 - FINANCEIRO & BACKOFFICE 
 # ==============================================================================
 @app.route('/financeiro', methods=['GET'])
 def financeiro_dashboard():
-    if 'usuario_id' not in session or session.get('role') != 'admin': return redirect(url_for('dashboard'))
+    if 'usuario_id' not in session or session.get('role') != 'admin':
+        flash('Acesso negado ao Financeiro.')
+        return redirect(url_for('dashboard'))
+    
     hoje = datetime.utcnow().date()
+    mes_atual = hoje.month
+    ano_atual = hoje.year
+
     contas_receber = ContaReceber.query.order_by(ContaReceber.data_vencimento).all()
     contas_pagar = ContaPagar.query.order_by(ContaPagar.data_vencimento).all()
+    
     total_recebido = sum(c.valor for c in contas_receber if c.status == 'Pago')
     total_a_receber = sum(c.valor for c in contas_receber if c.status == 'Pendente')
     total_pago = sum(c.valor for c in contas_pagar if c.status == 'Pago')
     total_a_pagar = sum(c.valor for c in contas_pagar if c.status == 'Pendente')
-    
+    saldo_atual = total_recebido - total_pago
+
     inadimplentes = [c for c in contas_receber if c.status == 'Pendente' and c.data_vencimento < hoje]
 
+    professores = Professor.query.filter_by(status='Ativo').all()
     repasse_profs = []
-    for prof in Professor.query.filter_by(status='Ativo').all():
+    for prof in professores:
         aulas_concluidas = Aula.query.filter_by(professor_id=prof.id, status='Concluída').all()
-        aulas_mes = [a for a in aulas_concluidas if a.data_aula.month == hoje.month and a.data_aula.year == hoje.year]
+        aulas_mes = [a for a in aulas_concluidas if a.data_aula.month == mes_atual and a.data_aula.year == ano_atual]
         alunos_unicos = list({a.aluno for a in aulas_mes}) 
         valor_mensalidades = sum((aluno.valor_mensalidade or 0.0) for aluno in alunos_unicos)
+        comissao = valor_mensalidades * 0.40
+        
         if valor_mensalidades > 0:
-            repasse_profs.append({'nome': prof.nome, 'qtd_alunos': len(alunos_unicos), 'valor_base': valor_mensalidades, 'comissao': valor_mensalidades * 0.40})
+            repasse_profs.append({
+                'nome': prof.nome,
+                'qtd_alunos': len(alunos_unicos),
+                'valor_base': valor_mensalidades,
+                'comissao': comissao
+            })
 
-    return render_template('financeiro.html', receber=contas_receber, pagar=contas_pagar, 
-                           t_recebido=total_recebido, t_a_receber=total_a_receber, t_pago=total_pago, t_a_pagar=total_a_pagar, saldo=total_recebido - total_pago,
-                           inadimplentes=inadimplentes, repasse_profs=repasse_profs, fornecedores=Fornecedor.query.all(), funcionarios=Funcionario.query.all())
+    return render_template('financeiro.html', 
+                           receber=contas_receber, pagar=contas_pagar, 
+                           fornecedores=Fornecedor.query.all(), funcionarios=Funcionario.query.all(),
+                           t_recebido=total_recebido, t_a_receber=total_a_receber,
+                           t_pago=total_pago, t_a_pagar=total_a_pagar, saldo=saldo_atual,
+                           inadimplentes=inadimplentes, repasse_profs=repasse_profs)
 
 @app.route('/financeiro/repasse/pagar', methods=['POST'])
 def registrar_repasse():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    nome_prof = request.form.get('nome_professor')
+    valor_comissao = float(request.form.get('valor_comissao', '0'))
+    mes_atual = datetime.utcnow().strftime('%m/%Y')
+    
     nova_despesa = ContaPagar(
-        descricao=f"Repasse Prof. {request.form.get('nome_professor')} - Mês {datetime.utcnow().strftime('%m/%Y')}",
-        valor=float(request.form.get('valor_comissao', '0')), data_vencimento=datetime.utcnow().date(), status="Pendente"
+        descricao=f"Repasse Professor(a) {nome_prof} - Mês {mes_atual}",
+        valor=valor_comissao,
+        data_vencimento=datetime.utcnow().date(),
+        status="Pendente"
     )
     db.session.add(nova_despesa)
     db.session.commit()
-    flash('Pagamento enviado para a aba Contas a Pagar!')
+    flash(f'Pagamento gerado! Vá na aba "A Pagar (Saídas)" para visualizar ou editar.')
     return redirect(url_for('financeiro_dashboard'))
 
 @app.route('/financeiro/exportar', methods=['POST'])
@@ -364,48 +404,77 @@ def exportar_financeiro():
 
     si = StringIO(); cw = csv.writer(si, delimiter=';')
     cw.writerow([f'RELATORIO FINANCEIRO - Periodo: {d_inicio} ate {d_fim}'])
-    if filtro_modulo != 'Todos': cw.writerow([f'Filtro Aplicado: {filtro_modulo}'])
+    if filtro_modulo != 'Todos':
+        cw.writerow([f'Filtro Aplicado: {filtro_modulo}'])
     cw.writerow([])
     
     if tipo in ['receitas', 'ambos']:
         cw.writerow(['ENTRADAS', 'Vencimento', 'Pagamento', 'Origem', 'Descricao', 'Valor', 'Status'])
         query_receitas = ContaReceber.query.filter(ContaReceber.data_vencimento >= d_inicio, ContaReceber.data_vencimento <= d_fim)
-        if filtro_modulo != 'Todos': query_receitas = query_receitas.filter(ContaReceber.modulo_origem == filtro_modulo)
+        if filtro_modulo != 'Todos':
+            query_receitas = query_receitas.filter(ContaReceber.modulo_origem == filtro_modulo)
+            
         for r in query_receitas.order_by(ContaReceber.data_vencimento).all():
             dp = r.data_pagamento.strftime('%d/%m/%Y') if r.data_pagamento else ''
             cw.writerow(['', r.data_vencimento.strftime('%d/%m/%Y'), dp, r.modulo_origem, r.descricao, r.valor, r.status])
             
     if tipo in ['despesas', 'ambos']:
-        cw.writerow([]); cw.writerow(['SAIDAS', 'Vencimento', 'Pagamento', 'Descricao', 'Valor', 'Status'])
+        cw.writerow([])
+        cw.writerow(['SAIDAS', 'Vencimento', 'Pagamento', 'Descricao', 'Valor', 'Status'])
         if filtro_modulo == 'Todos':
             for d in ContaPagar.query.filter(ContaPagar.data_vencimento >= d_inicio, ContaPagar.data_vencimento <= d_fim).order_by(ContaPagar.data_vencimento).all():
                 dp = d.data_pagamento.strftime('%d/%m/%Y') if d.data_pagamento else ''
                 cw.writerow(['', d.data_vencimento.strftime('%d/%m/%Y'), dp, d.descricao, d.valor, d.status])
 
-    return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio.csv"})
+    return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_financeiro.csv"})
 
 @app.route('/financeiro/receber/nova', methods=['POST'])
 def nova_conta_receber():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    valor_limpo = float(request.form.get('valor', '0').replace(',', '.'))
+    data_venc = datetime.strptime(request.form.get('data_vencimento'), '%Y-%m-%d').date()
     nova_conta = ContaReceber(
-        descricao=request.form.get('descricao'), modulo_origem=request.form.get('modulo_origem', 'Mensalidade'),
-        valor=float(request.form.get('valor', '0').replace(',', '.')), data_vencimento=datetime.strptime(request.form.get('data_vencimento'), '%Y-%m-%d').date(), 
-        status=request.form.get('status'), data_pagamento=datetime.utcnow().date() if request.form.get('status') == 'Pago' else None
+        descricao=request.form.get('descricao'),
+        modulo_origem=request.form.get('modulo_origem', 'Mensalidade'),
+        valor=valor_limpo, data_vencimento=data_venc, status=request.form.get('status'),
+        data_pagamento=datetime.utcnow().date() if request.form.get('status') == 'Pago' else None
     )
     db.session.add(nova_conta)
     db.session.commit()
+    flash('Receita lançada com sucesso!')
     return redirect(url_for('financeiro_dashboard'))
 
 @app.route('/financeiro/pagar/nova', methods=['POST'])
 def nova_conta_pagar():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    valor_limpo = float(request.form.get('valor', '0').replace(',', '.'))
+    data_venc = datetime.strptime(request.form.get('data_vencimento'), '%Y-%m-%d').date()
     nova_conta = ContaPagar(
         descricao=request.form.get('descricao'), fornecedor_id=request.form.get('fornecedor_id') or None,
-        valor=float(request.form.get('valor', '0').replace(',', '.')), data_vencimento=datetime.strptime(request.form.get('data_vencimento'), '%Y-%m-%d').date(), 
-        status=request.form.get('status'), data_pagamento=datetime.utcnow().date() if request.form.get('status') == 'Pago' else None
+        valor=valor_limpo, data_vencimento=data_venc, status=request.form.get('status'),
+        data_pagamento=datetime.utcnow().date() if request.form.get('status') == 'Pago' else None
     )
     db.session.add(nova_conta)
     db.session.commit()
+    flash('Despesa lançada com sucesso!')
+    return redirect(url_for('financeiro_dashboard'))
+
+@app.route('/financeiro/pagar/excluir/<int:id>', methods=['POST'])
+def excluir_conta_pagar(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    conta = ContaPagar.query.get_or_404(id)
+    db.session.delete(conta)
+    db.session.commit()
+    flash('Conta a pagar excluída!')
+    return redirect(url_for('financeiro_dashboard'))
+
+@app.route('/financeiro/receber/excluir/<int:id>', methods=['POST'])
+def excluir_conta_receber(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    conta = ContaReceber.query.get_or_404(id)
+    db.session.delete(conta)
+    db.session.commit()
+    flash('Cobrança excluída!')
     return redirect(url_for('financeiro_dashboard'))
 
 # ==============================================================================
@@ -425,10 +494,22 @@ def novo_produto():
         return redirect(url_for('gerenciar_estoque'))
     novo_prod = Produto(
         codigo_barras=codigo, nome=request.form.get('nome'), categoria=request.form.get('categoria'),
-        preco_custo=float(request.form.get('preco_custo').replace(',', '.')), preco_venda=float(request.form.get('preco_venda').replace(',', '.')),
+        preco_custo=float(request.form.get('preco_custo').replace(',', '.')),
+        preco_venda=float(request.form.get('preco_venda').replace(',', '.')),
         quantidade_estoque=int(request.form.get('quantidade_estoque', '0'))
     )
     db.session.add(novo_prod)
+    db.session.commit()
+    return redirect(url_for('gerenciar_estoque'))
+
+@app.route('/estoque/editar/<int:id>', methods=['POST'])
+def editar_produto(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    p = Produto.query.get_or_404(id)
+    p.codigo_barras = request.form.get('codigo_barras')
+    p.nome = request.form.get('nome'); p.categoria = request.form.get('categoria')
+    p.preco_custo = float(request.form.get('preco_custo').replace(',', '.')); p.preco_venda = float(request.form.get('preco_venda').replace(',', '.'))
+    p.quantidade_estoque = int(request.form.get('quantidade_estoque'))
     db.session.commit()
     return redirect(url_for('gerenciar_estoque'))
 
@@ -440,7 +521,7 @@ def excluir_produto(id):
     return redirect(url_for('gerenciar_estoque'))
 
 # ==============================================================================
-# CAIXA PDV: A MÁGICA DA CONEXÃO "REC-"
+# CAIXA PDV (CONECTADO)
 # ==============================================================================
 @app.route('/caixa', methods=['GET'])
 def caixa_pdv():
@@ -451,30 +532,19 @@ def caixa_pdv():
 def api_buscar_produto(codigo):
     if 'usuario_id' not in session: return jsonify({'erro': 'Não autorizado'})
     codigo = codigo.strip().upper()
-    
-    # 1. Se o código for um recebimento pendente (Ex: REC-12)
     if codigo.startswith('REC-'):
         try:
             conta_id = int(codigo.split('-')[1])
             conta = ContaReceber.query.get(conta_id)
             if conta:
-                if conta.status == 'Pago':
-                    return jsonify({'erro': 'Esta cobrança já consta como PAGA no Financeiro!'})
-                return jsonify({
-                    'id': f'REC-{conta.id}', 
-                    'nome': f"PAGAMENTO: {conta.modulo_origem} ({conta.descricao})", 
-                    'preco': conta.valor, 'tipo': 'receita'
-                })
-        except:
-            pass # Cai para o erro genérico no final
+                if conta.status == 'Pago': return jsonify({'erro': 'Esta cobrança já consta como PAGA no Financeiro!'})
+                return jsonify({'id': f'REC-{conta.id}', 'nome': f"PAGAMENTO: {conta.modulo_origem} ({conta.descricao})", 'preco': conta.valor, 'tipo': 'receita'})
+        except: pass
 
-    # 2. Se for um produto normal
     produto = Produto.query.filter_by(codigo_barras=codigo).first()
     if produto:
-        if produto.quantidade_estoque <= 0:
-            return jsonify({'erro': f'Produto "{produto.nome}" sem estoque!'})
+        if produto.quantidade_estoque <= 0: return jsonify({'erro': f'Produto "{produto.nome}" sem estoque!'})
         return jsonify({'id': produto.id, 'nome': produto.nome, 'preco': produto.preco_venda, 'tipo': 'produto'})
-        
     return jsonify({'erro': 'Código não encontrado. Verifique se digitou certo.'})
 
 @app.route('/caixa/finalizar', methods=['POST'])
@@ -486,34 +556,26 @@ def finalizar_venda():
     if not itens: return jsonify({'sucesso': False, 'erro': 'Carrinho vazio'})
 
     produtos_fisicos = []
-    
     for item in itens:
         item_id = str(item['id'])
         if item_id.startswith('REC-'):
-            # Conexão: Marca a cobrança do estúdio/mensalidade como PAGA no financeiro!
-            conta_id = int(item_id.split('-')[1])
-            conta = ContaReceber.query.get(conta_id)
+            conta = ContaReceber.query.get(int(item_id.split('-')[1]))
             if conta:
-                conta.status = 'Pago'
-                conta.data_pagamento = datetime.utcnow().date()
-                conta.forma_pagamento = forma_pagamento
+                conta.status = 'Pago'; conta.data_pagamento = datetime.utcnow().date(); conta.forma_pagamento = forma_pagamento
         else:
-            # Produto físico: dá baixa no estoque
             produto = Produto.query.get(item['id'])
             if produto:
                 produto.quantidade_estoque -= item['quantidade']
                 produtos_fisicos.append(f"{item['quantidade']}x {produto.nome}")
                 
-    # Cria uma receita no financeiro SÓ para os salgados/águas/loja
     if produtos_fisicos:
         total_produtos = sum(float(i['preco']) * int(i['quantidade']) for i in itens if not str(i['id']).startswith('REC-'))
         if total_produtos > 0:
-            nova_venda = ContaReceber(
+            db.session.add(ContaReceber(
                 descricao="Venda PDV: " + ", ".join(produtos_fisicos), modulo_origem="Loja / PDV", valor=total_produtos,
                 data_vencimento=datetime.utcnow().date(), data_pagamento=datetime.utcnow().date(),
                 status="Pago", forma_pagamento=forma_pagamento
-            )
-            db.session.add(nova_venda)
+            ))
             
     db.session.commit()
     return jsonify({'sucesso': True})
@@ -521,8 +583,7 @@ def finalizar_venda():
 @app.route('/caixa/fechamento', methods=['GET'])
 def fechamento_caixa():
     if 'usuario_id' not in session: return jsonify({'erro': 'Não autorizado'})
-    hoje = datetime.utcnow().date()
-    recebimentos_hoje = ContaReceber.query.filter_by(data_pagamento=hoje, status='Pago').all()
+    recebimentos_hoje = ContaReceber.query.filter_by(data_pagamento=datetime.utcnow().date(), status='Pago').all()
     resumo = {'Dinheiro': 0.0, 'Pix': 0.0, 'Cartao_Credito': 0.0, 'Cartao_Debito': 0.0, 'Total': 0.0}
     for r in recebimentos_hoje:
         forma = r.forma_pagamento
