@@ -58,7 +58,7 @@ def dashboard():
     return render_template('dashboard.html', nome=session.get('nome'), role=session.get('role'))
 
 # ==============================================================================
-# SECRETARIA E PROFESSORES (CORRIGIDOS)
+# SECRETARIA E PROFESSORES
 # ==============================================================================
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
@@ -141,7 +141,6 @@ def gerenciar_professores():
         data_nasc = datetime.strptime(data_nasc_str, '%Y-%m-%d').date() if data_nasc_str else None
         cpf = request.form.get('cpf')
         
-        # Correção do Anexo dos Professores
         arquivo = request.files.get('comprovante')
         caminho_arquivo = None
         if arquivo and arquivo.filename != '':
@@ -277,6 +276,7 @@ def gerenciar_estudios():
         db.session.add(novo_agendamento)
         db.session.commit()
         
+        # Quando conclui, envia para o financeiro como "Pendente" ou "Pago"
         if request.form.get('status_trabalho') == 'Concluído':
             nova_conta = ContaReceber(
                 descricao=f"{tipo_estudio} - Cliente: {novo_agendamento.nome_cliente}",
@@ -459,6 +459,17 @@ def nova_conta_pagar():
     flash('Despesa lançada com sucesso!')
     return redirect(url_for('financeiro_dashboard'))
 
+# NOVA ROTA: O BOTÃO VERDE DE PAGAR DIRETO NO FINANCEIRO
+@app.route('/financeiro/pagar/confirmar/<int:id>', methods=['POST'])
+def confirmar_pagamento(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    conta = ContaPagar.query.get_or_404(id)
+    conta.status = 'Pago'
+    conta.data_pagamento = datetime.utcnow().date()
+    db.session.commit()
+    flash('Pagamento confirmado com sucesso!')
+    return redirect(url_for('financeiro_dashboard'))
+
 @app.route('/financeiro/pagar/excluir/<int:id>', methods=['POST'])
 def excluir_conta_pagar(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
@@ -521,7 +532,7 @@ def excluir_produto(id):
     return redirect(url_for('gerenciar_estoque'))
 
 # ==============================================================================
-# CAIXA PDV (CONECTADO)
+# CAIXA PDV (COM A INTELIGÊNCIA PAG- E REC-)
 # ==============================================================================
 @app.route('/caixa', methods=['GET'])
 def caixa_pdv():
@@ -532,6 +543,8 @@ def caixa_pdv():
 def api_buscar_produto(codigo):
     if 'usuario_id' not in session: return jsonify({'erro': 'Não autorizado'})
     codigo = codigo.strip().upper()
+    
+    # 1. Verifica se é um Recebimento Pendente (REC-)
     if codigo.startswith('REC-'):
         try:
             conta_id = int(codigo.split('-')[1])
@@ -541,10 +554,23 @@ def api_buscar_produto(codigo):
                 return jsonify({'id': f'REC-{conta.id}', 'nome': f"PAGAMENTO: {conta.modulo_origem} ({conta.descricao})", 'preco': conta.valor, 'tipo': 'receita'})
         except: pass
 
+    # 2. Verifica se é um Pagamento/Despesa (PAG-) -> A genialidade que você sugeriu!
+    if codigo.startswith('PAG-'):
+        try:
+            conta_id = int(codigo.split('-')[1])
+            conta = ContaPagar.query.get(conta_id)
+            if conta:
+                if conta.status == 'Pago': return jsonify({'erro': 'Esta despesa já consta como PAGA!'})
+                # O preço entra negativo na tela para subtrair do carrinho!
+                return jsonify({'id': f'PAG-{conta.id}', 'nome': f"SAÍDA DE CAIXA: {conta.descricao}", 'preco': -abs(conta.valor), 'tipo': 'despesa'})
+        except: pass
+
+    # 3. Verifica se é um Produto normal de Estoque
     produto = Produto.query.filter_by(codigo_barras=codigo).first()
     if produto:
         if produto.quantidade_estoque <= 0: return jsonify({'erro': f'Produto "{produto.nome}" sem estoque!'})
         return jsonify({'id': produto.id, 'nome': produto.nome, 'preco': produto.preco_venda, 'tipo': 'produto'})
+        
     return jsonify({'erro': 'Código não encontrado. Verifique se digitou certo.'})
 
 @app.route('/caixa/finalizar', methods=['POST'])
@@ -556,20 +582,39 @@ def finalizar_venda():
     if not itens: return jsonify({'sucesso': False, 'erro': 'Carrinho vazio'})
 
     produtos_fisicos = []
+    
     for item in itens:
         item_id = str(item['id'])
+        
+        # Se for Mensalidade/Estúdio a receber
         if item_id.startswith('REC-'):
             conta = ContaReceber.query.get(int(item_id.split('-')[1]))
             if conta:
                 conta.status = 'Pago'; conta.data_pagamento = datetime.utcnow().date(); conta.forma_pagamento = forma_pagamento
+                
+        # Se for um Pagamento de Despesa/Salário (PAG-)
+        elif item_id.startswith('PAG-'):
+            conta_p = ContaPagar.query.get(int(item_id.split('-')[1]))
+            if conta_p:
+                conta_p.status = 'Pago'
+                conta_p.data_pagamento = datetime.utcnow().date()
+                # Cria uma saída negativa fantasma no caixa para a gaveta bater no Fechamento do dia!
+                db.session.add(ContaReceber(
+                    descricao=f"SAÍDA PDV: Pagamento {conta_p.descricao}", modulo_origem="Sangria / Despesa", valor=-abs(conta_p.valor),
+                    data_vencimento=datetime.utcnow().date(), data_pagamento=datetime.utcnow().date(),
+                    status="Pago", forma_pagamento=forma_pagamento
+                ))
+
+        # Se for Produto Físico (Café, Loja)
         else:
             produto = Produto.query.get(item['id'])
             if produto:
                 produto.quantidade_estoque -= item['quantidade']
                 produtos_fisicos.append(f"{item['quantidade']}x {produto.nome}")
                 
+    # Lança a Receita dos produtos físicos vendidos
     if produtos_fisicos:
-        total_produtos = sum(float(i['preco']) * int(i['quantidade']) for i in itens if not str(i['id']).startswith('REC-'))
+        total_produtos = sum(float(i['preco']) * int(i['quantidade']) for i in itens if not str(i['id']).startswith('REC-') and not str(i['id']).startswith('PAG-'))
         if total_produtos > 0:
             db.session.add(ContaReceber(
                 descricao="Venda PDV: " + ", ".join(produtos_fisicos), modulo_origem="Loja / PDV", valor=total_produtos,
