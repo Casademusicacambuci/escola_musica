@@ -80,6 +80,10 @@
                                 <label class="form-label small mb-1">Endereço Completo</label>
                                 <textarea class="form-control form-control-sm" name="endereco" rows="1" required></textarea>
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label small mb-1 fw-bold text-primary">Anexar Comprovante (PDF/Foto)</label>
+                                <input class="form-control form-control-sm border-primary" type="file" name="comprovante">
+                            </div>
                             <div class="d-grid mt-3">
                                 <button type="submit" class="btn btn-primary btn-sm">Salvar Matrícula</button>
                             </div>
@@ -106,7 +110,7 @@
                                             <th>Nome</th>
                                             <th>Curso</th>
                                             <th>Mensalidade</th>
-                                            <th>Status</th>
+                                            <th>Anexo</th>
                                             <th class="text-center">Ações</th>
                                         </tr>
                                     </thead>
@@ -117,10 +121,10 @@
                                             <td><span class="badge bg-secondary">{{ aluno.curso }}</span></td>
                                             <td><strong class="text-success">R$ {{ "%.2f"|format(aluno.valor_mensalidade) }}</strong></td>
                                             <td>
-                                                {% if aluno.status == 'Ativo' %}
-                                                    <span class="badge bg-success">Ativo</span>
+                                                {% if aluno.comprovante_endereco %}
+                                                    <a href="{{ url_for('static', filename=aluno.comprovante_endereco) }}" target="_blank" class="btn btn-outline-dark btn-xs py-0 px-1" style="font-size: 0.75rem;">Ver</a>
                                                 {% else %}
-                                                    <span class="badge bg-danger">Inativo</span>
+                                                    <span class="text-muted small">N/A</span>
                                                 {% endif %}
                                             </td>
                                             <td class="text-center">
