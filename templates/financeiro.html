@@ -38,45 +38,34 @@
 
         <div class="tab-content" id="financeiroTabsContent">
           
-          <!-- ABA 1: VISÃO GERAL -->
           <div class="tab-pane fade show active" id="resumo" role="tabpanel">
               <div class="row text-center mb-4">
                   <div class="col-md-4 mb-3">
                       <div class="card border-0 shadow-sm border-bottom border-primary border-3">
-                          <div class="card-body">
-                              <h6 class="text-muted">A Receber Pendente</h6>
-                              <h3 class="text-primary">R$ {{ "%.2f"|format(t_a_receber) }}</h3>
-                          </div>
+                          <div class="card-body"><h6 class="text-muted">A Receber Pendente</h6><h3 class="text-primary">R$ {{ "%.2f"|format(t_a_receber) }}</h3></div>
                       </div>
                   </div>
                   <div class="col-md-4 mb-3">
                       <div class="card border-0 shadow-sm border-bottom border-danger border-3">
-                          <div class="card-body">
-                              <h6 class="text-muted">Despesas A Pagar</h6>
-                              <h3 class="text-danger">R$ {{ "%.2f"|format(t_a_pagar) }}</h3>
-                          </div>
+                          <div class="card-body"><h6 class="text-muted">Despesas A Pagar</h6><h3 class="text-danger">R$ {{ "%.2f"|format(t_a_pagar) }}</h3></div>
                       </div>
                   </div>
                   <div class="col-md-4 mb-3">
                       <div class="card border-0 shadow-sm border-bottom border-success border-3 bg-dark text-white">
-                          <div class="card-body">
-                              <h6 class="text-light">SALDO ATUAL EM CAIXA</h6>
-                              <h3 class="text-success">R$ {{ "%.2f"|format(saldo) }}</h3>
-                          </div>
+                          <div class="card-body"><h6 class="text-light">SALDO ATUAL EM CAIXA</h6><h3 class="text-success">R$ {{ "%.2f"|format(saldo) }}</h3></div>
                       </div>
                   </div>
               </div>
           </div>
 
-          <!-- ABA 2: A RECEBER E INADIMPLENTES -->
+          <!-- ABA A RECEBER (COM O CÓDIGO PDV) -->
           <div class="tab-pane fade" id="receber" role="tabpanel">
               {% if inadimplentes %}
               <div class="alert alert-danger mb-4 shadow-sm border-2 border-danger">
                   <h5 class="alert-heading fw-bold">⚠ ALERTA DE INADIMPLÊNCIA</h5>
-                  <p class="mb-0 small">As seguintes contas já passaram do prazo de vencimento e não constam como pagas:</p>
                   <ul class="mb-0 mt-2 small">
                       {% for i in inadimplentes %}
-                          <li><strong>{{ i.data_vencimento.strftime('%d/%m/%Y') }}</strong> - {{ i.descricao }} <strong class="text-danger">(R$ {{ "%.2f"|format(i.valor) }})</strong></li>
+                          <li><strong>{{ i.data_vencimento.strftime('%d/%m/%Y') }}</strong> - {{ i.descricao }} <strong class="text-danger">(R$ {{ "%.2f"|format(i.valor) }})</strong> - Digite <strong>REC-{{ i.id }}</strong> no caixa para cobrar.</li>
                       {% endfor %}
                   </ul>
               </div>
@@ -88,40 +77,27 @@
                           <div class="card-body">
                               <h6 class="text-primary mb-3">Lançar Nova Receita / Mensalidade</h6>
                               <form method="POST" action="/financeiro/receber/nova">
-                                  <div class="mb-2">
-                                      <label class="small">Nome do Aluno / Cliente</label>
-                                      <input type="text" class="form-control form-control-sm" name="descricao" placeholder="Ex: Mensalidade - Lucas" required>
-                                  </div>
+                                  <div class="mb-2"><input type="text" class="form-control form-control-sm" name="descricao" placeholder="Ex: Mensalidade - Lucas" required></div>
                                   <div class="row g-2 mb-2">
-                                      <div class="col-6">
-                                          <label class="small">Valor (R$)</label>
-                                          <input type="number" step="0.01" class="form-control form-control-sm" name="valor" required>
-                                      </div>
-                                      <div class="col-6">
-                                          <label class="small">Vencimento</label>
-                                          <input type="date" class="form-control form-control-sm" name="data_vencimento" required>
-                                      </div>
+                                      <div class="col-6"><input type="number" step="0.01" class="form-control form-control-sm" name="valor" placeholder="R$ 0.00" required></div>
+                                      <div class="col-6"><input type="date" class="form-control form-control-sm" name="data_vencimento" required></div>
                                   </div>
                                   <div class="row g-2 mb-3">
                                       <div class="col-6">
-                                          <label class="small">Origem</label>
                                           <select class="form-select form-select-sm" name="modulo_origem">
                                               <option value="Mensalidade">Mensalidade</option>
-                                              <option value="Luthier">Luthier</option>
-                                              <option value="Loja / PDV">Loja / PDV</option>
                                               <option value="Estúdio">Estúdio</option>
                                               <option value="Avulso">Avulso</option>
                                           </select>
                                       </div>
                                       <div class="col-6">
-                                          <label class="small">Status</label>
                                           <select class="form-select form-select-sm" name="status">
                                               <option value="Pendente">Pendente</option>
                                               <option value="Pago">Já Pago</option>
                                           </select>
                                       </div>
                                   </div>
-                                  <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">Registrar Entrada</button>
+                                  <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">Gerar Cobrança</button>
                               </form>
                           </div>
                       </div>
@@ -135,6 +111,7 @@
                                   <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
                                       <thead class="table-light">
                                           <tr>
+                                              <th>CÓD. PDV</th>
                                               <th>Vencimento</th>
                                               <th>Origem</th>
                                               <th>Descrição / Cliente</th>
@@ -145,6 +122,14 @@
                                       <tbody>
                                           {% for r in receber %}
                                           <tr>
+                                              <!-- O CÓDIGO MÁGICO DO PDV APARECE AQUI -->
+                                              <td>
+                                                {% if r.status == 'Pendente' %}
+                                                    <span class="badge bg-dark fs-6" style="letter-spacing: 1px;">REC-{{ r.id }}</span>
+                                                {% else %}
+                                                    <span class="text-muted small">REC-{{ r.id }}</span>
+                                                {% endif %}
+                                              </td>
                                               <td>{{ r.data_vencimento.strftime('%d/%m/%Y') }}</td>
                                               <td><span class="badge bg-secondary">{{ r.modulo_origem }}</span></td>
                                               <td>{{ r.descricao }}</td>
@@ -167,18 +152,14 @@
               </div>
           </div>
 
-          <!-- ABA 3: A PAGAR E CADASTROS -->
           <div class="tab-pane fade" id="pagar" role="tabpanel">
-              <div class="alert alert-info text-center">Para focar no Repasse e Recebimentos agora, deixei esta aba condensada para navegação rápida no código! (Suas contas a pagar continuam salvas no banco de dados)</div>
+              <div class="alert alert-info text-center">Aba condensada (Suas contas a pagar continuam salvas).</div>
           </div>
 
-          <!-- ABA 4: REPASSE DE PROFESSORES (AGORA FUNCIONAL) -->
           <div class="tab-pane fade" id="repasse" role="tabpanel">
               <div class="card shadow-sm border-0 border-top border-dark border-3">
                   <div class="card-body">
                       <h4 class="card-title text-dark mb-2">Folha de Pagamento - Professores (Mês Atual)</h4>
-                      <p class="text-muted small mb-4">O sistema puxa automaticamente os alunos que tiveram aulas "Concluídas" com cada professor neste mês, soma o valor da mensalidade de cada aluno e calcula a comissão padrão de 40%. Ao clicar no botão, ele envia esse valor direto para o "Contas a Pagar".</p>
-                      
                       {% if not repasse_profs %}
                           <p class="text-center text-muted py-5">Nenhuma aula foi marcada como 'Concluída' neste mês ainda.</p>
                       {% else %}
@@ -189,17 +170,12 @@
                                       <div class="card-body text-center">
                                           <h5 class="fw-bold mb-0">{{ prof.nome }}</h5>
                                           <p class="small text-muted mb-3">Atendeu {{ prof.qtd_alunos }} aluno(s) neste mês.</p>
-                                          
                                           <div class="d-flex justify-content-between mb-2 small border-bottom pb-1">
-                                              <span>Soma das Mensalidades:</span>
-                                              <span>R$ {{ "%.2f"|format(prof.valor_base) }}</span>
+                                              <span>Soma Mensalidades:</span><span>R$ {{ "%.2f"|format(prof.valor_base) }}</span>
                                           </div>
                                           <div class="d-flex justify-content-between mb-3 text-dark fw-bold">
-                                              <span>Repasse (40%):</span>
-                                              <span class="fs-5 text-success">R$ {{ "%.2f"|format(prof.comissao) }}</span>
+                                              <span>Repasse (40%):</span><span class="fs-5 text-success">R$ {{ "%.2f"|format(prof.comissao) }}</span>
                                           </div>
-                                          
-                                          <!-- Botão que gera a Conta a Pagar pro Professor -->
                                           <form action="/financeiro/repasse/pagar" method="POST">
                                               <input type="hidden" name="nome_professor" value="{{ prof.nome }}">
                                               <input type="hidden" name="valor_comissao" value="{{ prof.comissao }}">
@@ -218,7 +194,7 @@
         </div>
     </div>
 
-    <!-- JANELA FLUTUANTE PARA EXPORTAR PLANILHA (AGORA COM FILTROS) -->
+    <!-- JANELA DE EXPORTAÇÃO COM FILTROS CORRIGIDOS -->
     <div class="modal fade" id="modalExportar" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -232,20 +208,15 @@
                       <div class="col-6"><label class="small fw-bold">Data Inicial</label><input type="date" class="form-control form-control-sm" name="data_inicio" required></div>
                       <div class="col-6"><label class="small fw-bold">Data Final</label><input type="date" class="form-control form-control-sm" name="data_fim" required></div>
                   </div>
-                  
                   <div class="mb-3">
                       <label class="small fw-bold">Qual módulo você quer filtrar?</label>
                       <select class="form-select form-select-sm border-primary" name="filtro_modulo">
                           <option value="Todos">Mostrar Todos os Módulos</option>
                           <option value="Loja / PDV">Apenas Loja / PDV</option>
-                          <option value="Lanchonete">Apenas Lanchonete</option>
                           <option value="Estúdio">Apenas Estúdios</option>
                           <option value="Mensalidade">Apenas Mensalidades de Alunos</option>
-                          <option value="Luthier">Apenas Luthier</option>
                       </select>
-                      <small class="text-muted" style="font-size: 0.7rem;">(Selecione um módulo específico ou deixe em Todos)</small>
                   </div>
-
                   <div class="mb-2">
                       <label class="small fw-bold">Entradas ou Saídas?</label>
                       <select class="form-select form-select-sm" name="tipo_relatorio">
@@ -260,7 +231,6 @@
         </div>
       </div>
     </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
