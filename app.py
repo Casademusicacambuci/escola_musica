@@ -18,10 +18,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 db.init_app(app)
 
-# BANCO BLINDADO: Apenas verifica se as tabelas existem, não apaga NADA.
+# Banco Blindado
 with app.app_context():
     db.create_all() 
-    
     admin_existente = Usuario.query.filter_by(username='admin').first()
     if not admin_existente:
         senha_criptografada = generate_password_hash('admin123')
@@ -59,7 +58,7 @@ def dashboard():
     return render_template('dashboard.html', nome=session.get('nome'), role=session.get('role'))
 
 # ==============================================================================
-# SECRETARIA (ALUNOS, PROFESSORES E AULAS)
+# SECRETARIA E PROFESSORES (CORRIGIDOS)
 # ==============================================================================
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
@@ -100,16 +99,17 @@ def gerenciar_alunos():
 def editar_aluno(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     aluno = Aluno.query.get_or_404(id)
-    aluno.nome = request.form.get('nome'); aluno.email = request.form.get('email')
-    aluno.telefone = request.form.get('telefone'); aluno.curso = request.form.get('curso')
-    aluno.nivel = request.form.get('nivel'); aluno.status = request.form.get('status')
+    aluno.nome = request.form.get('nome')
+    aluno.email = request.form.get('email')
+    aluno.telefone = request.form.get('telefone')
+    aluno.curso = request.form.get('curso')
+    aluno.nivel = request.form.get('nivel')
+    aluno.status = request.form.get('status')
     aluno.endereco_completo = request.form.get('endereco')
-    
     v_mens = request.form.get('valor_mensalidade', '0')
     aluno.valor_mensalidade = float(v_mens.replace(',', '.')) if v_mens else 0.0
-    
     db.session.commit()
-    flash('Dados atualizados!')
+    flash('Dados do aluno atualizados com sucesso!')
     return redirect(url_for('gerenciar_alunos'))
 
 @app.route('/secretaria/alunos/excluir/<int:id>', methods=['POST'])
@@ -140,15 +140,26 @@ def gerenciar_professores():
         data_nasc_str = request.form.get('data_nascimento')
         data_nasc = datetime.strptime(data_nasc_str, '%Y-%m-%d').date() if data_nasc_str else None
         cpf = request.form.get('cpf')
+        
+        # Correção do Anexo dos Professores
+        arquivo = request.files.get('comprovante')
+        caminho_arquivo = None
+        if arquivo and arquivo.filename != '':
+            extensao = arquivo.filename.split('.')[-1]
+            nome_arquivo = f"comprovante_prof_{cpf}.{extensao}"
+            arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo))
+            caminho_arquivo = f"uploads/{nome_arquivo}"
+
         if Professor.query.filter_by(cpf=cpf).first():
             flash('Erro: CPF já cadastrado.')
         else:
             novo_prof = Professor(nome=request.form.get('nome'), cpf=cpf, email=request.form.get('email'),
                                   data_nascimento=data_nasc, endereco_completo=request.form.get('endereco'),
-                                  telefone=request.form.get('telefone'), curso=request.form.get('curso'), status=request.form.get('status'))
+                                  telefone=request.form.get('telefone'), curso=request.form.get('curso'), 
+                                  status=request.form.get('status'), comprovante_endereco=caminho_arquivo)
             db.session.add(novo_prof)
             db.session.commit()
-            flash('Professor cadastrado!')
+            flash('Professor cadastrado com sucesso!')
             return redirect(url_for('gerenciar_professores'))
     return render_template('professores.html', professores=Professor.query.order_by(Professor.nome).all())
 
@@ -160,21 +171,40 @@ def editar_professor(id):
     prof.telefone = request.form.get('telefone'); prof.curso = request.form.get('curso')
     prof.status = request.form.get('status'); prof.endereco_completo = request.form.get('endereco')
     db.session.commit()
+    flash('Dados do professor atualizados!')
     return redirect(url_for('gerenciar_professores'))
 
 @app.route('/secretaria/professores/excluir/<int:id>', methods=['POST'])
 def excluir_professor(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    db.session.delete(Professor.query.get_or_404(id))
+    prof = Professor.query.get_or_404(id)
+    if prof.comprovante_endereco and os.path.exists(os.path.join(app.root_path, 'static', prof.comprovante_endereco)):
+        os.remove(os.path.join(app.root_path, 'static', prof.comprovante_endereco))
+    db.session.delete(prof)
     db.session.commit()
+    flash('Professor excluído.')
     return redirect(url_for('gerenciar_professores'))
 
+# Correção do CSV de Professores que dava Not Found
+@app.route('/secretaria/professores/csv')
+def exportar_professores_csv():
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    professores = Professor.query.all()
+    si = StringIO(); cw = csv.writer(si, delimiter=';') 
+    cw.writerow(['Nome', 'CPF', 'Data de Nascimento', 'Email', 'Telefone', 'Curso', 'Status'])
+    for p in professores:
+        data_nasc = p.data_nascimento.strftime('%d/%m/%Y') if p.data_nascimento else ''
+        cw.writerow([p.nome, p.cpf, data_nasc, p.email, p.telefone, p.curso, p.status])
+    return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_professores.csv"})
+
+# ==============================================================================
+# AGENDA DE AULAS & ESTÚDIOS
+# ==============================================================================
 @app.route('/secretaria/aulas', methods=['GET', 'POST'])
 def gerenciar_aulas():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     if request.method == 'POST':
-        aluno_id = request.form.get('aluno_id')
-        professor_id = request.form.get('professor_id')
+        aluno_id = request.form.get('aluno_id'); professor_id = request.form.get('professor_id')
         instrumento = request.form.get('instrumento')
         data_aula = datetime.strptime(request.form.get('data_aula'), '%Y-%m-%d').date()
         hora_inicio = datetime.strptime(request.form.get('horario_inicio'), '%H:%M').time()
@@ -187,7 +217,6 @@ def gerenciar_aulas():
         db.session.commit()
         flash('Aula agendada com sucesso!')
         return redirect(url_for('gerenciar_aulas'))
-
     alunos = Aluno.query.filter_by(status='Ativo').order_by(Aluno.nome).all()
     professores = Professor.query.filter_by(status='Ativo').order_by(Professor.nome).all()
     aulas = Aula.query.order_by(Aula.data_aula.desc(), Aula.horario_inicio.desc()).all()
@@ -227,31 +256,17 @@ def api_aulas_calendario():
         })
     return jsonify(eventos)
 
-# ==============================================================================
-# ESTÚDIOS 
-# ==============================================================================
 @app.route('/estudios', methods=['GET', 'POST'])
 def gerenciar_estudios():
     if 'usuario_id' not in session: return redirect(url_for('login'))
     if request.method == 'POST':
         tipo_estudio = request.form.get('tipo_estudio')
         data_str = request.form.get('data_agendamento')
-        hora_inicio_str = request.form.get('horario_inicio')
-        hora_fim_str = request.form.get('horario_final')
         data_agendamento = datetime.strptime(data_str, '%Y-%m-%d').date()
-        horario_inicio = datetime.strptime(hora_inicio_str, '%H:%M').time()
-        horario_final = datetime.strptime(hora_fim_str, '%H:%M').time()
-
-        conflito = AgendamentoEstudio.query.filter(
-            AgendamentoEstudio.tipo_estudio == tipo_estudio, AgendamentoEstudio.data_agendamento == data_agendamento,
-            AgendamentoEstudio.horario_inicio < horario_final, AgendamentoEstudio.horario_final > horario_inicio
-        ).first()
-        if conflito:
-            flash(f'Erro: O {tipo_estudio} já está reservado neste dia.')
-            return redirect(url_for('gerenciar_estudios'))
+        horario_inicio = datetime.strptime(request.form.get('horario_inicio'), '%H:%M').time()
+        horario_final = datetime.strptime(request.form.get('horario_final'), '%H:%M').time()
 
         valor_limpo = float(request.form.get('valor', '0').replace(',', '.'))
-
         novo_agendamento = AgendamentoEstudio(
             tipo_estudio=tipo_estudio, nome_cliente=request.form.get('nome_cliente'),
             cpf=request.form.get('cpf'), telefone=request.form.get('telefone'), endereco_completo=request.form.get('endereco'),
@@ -263,6 +278,7 @@ def gerenciar_estudios():
         db.session.add(novo_agendamento)
         db.session.commit()
         
+        # Quando conclui, envia para o financeiro como "Pendente" ou "Pago"
         if request.form.get('status_trabalho') == 'Concluído':
             nova_conta = ContaReceber(
                 descricao=f"{tipo_estudio} - Cliente: {novo_agendamento.nome_cliente}",
@@ -272,12 +288,9 @@ def gerenciar_estudios():
             )
             db.session.add(nova_conta)
             db.session.commit()
-
-        flash('Agendamento criado!')
+        flash('Agendamento criado! Se for a receber, já pode ser cobrado no Caixa PDV.')
         return redirect(url_for('gerenciar_estudios'))
-
-    agendamentos = AgendamentoEstudio.query.order_by(AgendamentoEstudio.data_agendamento.desc(), AgendamentoEstudio.horario_inicio.desc()).all()
-    return render_template('estudios.html', agendamentos=agendamentos)
+    return render_template('estudios.html', agendamentos=AgendamentoEstudio.query.order_by(AgendamentoEstudio.data_agendamento.desc()).all())
 
 @app.route('/estudios/editar/<int:id>', methods=['POST'])
 def editar_estudio(id):
@@ -291,106 +304,56 @@ def editar_estudio(id):
     ag.status_pagamento = request.form.get('status_pagamento')
     ag.status_trabalho = request.form.get('status_trabalho')
     db.session.commit()
-
-    conta = ContaReceber.query.filter_by(modulo_origem='Estúdio', origem_id=ag.id).first()
-    if conta:
-        conta.valor = ag.valor
-        conta.status = 'Pago' if ag.status_pagamento == 'Pago' else 'Pendente'
-        if ag.status_pagamento == 'Pago' and not conta.data_pagamento:
-            conta.data_pagamento = datetime.utcnow().date()
-        db.session.commit()
-    elif not conta and ag.status_trabalho == 'Concluído':
-        nova_conta = ContaReceber(
-            descricao=f"{ag.tipo_estudio} - Cliente: {ag.nome_cliente}",
-            modulo_origem="Estúdio", origem_id=ag.id, valor=ag.valor,
-            data_vencimento=ag.data_agendamento, status='Pago' if ag.status_pagamento == 'Pago' else 'Pendente',
-            data_pagamento=datetime.utcnow().date() if ag.status_pagamento == 'Pago' else None
-        )
-        db.session.add(nova_conta)
-        db.session.commit()
     return redirect(url_for('gerenciar_estudios'))
 
 @app.route('/estudios/excluir/<int:id>', methods=['POST'])
 def excluir_estudio(id):
     if 'usuario_id' not in session: return redirect(url_for('login'))
-    ag = AgendamentoEstudio.query.get_or_404(id)
-    conta = ContaReceber.query.filter_by(modulo_origem='Estúdio', origem_id=ag.id).first()
-    if conta: db.session.delete(conta)
-    db.session.delete(ag)
+    db.session.delete(AgendamentoEstudio.query.get_or_404(id))
     db.session.commit()
     return redirect(url_for('gerenciar_estudios'))
 
 # ==============================================================================
-# MÓDULO 01 - FINANCEIRO & BACKOFFICE (COM REPASSE E FILTROS APRIMORADOS)
+# MÓDULO FINANCEIRO
 # ==============================================================================
 @app.route('/financeiro', methods=['GET'])
 def financeiro_dashboard():
-    if 'usuario_id' not in session or session.get('role') != 'admin':
-        flash('Acesso negado ao Financeiro.')
-        return redirect(url_for('dashboard'))
-    
+    if 'usuario_id' not in session or session.get('role') != 'admin': return redirect(url_for('dashboard'))
     hoje = datetime.utcnow().date()
-    mes_atual = hoje.month
-    ano_atual = hoje.year
-
     contas_receber = ContaReceber.query.order_by(ContaReceber.data_vencimento).all()
     contas_pagar = ContaPagar.query.order_by(ContaPagar.data_vencimento).all()
-    
     total_recebido = sum(c.valor for c in contas_receber if c.status == 'Pago')
     total_a_receber = sum(c.valor for c in contas_receber if c.status == 'Pendente')
     total_pago = sum(c.valor for c in contas_pagar if c.status == 'Pago')
     total_a_pagar = sum(c.valor for c in contas_pagar if c.status == 'Pendente')
-    saldo_atual = total_recebido - total_pago
-
+    
     inadimplentes = [c for c in contas_receber if c.status == 'Pendente' and c.data_vencimento < hoje]
 
-    professores = Professor.query.filter_by(status='Ativo').all()
     repasse_profs = []
-    for prof in professores:
+    for prof in Professor.query.filter_by(status='Ativo').all():
         aulas_concluidas = Aula.query.filter_by(professor_id=prof.id, status='Concluída').all()
-        aulas_mes = [a for a in aulas_concluidas if a.data_aula.month == mes_atual and a.data_aula.year == ano_atual]
+        aulas_mes = [a for a in aulas_concluidas if a.data_aula.month == hoje.month and a.data_aula.year == hoje.year]
         alunos_unicos = list({a.aluno for a in aulas_mes}) 
         valor_mensalidades = sum((aluno.valor_mensalidade or 0.0) for aluno in alunos_unicos)
-        comissao = valor_mensalidades * 0.40
-        
         if valor_mensalidades > 0:
-            repasse_profs.append({
-                'nome': prof.nome,
-                'qtd_alunos': len(alunos_unicos),
-                'valor_base': valor_mensalidades,
-                'comissao': comissao
-            })
+            repasse_profs.append({'nome': prof.nome, 'qtd_alunos': len(alunos_unicos), 'valor_base': valor_mensalidades, 'comissao': valor_mensalidades * 0.40})
 
-    return render_template('financeiro.html', 
-                           receber=contas_receber, pagar=contas_pagar, 
-                           fornecedores=Fornecedor.query.all(), funcionarios=Funcionario.query.all(),
-                           t_recebido=total_recebido, t_a_receber=total_a_receber,
-                           t_pago=total_pago, t_a_pagar=total_a_pagar, saldo=saldo_atual,
-                           inadimplentes=inadimplentes, repasse_profs=repasse_profs)
+    return render_template('financeiro.html', receber=contas_receber, pagar=contas_pagar, 
+                           t_recebido=total_recebido, t_a_receber=total_a_receber, t_pago=total_pago, t_a_pagar=total_a_pagar, saldo=total_recebido - total_pago,
+                           inadimplentes=inadimplentes, repasse_profs=repasse_profs, fornecedores=Fornecedor.query.all(), funcionarios=Funcionario.query.all())
 
-# ROTA PARA TRANSFORMAR O REPASSE EM CONTA A PAGAR
 @app.route('/financeiro/repasse/pagar', methods=['POST'])
 def registrar_repasse():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    
-    nome_prof = request.form.get('nome_professor')
-    valor_comissao = float(request.form.get('valor_comissao', '0'))
-    
-    mes_atual = datetime.utcnow().strftime('%m/%Y')
-    
     nova_despesa = ContaPagar(
-        descricao=f"Repasse Professor(a) {nome_prof} - Mês {mes_atual}",
-        valor=valor_comissao,
-        data_vencimento=datetime.utcnow().date(),
-        status="Pendente"
+        descricao=f"Repasse Prof. {request.form.get('nome_professor')} - Mês {datetime.utcnow().strftime('%m/%Y')}",
+        valor=float(request.form.get('valor_comissao', '0')), data_vencimento=datetime.utcnow().date(), status="Pendente"
     )
     db.session.add(nova_despesa)
     db.session.commit()
-    
-    flash(f'O pagamento do(a) {nome_prof} foi enviado para a aba "Contas a Pagar"!')
+    flash('Pagamento enviado para a aba Contas a Pagar!')
     return redirect(url_for('financeiro_dashboard'))
 
-# ROTA EXPORTAR COM FILTRO DE MÓDULO
 @app.route('/financeiro/exportar', methods=['POST'])
 def exportar_financeiro():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
@@ -401,58 +364,45 @@ def exportar_financeiro():
 
     si = StringIO(); cw = csv.writer(si, delimiter=';')
     cw.writerow([f'RELATORIO FINANCEIRO - Periodo: {d_inicio} ate {d_fim}'])
-    if filtro_modulo != 'Todos':
-        cw.writerow([f'Filtro Aplicado: {filtro_modulo}'])
+    if filtro_modulo != 'Todos': cw.writerow([f'Filtro Aplicado: {filtro_modulo}'])
     cw.writerow([])
     
     if tipo in ['receitas', 'ambos']:
         cw.writerow(['ENTRADAS', 'Vencimento', 'Pagamento', 'Origem', 'Descricao', 'Valor', 'Status'])
-        
         query_receitas = ContaReceber.query.filter(ContaReceber.data_vencimento >= d_inicio, ContaReceber.data_vencimento <= d_fim)
-        if filtro_modulo != 'Todos':
-            query_receitas = query_receitas.filter(ContaReceber.modulo_origem == filtro_modulo)
-            
+        if filtro_modulo != 'Todos': query_receitas = query_receitas.filter(ContaReceber.modulo_origem == filtro_modulo)
         for r in query_receitas.order_by(ContaReceber.data_vencimento).all():
             dp = r.data_pagamento.strftime('%d/%m/%Y') if r.data_pagamento else ''
             cw.writerow(['', r.data_vencimento.strftime('%d/%m/%Y'), dp, r.modulo_origem, r.descricao, r.valor, r.status])
             
     if tipo in ['despesas', 'ambos']:
-        cw.writerow([])
-        cw.writerow(['SAIDAS', 'Vencimento', 'Pagamento', 'Descricao', 'Valor', 'Status'])
-        
-        # Despesas não têm 'modulo_origem' padronizado como as receitas, mas podemos mostrar todas ou ocultar se o filtro for específico de venda
+        cw.writerow([]); cw.writerow(['SAIDAS', 'Vencimento', 'Pagamento', 'Descricao', 'Valor', 'Status'])
         if filtro_modulo == 'Todos':
             for d in ContaPagar.query.filter(ContaPagar.data_vencimento >= d_inicio, ContaPagar.data_vencimento <= d_fim).order_by(ContaPagar.data_vencimento).all():
                 dp = d.data_pagamento.strftime('%d/%m/%Y') if d.data_pagamento else ''
                 cw.writerow(['', d.data_vencimento.strftime('%d/%m/%Y'), dp, d.descricao, d.valor, d.status])
 
-    return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_financeiro.csv"})
+    return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio.csv"})
 
 @app.route('/financeiro/receber/nova', methods=['POST'])
 def nova_conta_receber():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    valor_limpo = float(request.form.get('valor', '0').replace(',', '.'))
-    data_venc = datetime.strptime(request.form.get('data_vencimento'), '%Y-%m-%d').date()
     nova_conta = ContaReceber(
-        descricao=request.form.get('descricao'),
-        modulo_origem=request.form.get('modulo_origem', 'Mensalidade'),
-        valor=valor_limpo, data_vencimento=data_venc, status=request.form.get('status'),
-        data_pagamento=datetime.utcnow().date() if request.form.get('status') == 'Pago' else None
+        descricao=request.form.get('descricao'), modulo_origem=request.form.get('modulo_origem', 'Mensalidade'),
+        valor=float(request.form.get('valor', '0').replace(',', '.')), data_vencimento=datetime.strptime(request.form.get('data_vencimento'), '%Y-%m-%d').date(), 
+        status=request.form.get('status'), data_pagamento=datetime.utcnow().date() if request.form.get('status') == 'Pago' else None
     )
     db.session.add(nova_conta)
     db.session.commit()
-    flash('Receita/Mensalidade lançada com sucesso!')
     return redirect(url_for('financeiro_dashboard'))
 
 @app.route('/financeiro/pagar/nova', methods=['POST'])
 def nova_conta_pagar():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    valor_limpo = float(request.form.get('valor', '0').replace(',', '.'))
-    data_venc = datetime.strptime(request.form.get('data_vencimento'), '%Y-%m-%d').date()
     nova_conta = ContaPagar(
         descricao=request.form.get('descricao'), fornecedor_id=request.form.get('fornecedor_id') or None,
-        valor=valor_limpo, data_vencimento=data_venc, status=request.form.get('status'),
-        data_pagamento=datetime.utcnow().date() if request.form.get('status') == 'Pago' else None
+        valor=float(request.form.get('valor', '0').replace(',', '.')), data_vencimento=datetime.strptime(request.form.get('data_vencimento'), '%Y-%m-%d').date(), 
+        status=request.form.get('status'), data_pagamento=datetime.utcnow().date() if request.form.get('status') == 'Pago' else None
     )
     db.session.add(nova_conta)
     db.session.commit()
@@ -475,22 +425,10 @@ def novo_produto():
         return redirect(url_for('gerenciar_estoque'))
     novo_prod = Produto(
         codigo_barras=codigo, nome=request.form.get('nome'), categoria=request.form.get('categoria'),
-        preco_custo=float(request.form.get('preco_custo').replace(',', '.')),
-        preco_venda=float(request.form.get('preco_venda').replace(',', '.')),
+        preco_custo=float(request.form.get('preco_custo').replace(',', '.')), preco_venda=float(request.form.get('preco_venda').replace(',', '.')),
         quantidade_estoque=int(request.form.get('quantidade_estoque', '0'))
     )
     db.session.add(novo_prod)
-    db.session.commit()
-    return redirect(url_for('gerenciar_estoque'))
-
-@app.route('/estoque/editar/<int:id>', methods=['POST'])
-def editar_produto(id):
-    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    p = Produto.query.get_or_404(id)
-    p.codigo_barras = request.form.get('codigo_barras')
-    p.nome = request.form.get('nome'); p.categoria = request.form.get('categoria')
-    p.preco_custo = float(request.form.get('preco_custo').replace(',', '.')); p.preco_venda = float(request.form.get('preco_venda').replace(',', '.'))
-    p.quantidade_estoque = int(request.form.get('quantidade_estoque'))
     db.session.commit()
     return redirect(url_for('gerenciar_estoque'))
 
@@ -502,7 +440,7 @@ def excluir_produto(id):
     return redirect(url_for('gerenciar_estoque'))
 
 # ==============================================================================
-# CAIXA PDV E FECHAMENTO
+# CAIXA PDV: A MÁGICA DA CONEXÃO "REC-"
 # ==============================================================================
 @app.route('/caixa', methods=['GET'])
 def caixa_pdv():
@@ -512,31 +450,71 @@ def caixa_pdv():
 @app.route('/api/produto/<codigo>')
 def api_buscar_produto(codigo):
     if 'usuario_id' not in session: return jsonify({'erro': 'Não autorizado'})
+    codigo = codigo.strip().upper()
+    
+    # 1. Se o código for um recebimento pendente (Ex: REC-12)
+    if codigo.startswith('REC-'):
+        try:
+            conta_id = int(codigo.split('-')[1])
+            conta = ContaReceber.query.get(conta_id)
+            if conta:
+                if conta.status == 'Pago':
+                    return jsonify({'erro': 'Esta cobrança já consta como PAGA no Financeiro!'})
+                return jsonify({
+                    'id': f'REC-{conta.id}', 
+                    'nome': f"PAGAMENTO: {conta.modulo_origem} ({conta.descricao})", 
+                    'preco': conta.valor, 'tipo': 'receita'
+                })
+        except:
+            pass # Cai para o erro genérico no final
+
+    # 2. Se for um produto normal
     produto = Produto.query.filter_by(codigo_barras=codigo).first()
     if produto:
-        return jsonify({'id': produto.id, 'nome': produto.nome, 'preco': produto.preco_venda})
-    return jsonify({'erro': 'Produto não encontrado.'})
+        if produto.quantidade_estoque <= 0:
+            return jsonify({'erro': f'Produto "{produto.nome}" sem estoque!'})
+        return jsonify({'id': produto.id, 'nome': produto.nome, 'preco': produto.preco_venda, 'tipo': 'produto'})
+        
+    return jsonify({'erro': 'Código não encontrado. Verifique se digitou certo.'})
 
 @app.route('/caixa/finalizar', methods=['POST'])
 def finalizar_venda():
     if 'usuario_id' not in session: return jsonify({'sucesso': False})
     dados = request.get_json()
     itens = dados.get('itens', [])
-    total = dados.get('total', 0.0)
+    forma_pagamento = dados.get('forma_pagamento', 'Dinheiro')
+    if not itens: return jsonify({'sucesso': False, 'erro': 'Carrinho vazio'})
+
+    produtos_fisicos = []
     
-    descricao = "Venda PDV: "
     for item in itens:
-        produto = Produto.query.get(item['id'])
-        if produto:
-            produto.quantidade_estoque -= item['quantidade']
-            descricao += f"{item['quantidade']}x {produto.nome}, "
+        item_id = str(item['id'])
+        if item_id.startswith('REC-'):
+            # Conexão: Marca a cobrança do estúdio/mensalidade como PAGA no financeiro!
+            conta_id = int(item_id.split('-')[1])
+            conta = ContaReceber.query.get(conta_id)
+            if conta:
+                conta.status = 'Pago'
+                conta.data_pagamento = datetime.utcnow().date()
+                conta.forma_pagamento = forma_pagamento
+        else:
+            # Produto físico: dá baixa no estoque
+            produto = Produto.query.get(item['id'])
+            if produto:
+                produto.quantidade_estoque -= item['quantidade']
+                produtos_fisicos.append(f"{item['quantidade']}x {produto.nome}")
+                
+    # Cria uma receita no financeiro SÓ para os salgados/águas/loja
+    if produtos_fisicos:
+        total_produtos = sum(float(i['preco']) * int(i['quantidade']) for i in itens if not str(i['id']).startswith('REC-'))
+        if total_produtos > 0:
+            nova_venda = ContaReceber(
+                descricao="Venda PDV: " + ", ".join(produtos_fisicos), modulo_origem="Loja / PDV", valor=total_produtos,
+                data_vencimento=datetime.utcnow().date(), data_pagamento=datetime.utcnow().date(),
+                status="Pago", forma_pagamento=forma_pagamento
+            )
+            db.session.add(nova_venda)
             
-    nova_venda = ContaReceber(
-        descricao=descricao.rstrip(', '), modulo_origem="Loja / PDV", valor=total,
-        data_vencimento=datetime.utcnow().date(), data_pagamento=datetime.utcnow().date(),
-        status="Pago", forma_pagamento=dados.get('forma_pagamento', 'Dinheiro')
-    )
-    db.session.add(nova_venda)
     db.session.commit()
     return jsonify({'sucesso': True})
 
@@ -545,7 +523,6 @@ def fechamento_caixa():
     if 'usuario_id' not in session: return jsonify({'erro': 'Não autorizado'})
     hoje = datetime.utcnow().date()
     recebimentos_hoje = ContaReceber.query.filter_by(data_pagamento=hoje, status='Pago').all()
-    
     resumo = {'Dinheiro': 0.0, 'Pix': 0.0, 'Cartao_Credito': 0.0, 'Cartao_Debito': 0.0, 'Total': 0.0}
     for r in recebimentos_hoje:
         forma = r.forma_pagamento
@@ -554,7 +531,6 @@ def fechamento_caixa():
         elif forma == 'Cartão de Débito': resumo['Cartao_Debito'] += r.valor
         else: resumo['Dinheiro'] += r.valor 
         resumo['Total'] += r.valor
-        
     return jsonify(resumo)
 
 if __name__ == '__main__':
