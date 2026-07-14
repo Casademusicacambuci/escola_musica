@@ -10,8 +10,6 @@
         .cupom-fiscal { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); min-height: 400px; }
         .table-pdv th, .table-pdv td { font-size: 0.9rem; }
         .total-display { font-size: 2.5rem; font-weight: bold; color: #198754; }
-        
-        /* Oculta tudo na hora de imprimir, menos o cupom de fechamento */
         @media print {
             body * { visibility: hidden; }
             #modalFechamentoContent, #modalFechamentoContent * { visibility: visible; }
@@ -29,8 +27,6 @@
                 <span>&larr; Voltar | <strong>Caixa Livre (PDV)</strong></span>
             </a>
             <div class="d-flex align-items-center">
-                <span class="navbar-text text-dark fw-bold d-none d-md-block me-3">Operador: {{ session.nome }}</span>
-                <!-- BOTÃO DE FECHAMENTO DE CAIXA -->
                 <button class="btn btn-dark btn-sm fw-bold shadow-sm" onclick="abrirFechamento()">&#128274; Fechar Caixa (Leitura Z)</button>
             </div>
         </div>
@@ -42,15 +38,15 @@
             <div class="col-lg-7 mb-4">
                 <div class="card shadow-sm border-0 border-top border-warning border-3 mb-3">
                     <div class="card-body bg-light">
-                        <label class="form-label fw-bold text-dark fs-5">Código de Barras ou Interno</label>
+                        <label class="form-label fw-bold text-dark fs-5">Código de Barras ou Cobrança (REC-)</label>
                         <div class="input-group input-group-lg">
-                            <input type="text" class="form-control border-warning" id="codigoInput" placeholder="Bipe ou digite o código e aperte Enter..." autofocus>
+                            <input type="text" class="form-control border-warning" id="codigoInput" placeholder="Ex: 101 (Café) ou REC-5 (Mensalidade/Estúdio)..." autofocus>
                             <button class="btn btn-warning fw-bold" type="button" onclick="buscarProduto()">Inserir</button>
                         </div>
+                        <small class="text-muted mt-2 d-block">Para cobrar mensalidades e estúdios, digite o código <strong>REC-</strong> que está no Financeiro.</small>
                     </div>
                 </div>
 
-                <!-- PAGAMENTO -->
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <h5 class="card-title text-secondary">Finalizar Venda</h5>
@@ -74,20 +70,19 @@
                 </div>
             </div>
 
-            <!-- CUPOM / CARRINHO DE COMPRAS -->
+            <!-- CUPOM / CARRINHO -->
             <div class="col-lg-5">
                 <div class="cupom-fiscal d-flex flex-column">
                     <div class="text-center mb-3">
                         <h5 class="mb-0 fw-bold">CUPOM DE VENDA</h5>
                         <small class="text-muted">Casa de Música Cambuci</small>
                     </div>
-                    
                     <div class="table-responsive flex-grow-1">
                         <table class="table table-sm table-pdv table-borderless border-bottom">
                             <thead>
                                 <tr class="border-bottom">
                                     <th>Qtd</th>
-                                    <th>Produto</th>
+                                    <th>Item</th>
                                     <th class="text-end">Preço (R$)</th>
                                     <th></th>
                                 </tr>
@@ -95,7 +90,6 @@
                             <tbody id="listaItens"></tbody>
                         </table>
                     </div>
-
                     <div class="mt-auto border-top pt-3 text-end">
                         <h6 class="text-muted mb-0">TOTAL A PAGAR</h6>
                         <div class="total-display" id="valorTotal">R$ 0.00</div>
@@ -105,60 +99,40 @@
         </div>
     </div>
 
-    <!-- MODAL DE FECHAMENTO DE CAIXA -->
+    <!-- MODAL DE FECHAMENTO (Igual ao anterior) -->
     <div class="modal fade" id="modalFechamento" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-sm">
         <div class="modal-content" id="modalFechamentoContent">
           <div class="modal-header bg-dark text-white">
-            <h6 class="modal-title fw-bold">FECHAMENTO DE CAIXA (HOJE)</h6>
+            <h6 class="modal-title fw-bold">FECHAMENTO DE CAIXA</h6>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body text-center" style="font-family: monospace;">
-              <h5 class="fw-bold mb-0">CASA DE MÚSICA CAMBUCI</h5>
+              <h5 class="fw-bold mb-0">CASA DE MÚSICA</h5>
               <p class="small text-muted mb-4">Relatório Diário - Leitura Z</p>
-              
-              <div class="d-flex justify-content-between border-bottom pb-1 mb-2">
-                  <span>Dinheiro na Gaveta:</span>
-                  <strong id="resumoDinheiro">R$ 0.00</strong>
-              </div>
-              <div class="d-flex justify-content-between border-bottom pb-1 mb-2">
-                  <span>Recebido via PIX:</span>
-                  <strong id="resumoPix">R$ 0.00</strong>
-              </div>
-              <div class="d-flex justify-content-between border-bottom pb-1 mb-2">
-                  <span>Cartão de Crédito:</span>
-                  <strong id="resumoCredito">R$ 0.00</strong>
-              </div>
-              <div class="d-flex justify-content-between border-bottom pb-1 mb-3">
-                  <span>Cartão de Débito:</span>
-                  <strong id="resumoDebito">R$ 0.00</strong>
-              </div>
-              
+              <div class="d-flex justify-content-between border-bottom pb-1 mb-2"><span>Dinheiro:</span><strong id="resumoDinheiro">R$ 0.00</strong></div>
+              <div class="d-flex justify-content-between border-bottom pb-1 mb-2"><span>PIX:</span><strong id="resumoPix">R$ 0.00</strong></div>
+              <div class="d-flex justify-content-between border-bottom pb-1 mb-2"><span>Crédito:</span><strong id="resumoCredito">R$ 0.00</strong></div>
+              <div class="d-flex justify-content-between border-bottom pb-1 mb-3"><span>Débito:</span><strong id="resumoDebito">R$ 0.00</strong></div>
               <div class="bg-light p-2 rounded border">
-                  <h6 class="mb-0 text-muted">TOTAL GERAL DO DIA</h6>
+                  <h6 class="mb-0 text-muted">TOTAL GERAL</h6>
                   <h4 class="fw-bold text-success mb-0" id="resumoTotal">R$ 0.00</h4>
               </div>
           </div>
           <div class="modal-footer justify-content-center btn-print">
-            <button type="button" class="btn btn-secondary btn-sm w-100 mb-1" data-bs-dismiss="modal">Fechar Janela</button>
-            <button type="button" class="btn btn-dark btn-sm w-100 fw-bold" onclick="window.print()">🖨️ Imprimir Fechamento</button>
+            <button type="button" class="btn btn-dark btn-sm w-100 fw-bold" onclick="window.print()">🖨️ Imprimir</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- SCRIPT DO PDV E FECHAMENTO -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let carrinho = [];
-        let total = 0.0;
+        let carrinho = []; let total = 0.0;
         const inputCodigo = document.getElementById('codigoInput');
 
         inputCodigo.addEventListener("keypress", function(event) {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                buscarProduto();
-            }
+            if (event.key === "Enter") { event.preventDefault(); buscarProduto(); }
         });
 
         function buscarProduto() {
@@ -169,33 +143,26 @@
                 .then(produto => {
                     if (produto.erro) { alert(produto.erro); } 
                     else { adicionarAoCarrinho(produto); }
-                    inputCodigo.value = '';
-                    inputCodigo.focus();
+                    inputCodigo.value = ''; inputCodigo.focus();
                 });
         }
 
         function adicionarAoCarrinho(produto) {
-            let itemExistente = carrinho.find(i => i.id === produto.id);
+            let itemExistente = carrinho.find(i => String(i.id) === String(produto.id));
             if (itemExistente) { itemExistente.quantidade += 1; } 
-            else {
-                carrinho.push({ id: produto.id, nome: produto.nome, preco: produto.preco, quantidade: 1 });
-            }
+            else { carrinho.push({ id: produto.id, nome: produto.nome, preco: produto.preco, quantidade: 1 }); }
             atualizarTela();
         }
 
         function removerDoCarrinho(index) {
-            carrinho.splice(index, 1);
-            atualizarTela();
-            inputCodigo.focus();
+            carrinho.splice(index, 1); atualizarTela(); inputCodigo.focus();
         }
 
         function atualizarTela() {
             const tbody = document.getElementById('listaItens');
-            tbody.innerHTML = '';
-            total = 0.0;
+            tbody.innerHTML = ''; total = 0.0;
             carrinho.forEach((item, index) => {
-                let subtotal = item.quantidade * item.preco;
-                total += subtotal;
+                let subtotal = item.quantidade * item.preco; total += subtotal;
                 let tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${item.quantidade}x</td>
@@ -209,38 +176,27 @@
         }
 
         function finalizarVenda() {
-            if (carrinho.length === 0) { alert("O carrinho está vazio!"); return; }
-            const formaPgto = document.getElementById('formaPagamento').value;
-            const dadosVenda = { itens: carrinho, total: total, forma_pagamento: formaPgto };
-
+            if (carrinho.length === 0) { alert("Carrinho vazio!"); return; }
+            const dadosVenda = { itens: carrinho, total: total, forma_pagamento: document.getElementById('formaPagamento').value };
             fetch('/caixa/finalizar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dadosVenda)
-            })
-            .then(response => response.json())
-            .then(data => {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosVenda)
+            }).then(response => response.json()).then(data => {
                 if (data.sucesso) {
-                    alert("✅ Venda finalizada! Valor computado no Financeiro.");
+                    alert("✅ Venda finalizada e baixada no Financeiro!");
                     carrinho = []; atualizarTela(); inputCodigo.focus();
                 } else { alert("Erro ao finalizar venda."); }
             });
         }
 
-        // FUNÇÃO DE FECHAMENTO DE CAIXA
         function abrirFechamento() {
-            fetch('/caixa/fechamento')
-                .then(response => response.json())
-                .then(dados => {
-                    document.getElementById('resumoDinheiro').innerText = `R$ ${dados.Dinheiro.toFixed(2)}`;
-                    document.getElementById('resumoPix').innerText = `R$ ${dados.Pix.toFixed(2)}`;
-                    document.getElementById('resumoCredito').innerText = `R$ ${dados.Cartao_Credito.toFixed(2)}`;
-                    document.getElementById('resumoDebito').innerText = `R$ ${dados.Cartao_Debito.toFixed(2)}`;
-                    document.getElementById('resumoTotal').innerText = `R$ ${dados.Total.toFixed(2)}`;
-                    
-                    var modal = new bootstrap.Modal(document.getElementById('modalFechamento'));
-                    modal.show();
-                });
+            fetch('/caixa/fechamento').then(response => response.json()).then(dados => {
+                document.getElementById('resumoDinheiro').innerText = `R$ ${dados.Dinheiro.toFixed(2)}`;
+                document.getElementById('resumoPix').innerText = `R$ ${dados.Pix.toFixed(2)}`;
+                document.getElementById('resumoCredito').innerText = `R$ ${dados.Cartao_Credito.toFixed(2)}`;
+                document.getElementById('resumoDebito').innerText = `R$ ${dados.Cartao_Debito.toFixed(2)}`;
+                document.getElementById('resumoTotal').innerText = `R$ ${dados.Total.toFixed(2)}`;
+                new bootstrap.Modal(document.getElementById('modalFechamento')).show();
+            });
         }
     </script>
 </body>
