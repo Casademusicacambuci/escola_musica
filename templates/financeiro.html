@@ -58,7 +58,7 @@
               </div>
           </div>
 
-          <!-- ABA A RECEBER (COM BOTÃO DE EXCLUIR E O CÓDIGO) -->
+          <!-- ABA A RECEBER -->
           <div class="tab-pane fade" id="receber" role="tabpanel">
               {% if inadimplentes %}
               <div class="alert alert-danger mb-4 shadow-sm border-2 border-danger">
@@ -117,7 +117,7 @@
                                               <th>Descrição / Cliente</th>
                                               <th>Valor</th>
                                               <th>Status</th>
-                                              <th></th>
+                                              <th>Ação</th>
                                           </tr>
                                       </thead>
                                       <tbody>
@@ -157,7 +157,7 @@
               </div>
           </div>
 
-          <!-- ABA A PAGAR (RESTAURADA TOTALMENTE COM EXCLUIR) -->
+          <!-- ABA A PAGAR (AQUI ESTÃO OS NOVOS BOTÕES ✔️ E O CÓDIGO PAG-) -->
           <div class="tab-pane fade" id="pagar" role="tabpanel">
               <div class="row">
                   <div class="col-lg-4 mb-3">
@@ -200,16 +200,25 @@
                                   <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
                                       <thead class="table-light">
                                           <tr>
+                                              <th>CÓD. PDV</th>
                                               <th>Vencimento</th>
                                               <th>Descrição / Professor</th>
                                               <th>Valor</th>
                                               <th>Status</th>
-                                              <th>Ação</th>
+                                              <th>Ações</th>
                                           </tr>
                                       </thead>
                                       <tbody>
                                           {% for p in pagar %}
                                           <tr>
+                                              <!-- O CÓDIGO PAG- FICA AQUI -->
+                                              <td>
+                                                {% if p.status == 'Pendente' %}
+                                                    <span class="badge bg-dark fs-6" style="letter-spacing: 1px;">PAG-{{ p.id }}</span>
+                                                {% else %}
+                                                    <span class="text-muted small">PAG-{{ p.id }}</span>
+                                                {% endif %}
+                                              </td>
                                               <td>{{ p.data_vencimento.strftime('%d/%m/%Y') }}</td>
                                               <td>{{ p.descricao }}</td>
                                               <td><strong class="text-danger">R$ {{ "%.2f"|format(p.valor) }}</strong></td>
@@ -221,6 +230,13 @@
                                                   {% endif %}
                                               </td>
                                               <td>
+                                                  <!-- O BOTÃO VERDE DE MARCAR COMO PAGO -->
+                                                  {% if p.status == 'Pendente' %}
+                                                  <form action="{{ url_for('confirmar_pagamento', id=p.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Confirmar que você já realizou o pagamento desta despesa?');">
+                                                      <button type="submit" class="btn btn-success btn-xs py-0 px-1" style="font-size:0.75rem;">✔️</button>
+                                                  </form>
+                                                  {% endif %}
+                                                  <!-- BOTÃO VERMELHO DE EXCLUIR -->
                                                   <form action="{{ url_for('excluir_conta_pagar', id=p.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Excluir este lançamento?');">
                                                       <button type="submit" class="btn btn-outline-danger btn-xs py-0 px-1" style="font-size:0.75rem;">X</button>
                                                   </form>
@@ -259,7 +275,7 @@
                                           <form action="{{ url_for('registrar_repasse') }}" method="POST">
                                               <input type="hidden" name="nome_professor" value="{{ prof.nome }}">
                                               <input type="hidden" name="valor_comissao" value="{{ prof.comissao }}">
-                                              <button type="submit" class="btn btn-outline-dark btn-sm w-100 fw-bold">Gerar Pagamento no Caixa</button>
+                                              <button type="submit" class="btn btn-outline-dark btn-sm w-100 fw-bold">Gerar Pagamento no Painel</button>
                                           </form>
                                       </div>
                                   </div>
@@ -274,7 +290,7 @@
         </div>
     </div>
 
-    <!-- JANELA DE EXPORTAÇÃO COM FILTROS -->
+    <!-- JANELA DE EXPORTAÇÃO -->
     <div class="modal fade" id="modalExportar" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
