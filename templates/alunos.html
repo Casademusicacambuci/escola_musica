@@ -32,7 +32,7 @@
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <h5 class="card-title mb-3 text-primary">Nova Matrícula</h5>
-                        <form method="POST" action="/secretaria/alunos" enctype="multipart/form-data">
+                        <form method="POST" action="{{ url_for('gerenciar_alunos') }}" enctype="multipart/form-data">
                             <div class="mb-2">
                                 <label class="form-label small mb-1">Nome Completo</label>
                                 <input type="text" class="form-control form-control-sm" name="nome" required>
@@ -81,7 +81,7 @@
                                 <textarea class="form-control form-control-sm" name="endereco" rows="1" required></textarea>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label small mb-1 fw-bold text-primary">Anexar Comprovante (PDF/Foto)</label>
+                                <label class="form-label small mb-1 fw-bold text-primary">Anexar Comprovante</label>
                                 <input class="form-control form-control-sm border-primary" type="file" name="comprovante">
                             </div>
                             <div class="d-grid mt-3">
@@ -98,7 +98,7 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="card-title text-secondary mb-0">Matriculados ({{ alunos|length }})</h5>
-                            <a href="/secretaria/alunos/csv" class="btn btn-outline-success btn-sm">Planilha (CSV)</a>
+                            <a href="{{ url_for('exportar_alunos_csv') }}" class="btn btn-outline-success btn-sm">Planilha (CSV)</a>
                         </div>
                         {% if not alunos %}
                             <p class="text-muted text-center py-4">Nenhum aluno cadastrado.</p>
@@ -129,7 +129,7 @@
                                             </td>
                                             <td class="text-center">
                                                 <button type="button" class="btn btn-primary btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalEditar{{ aluno.id }}">Editar</button>
-                                                <form action="/secretaria/alunos/excluir/{{ aluno.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Excluir aluno?');">
+                                                <form action="{{ url_for('excluir_aluno', id=aluno.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Excluir aluno?');">
                                                     <button type="submit" class="btn btn-danger btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;">X</button>
                                                 </form>
                                             </td>
@@ -143,8 +143,8 @@
                                                 <h5 class="modal-title">Editar Aluno: {{ aluno.nome }}</h5>
                                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                               </div>
-                                              <form action="/secretaria/alunos/editar/{{ aluno.id }}" method="POST">
-                                                  <div class="modal-body">
+                                              <form action="{{ url_for('editar_aluno', id=aluno.id) }}" method="POST">
+                                                  <div class="modal-body text-start">
                                                     <div class="mb-2">
                                                         <label class="form-label small">Nome Completo</label>
                                                         <input type="text" class="form-control form-control-sm" name="nome" value="{{ aluno.nome }}" required>
