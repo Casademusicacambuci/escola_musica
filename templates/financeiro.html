@@ -15,7 +15,7 @@
                 <span>&larr; Voltar | <strong>Financeiro & Backoffice</strong></span>
             </a>
             <button type="button" class="btn btn-light btn-sm fw-bold text-success" data-bs-toggle="modal" data-bs-target="#modalExportar">
-                &#128202; Exportar (CSV)
+                &#128202; Exportar Excel (CSV)
             </button>
         </div>
     </nav>
@@ -30,10 +30,10 @@
         {% endwith %}
 
         <ul class="nav nav-tabs mb-4" id="financeiroTabs" role="tablist">
-          <li class="nav-item" role="presentation"><button class="nav-link active fw-bold text-success" id="resumo-tab" data-bs-toggle="tab" data-bs-target="#resumo" type="button" role="tab">Visão Geral</button></li>
-          <li class="nav-item" role="presentation"><button class="nav-link fw-bold text-primary" id="receber-tab" data-bs-toggle="tab" data-bs-target="#receber" type="button" role="tab">A Receber / Mensalidades</button></li>
-          <li class="nav-item" role="presentation"><button class="nav-link fw-bold text-danger" id="pagar-tab" data-bs-toggle="tab" data-bs-target="#pagar" type="button" role="tab">A Pagar (Saídas)</button></li>
-          <li class="nav-item" role="presentation"><button class="nav-link fw-bold text-dark" id="repasse-tab" data-bs-toggle="tab" data-bs-target="#repasse" type="button" role="tab">Repasse de Professores</button></li>
+          <li class="nav-item"><button class="nav-link active fw-bold text-success" id="resumo-tab" data-bs-toggle="tab" data-bs-target="#resumo" type="button" role="tab">Visão Geral</button></li>
+          <li class="nav-item"><button class="nav-link fw-bold text-primary" id="receber-tab" data-bs-toggle="tab" data-bs-target="#receber" type="button" role="tab">A Receber / Mensalidades</button></li>
+          <li class="nav-item"><button class="nav-link fw-bold text-danger" id="pagar-tab" data-bs-toggle="tab" data-bs-target="#pagar" type="button" role="tab">A Pagar (Saídas)</button></li>
+          <li class="nav-item"><button class="nav-link fw-bold text-dark" id="repasse-tab" data-bs-toggle="tab" data-bs-target="#repasse" type="button" role="tab">Repasse de Professores</button></li>
         </ul>
 
         <div class="tab-content" id="financeiroTabsContent">
@@ -70,8 +70,6 @@
 
           <!-- ABA 2: A RECEBER E INADIMPLENTES -->
           <div class="tab-pane fade" id="receber" role="tabpanel">
-              
-              <!-- Alerta Vermelho de Inadimplentes -->
               {% if inadimplentes %}
               <div class="alert alert-danger mb-4 shadow-sm border-2 border-danger">
                   <h5 class="alert-heading fw-bold">⚠ ALERTA DE INADIMPLÊNCIA</h5>
@@ -110,7 +108,8 @@
                                           <select class="form-select form-select-sm" name="modulo_origem">
                                               <option value="Mensalidade">Mensalidade</option>
                                               <option value="Luthier">Luthier</option>
-                                              <option value="Loja">Loja</option>
+                                              <option value="Loja / PDV">Loja / PDV</option>
+                                              <option value="Estúdio">Estúdio</option>
                                               <option value="Avulso">Avulso</option>
                                           </select>
                                       </div>
@@ -168,17 +167,17 @@
               </div>
           </div>
 
-          <!-- ABA 3: A PAGAR E CADASTROS (Igual as anteriores, ocultada para poupar espaço) -->
+          <!-- ABA 3: A PAGAR E CADASTROS -->
           <div class="tab-pane fade" id="pagar" role="tabpanel">
               <div class="alert alert-info text-center">Para focar no Repasse e Recebimentos agora, deixei esta aba condensada para navegação rápida no código! (Suas contas a pagar continuam salvas no banco de dados)</div>
           </div>
 
-          <!-- ABA 4: REPASSE DE PROFESSORES (A MÁGICA DOS 40%) -->
+          <!-- ABA 4: REPASSE DE PROFESSORES (AGORA FUNCIONAL) -->
           <div class="tab-pane fade" id="repasse" role="tabpanel">
               <div class="card shadow-sm border-0 border-top border-dark border-3">
                   <div class="card-body">
                       <h4 class="card-title text-dark mb-2">Folha de Pagamento - Professores (Mês Atual)</h4>
-                      <p class="text-muted small mb-4">O sistema puxa automaticamente os alunos que tiveram aulas "Concluídas" com cada professor neste mês, soma o valor da mensalidade de cada aluno e calcula a comissão padrão de 40%.</p>
+                      <p class="text-muted small mb-4">O sistema puxa automaticamente os alunos que tiveram aulas "Concluídas" com cada professor neste mês, soma o valor da mensalidade de cada aluno e calcula a comissão padrão de 40%. Ao clicar no botão, ele envia esse valor direto para o "Contas a Pagar".</p>
                       
                       {% if not repasse_profs %}
                           <p class="text-center text-muted py-5">Nenhuma aula foi marcada como 'Concluída' neste mês ainda.</p>
@@ -199,7 +198,13 @@
                                               <span>Repasse (40%):</span>
                                               <span class="fs-5 text-success">R$ {{ "%.2f"|format(prof.comissao) }}</span>
                                           </div>
-                                          <button class="btn btn-outline-dark btn-sm w-100 fw-bold">Registrar Pagamento</button>
+                                          
+                                          <!-- Botão que gera a Conta a Pagar pro Professor -->
+                                          <form action="/financeiro/repasse/pagar" method="POST">
+                                              <input type="hidden" name="nome_professor" value="{{ prof.nome }}">
+                                              <input type="hidden" name="valor_comissao" value="{{ prof.comissao }}">
+                                              <button type="submit" class="btn btn-outline-dark btn-sm w-100 fw-bold">Gerar Pagamento no Caixa</button>
+                                          </form>
                                       </div>
                                   </div>
                               </div>
@@ -213,7 +218,7 @@
         </div>
     </div>
 
-    <!-- JANELA FLUTUANTE (MODAL) PARA EXPORTAR PLANILHA -->
+    <!-- JANELA FLUTUANTE PARA EXPORTAR PLANILHA (AGORA COM FILTROS) -->
     <div class="modal fade" id="modalExportar" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -227,10 +232,26 @@
                       <div class="col-6"><label class="small fw-bold">Data Inicial</label><input type="date" class="form-control form-control-sm" name="data_inicio" required></div>
                       <div class="col-6"><label class="small fw-bold">Data Final</label><input type="date" class="form-control form-control-sm" name="data_fim" required></div>
                   </div>
+                  
+                  <div class="mb-3">
+                      <label class="small fw-bold">Qual módulo você quer filtrar?</label>
+                      <select class="form-select form-select-sm border-primary" name="filtro_modulo">
+                          <option value="Todos">Mostrar Todos os Módulos</option>
+                          <option value="Loja / PDV">Apenas Loja / PDV</option>
+                          <option value="Lanchonete">Apenas Lanchonete</option>
+                          <option value="Estúdio">Apenas Estúdios</option>
+                          <option value="Mensalidade">Apenas Mensalidades de Alunos</option>
+                          <option value="Luthier">Apenas Luthier</option>
+                      </select>
+                      <small class="text-muted" style="font-size: 0.7rem;">(Selecione um módulo específico ou deixe em Todos)</small>
+                  </div>
+
                   <div class="mb-2">
-                      <label class="small fw-bold">O que deseja baixar?</label>
+                      <label class="small fw-bold">Entradas ou Saídas?</label>
                       <select class="form-select form-select-sm" name="tipo_relatorio">
                           <option value="ambos">Fluxo Geral (Entradas e Saídas)</option>
+                          <option value="receitas">Apenas Entradas (Recebimentos)</option>
+                          <option value="despesas">Apenas Saídas (Pagamentos)</option>
                       </select>
                   </div>
               </div>
