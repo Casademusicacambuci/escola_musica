@@ -4,9 +4,7 @@ from datetime import datetime
 import os
 import csv
 from io import StringIO
-from sqlalchemy import text
 
-# Importando todas as tabelas
 from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula, Fornecedor, Funcionario, ContaReceber, ContaPagar, FluxoCaixa, Produto
 
 app = Flask(__name__)
@@ -20,16 +18,10 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 db.init_app(app)
 
+# BANCO BLINDADO: Apenas verifica se as tabelas existem, não apaga NADA.
 with app.app_context():
     db.create_all() 
     
-    # Vacina para adicionar a coluna nova sem apagar os alunos existentes
-    try:
-        db.session.execute(text("ALTER TABLE alunos ADD COLUMN valor_mensalidade FLOAT DEFAULT 0.0"))
-        db.session.commit()
-    except:
-        db.session.rollback() # Ignora se a coluna já existir
-
     admin_existente = Usuario.query.filter_by(username='admin').first()
     if not admin_existente:
         senha_criptografada = generate_password_hash('admin123')
@@ -67,7 +59,7 @@ def dashboard():
     return render_template('dashboard.html', nome=session.get('nome'), role=session.get('role'))
 
 # ==============================================================================
-# SECRETARIA (ALUNOS E PROFESSORES)
+# SECRETARIA (ALUNOS, PROFESSORES E AULAS)
 # ==============================================================================
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
@@ -135,8 +127,7 @@ def excluir_aluno(id):
 def exportar_alunos_csv():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     alunos = Aluno.query.all()
-    si = StringIO()
-    cw = csv.writer(si, delimiter=';') 
+    si = StringIO(); cw = csv.writer(si, delimiter=';') 
     cw.writerow(['Nome', 'CPF', 'Mensalidade', 'Email', 'Telefone', 'Responsável', 'Curso', 'Status'])
     for a in alunos:
         cw.writerow([a.nome, a.cpf, a.valor_mensalidade, a.email, a.telefone, a.nome_responsavel, a.curso, a.status])
@@ -169,21 +160,15 @@ def editar_professor(id):
     prof.telefone = request.form.get('telefone'); prof.curso = request.form.get('curso')
     prof.status = request.form.get('status'); prof.endereco_completo = request.form.get('endereco')
     db.session.commit()
-    flash('Dados atualizados!')
     return redirect(url_for('gerenciar_professores'))
 
 @app.route('/secretaria/professores/excluir/<int:id>', methods=['POST'])
 def excluir_professor(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    prof = Professor.query.get_or_404(id)
-    db.session.delete(prof)
+    db.session.delete(Professor.query.get_or_404(id))
     db.session.commit()
-    flash('Professor excluído.')
     return redirect(url_for('gerenciar_professores'))
 
-# ==============================================================================
-# AGENDA DE AULAS
-# ==============================================================================
 @app.route('/secretaria/aulas', methods=['GET', 'POST'])
 def gerenciar_aulas():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
@@ -243,7 +228,7 @@ def api_aulas_calendario():
     return jsonify(eventos)
 
 # ==============================================================================
-# ESTÚDIOS (INTEGRADO)
+# ESTÚDIOS 
 # ==============================================================================
 @app.route('/estudios', methods=['GET', 'POST'])
 def gerenciar_estudios():
@@ -336,7 +321,7 @@ def excluir_estudio(id):
     return redirect(url_for('gerenciar_estudios'))
 
 # ==============================================================================
-# MÓDULO 01 - FINANCEIRO & BACKOFFICE (COM INADIMPLENTES E REPASSE RH)
+# MÓDULO 01 - FINANCEIRO & BACKOFFICE (COM REPASSE E FILTROS APRIMORADOS)
 # ==============================================================================
 @app.route('/financeiro', methods=['GET'])
 def financeiro_dashboard():
@@ -348,7 +333,6 @@ def financeiro_dashboard():
     mes_atual = hoje.month
     ano_atual = hoje.year
 
-    # Cálculos Resumo e Inadimplentes
     contas_receber = ContaReceber.query.order_by(ContaReceber.data_vencimento).all()
     contas_pagar = ContaPagar.query.order_by(ContaPagar.data_vencimento).all()
     
@@ -358,21 +342,14 @@ def financeiro_dashboard():
     total_a_pagar = sum(c.valor for c in contas_pagar if c.status == 'Pendente')
     saldo_atual = total_recebido - total_pago
 
-    # Inteligência de Inadimplentes (Contas Vencidas)
     inadimplentes = [c for c in contas_receber if c.status == 'Pendente' and c.data_vencimento < hoje]
 
-    # Inteligência do Repasse de Professores (40% da mensalidade)
     professores = Professor.query.filter_by(status='Ativo').all()
     repasse_profs = []
-    
     for prof in professores:
-        # Busca todas as aulas concluídas pelo professor neste mês
         aulas_concluidas = Aula.query.filter_by(professor_id=prof.id, status='Concluída').all()
         aulas_mes = [a for a in aulas_concluidas if a.data_aula.month == mes_atual and a.data_aula.year == ano_atual]
-        
-        # Isola os alunos únicos que ele atendeu para não somar a mensalidade duplicada
         alunos_unicos = list({a.aluno for a in aulas_mes}) 
-        
         valor_mensalidades = sum((aluno.valor_mensalidade or 0.0) for aluno in alunos_unicos)
         comissao = valor_mensalidades * 0.40
         
@@ -391,31 +368,66 @@ def financeiro_dashboard():
                            t_pago=total_pago, t_a_pagar=total_a_pagar, saldo=saldo_atual,
                            inadimplentes=inadimplentes, repasse_profs=repasse_profs)
 
+# ROTA PARA TRANSFORMAR O REPASSE EM CONTA A PAGAR
+@app.route('/financeiro/repasse/pagar', methods=['POST'])
+def registrar_repasse():
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    
+    nome_prof = request.form.get('nome_professor')
+    valor_comissao = float(request.form.get('valor_comissao', '0'))
+    
+    mes_atual = datetime.utcnow().strftime('%m/%Y')
+    
+    nova_despesa = ContaPagar(
+        descricao=f"Repasse Professor(a) {nome_prof} - Mês {mes_atual}",
+        valor=valor_comissao,
+        data_vencimento=datetime.utcnow().date(),
+        status="Pendente"
+    )
+    db.session.add(nova_despesa)
+    db.session.commit()
+    
+    flash(f'O pagamento do(a) {nome_prof} foi enviado para a aba "Contas a Pagar"!')
+    return redirect(url_for('financeiro_dashboard'))
+
+# ROTA EXPORTAR COM FILTRO DE MÓDULO
 @app.route('/financeiro/exportar', methods=['POST'])
 def exportar_financeiro():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     d_inicio = datetime.strptime(request.form.get('data_inicio'), '%Y-%m-%d').date()
     d_fim = datetime.strptime(request.form.get('data_fim'), '%Y-%m-%d').date()
     tipo = request.form.get('tipo_relatorio')
+    filtro_modulo = request.form.get('filtro_modulo', 'Todos')
 
     si = StringIO(); cw = csv.writer(si, delimiter=';')
     cw.writerow([f'RELATORIO FINANCEIRO - Periodo: {d_inicio} ate {d_fim}'])
+    if filtro_modulo != 'Todos':
+        cw.writerow([f'Filtro Aplicado: {filtro_modulo}'])
+    cw.writerow([])
     
     if tipo in ['receitas', 'ambos']:
         cw.writerow(['ENTRADAS', 'Vencimento', 'Pagamento', 'Origem', 'Descricao', 'Valor', 'Status'])
-        for r in ContaReceber.query.filter(ContaReceber.data_vencimento >= d_inicio, ContaReceber.data_vencimento <= d_fim).all():
+        
+        query_receitas = ContaReceber.query.filter(ContaReceber.data_vencimento >= d_inicio, ContaReceber.data_vencimento <= d_fim)
+        if filtro_modulo != 'Todos':
+            query_receitas = query_receitas.filter(ContaReceber.modulo_origem == filtro_modulo)
+            
+        for r in query_receitas.order_by(ContaReceber.data_vencimento).all():
             dp = r.data_pagamento.strftime('%d/%m/%Y') if r.data_pagamento else ''
             cw.writerow(['', r.data_vencimento.strftime('%d/%m/%Y'), dp, r.modulo_origem, r.descricao, r.valor, r.status])
             
     if tipo in ['despesas', 'ambos']:
+        cw.writerow([])
         cw.writerow(['SAIDAS', 'Vencimento', 'Pagamento', 'Descricao', 'Valor', 'Status'])
-        for d in ContaPagar.query.filter(ContaPagar.data_vencimento >= d_inicio, ContaPagar.data_vencimento <= d_fim).all():
-            dp = d.data_pagamento.strftime('%d/%m/%Y') if d.data_pagamento else ''
-            cw.writerow(['', d.data_vencimento.strftime('%d/%m/%Y'), dp, d.descricao, d.valor, d.status])
+        
+        # Despesas não têm 'modulo_origem' padronizado como as receitas, mas podemos mostrar todas ou ocultar se o filtro for específico de venda
+        if filtro_modulo == 'Todos':
+            for d in ContaPagar.query.filter(ContaPagar.data_vencimento >= d_inicio, ContaPagar.data_vencimento <= d_fim).order_by(ContaPagar.data_vencimento).all():
+                dp = d.data_pagamento.strftime('%d/%m/%Y') if d.data_pagamento else ''
+                cw.writerow(['', d.data_vencimento.strftime('%d/%m/%Y'), dp, d.descricao, d.valor, d.status])
 
     return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_financeiro.csv"})
 
-# Rota para lançar Mensalidades ou Contas a Receber manuais
 @app.route('/financeiro/receber/nova', methods=['POST'])
 def nova_conta_receber():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
@@ -443,22 +455,6 @@ def nova_conta_pagar():
         data_pagamento=datetime.utcnow().date() if request.form.get('status') == 'Pago' else None
     )
     db.session.add(nova_conta)
-    db.session.commit()
-    return redirect(url_for('financeiro_dashboard'))
-
-@app.route('/financeiro/fornecedor/novo', methods=['POST'])
-def novo_fornecedor():
-    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    novo_forn = Fornecedor(razao_social=request.form.get('razao_social'), cnpj_cpf=request.form.get('cnpj_cpf'))
-    db.session.add(novo_forn)
-    db.session.commit()
-    return redirect(url_for('financeiro_dashboard'))
-
-@app.route('/financeiro/funcionario/novo', methods=['POST'])
-def novo_funcionario():
-    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    novo_func = Funcionario(nome=request.form.get('nome'), cpf=request.form.get('cpf'), cargo=request.form.get('cargo'))
-    db.session.add(novo_func)
     db.session.commit()
     return redirect(url_for('financeiro_dashboard'))
 
