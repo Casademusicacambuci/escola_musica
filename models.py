@@ -30,6 +30,7 @@ class Aluno(db.Model):
     nivel = db.Column(db.String(30), nullable=False, default='Iniciante')
     data_matricula = db.Column(db.Date, default=datetime.utcnow)
     status = db.Column(db.String(20), nullable=False, default='Ativo')
+    valor_mensalidade = db.Column(db.Float, default=0.0) # NOVO: Para cálculo do repasse
     aulas = db.relationship('Aula', backref='aluno', lazy=True)
 
 class Professor(db.Model):
@@ -60,7 +61,7 @@ class Aula(db.Model):
     observacoes = db.Column(db.Text)
 
 # ==========================================
-# MÓDULOS DE ESTÚDIO (03, 04, 05)
+# MÓDULOS DE ESTÚDIO
 # ==========================================
 class AgendamentoEstudio(db.Model):
     __tablename__ = 'agendamentos_estudio'
@@ -83,7 +84,6 @@ class AgendamentoEstudio(db.Model):
 # ==========================================
 # MÓDULO 01 - FINANCEIRO & BACKOFFICE 
 # ==========================================
-
 class Fornecedor(db.Model):
     __tablename__ = 'fornecedores'
     id = db.Column(db.Integer, primary_key=True)
