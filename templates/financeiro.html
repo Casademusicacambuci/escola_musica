@@ -58,7 +58,7 @@
               </div>
           </div>
 
-          <!-- ABA A RECEBER (COM O CÓDIGO PDV) -->
+          <!-- ABA A RECEBER (COM BOTÃO DE EXCLUIR E O CÓDIGO) -->
           <div class="tab-pane fade" id="receber" role="tabpanel">
               {% if inadimplentes %}
               <div class="alert alert-danger mb-4 shadow-sm border-2 border-danger">
@@ -76,7 +76,7 @@
                       <div class="card shadow-sm border-0 border-top border-primary border-3">
                           <div class="card-body">
                               <h6 class="text-primary mb-3">Lançar Nova Receita / Mensalidade</h6>
-                              <form method="POST" action="/financeiro/receber/nova">
+                              <form method="POST" action="{{ url_for('nova_conta_receber') }}">
                                   <div class="mb-2"><input type="text" class="form-control form-control-sm" name="descricao" placeholder="Ex: Mensalidade - Lucas" required></div>
                                   <div class="row g-2 mb-2">
                                       <div class="col-6"><input type="number" step="0.01" class="form-control form-control-sm" name="valor" placeholder="R$ 0.00" required></div>
@@ -117,12 +117,12 @@
                                               <th>Descrição / Cliente</th>
                                               <th>Valor</th>
                                               <th>Status</th>
+                                              <th></th>
                                           </tr>
                                       </thead>
                                       <tbody>
                                           {% for r in receber %}
                                           <tr>
-                                              <!-- O CÓDIGO MÁGICO DO PDV APARECE AQUI -->
                                               <td>
                                                 {% if r.status == 'Pendente' %}
                                                     <span class="badge bg-dark fs-6" style="letter-spacing: 1px;">REC-{{ r.id }}</span>
@@ -141,6 +141,11 @@
                                                     <span class="badge bg-warning text-dark w-100">Pendente</span>
                                                   {% endif %}
                                               </td>
+                                              <td class="text-end">
+                                                  <form action="{{ url_for('excluir_conta_receber', id=r.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Excluir esta cobrança?');">
+                                                      <button type="submit" class="btn btn-outline-danger btn-xs py-0 px-1" style="font-size:0.75rem;">X</button>
+                                                  </form>
+                                              </td>
                                           </tr>
                                           {% endfor %}
                                       </tbody>
@@ -152,8 +157,83 @@
               </div>
           </div>
 
+          <!-- ABA A PAGAR (RESTAURADA TOTALMENTE COM EXCLUIR) -->
           <div class="tab-pane fade" id="pagar" role="tabpanel">
-              <div class="alert alert-info text-center">Aba condensada (Suas contas a pagar continuam salvas).</div>
+              <div class="row">
+                  <div class="col-lg-4 mb-3">
+                      <div class="card shadow-sm border-0 border-top border-danger border-3">
+                          <div class="card-body">
+                              <h6 class="text-danger mb-3">Lançar Nova Despesa</h6>
+                              <form method="POST" action="{{ url_for('nova_conta_pagar') }}">
+                                  <div class="mb-2">
+                                      <label class="small">Descrição da Compra / Repasse</label>
+                                      <input type="text" class="form-control form-control-sm" name="descricao" required>
+                                  </div>
+                                  <div class="row g-2 mb-2">
+                                      <div class="col-6">
+                                          <label class="small">Valor (R$)</label>
+                                          <input type="number" step="0.01" class="form-control form-control-sm" name="valor" required>
+                                      </div>
+                                      <div class="col-6">
+                                          <label class="small">Vencimento</label>
+                                          <input type="date" class="form-control form-control-sm" name="data_vencimento" required>
+                                      </div>
+                                  </div>
+                                  <div class="mb-3">
+                                      <label class="small">Status do Pagamento</label>
+                                      <select class="form-select form-select-sm" name="status">
+                                          <option value="Pendente">A Pagar (Pendente)</option>
+                                          <option value="Pago">Já Pago</option>
+                                      </select>
+                                  </div>
+                                  <button type="submit" class="btn btn-danger btn-sm w-100 fw-bold">Registrar Despesa</button>
+                              </form>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div class="col-lg-8">
+                      <div class="card shadow-sm border-0 border-top border-danger border-3">
+                          <div class="card-body">
+                              <h5 class="card-title text-secondary mb-3">Contas a Pagar (Saídas e Salários)</h5>
+                              <div class="table-responsive">
+                                  <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
+                                      <thead class="table-light">
+                                          <tr>
+                                              <th>Vencimento</th>
+                                              <th>Descrição / Professor</th>
+                                              <th>Valor</th>
+                                              <th>Status</th>
+                                              <th>Ação</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody>
+                                          {% for p in pagar %}
+                                          <tr>
+                                              <td>{{ p.data_vencimento.strftime('%d/%m/%Y') }}</td>
+                                              <td>{{ p.descricao }}</td>
+                                              <td><strong class="text-danger">R$ {{ "%.2f"|format(p.valor) }}</strong></td>
+                                              <td>
+                                                  {% if p.status == 'Pago' %}
+                                                    <span class="badge bg-success">Pago</span>
+                                                  {% else %}
+                                                    <span class="badge bg-warning text-dark">Pendente</span>
+                                                  {% endif %}
+                                              </td>
+                                              <td>
+                                                  <form action="{{ url_for('excluir_conta_pagar', id=p.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Excluir este lançamento?');">
+                                                      <button type="submit" class="btn btn-outline-danger btn-xs py-0 px-1" style="font-size:0.75rem;">X</button>
+                                                  </form>
+                                              </td>
+                                          </tr>
+                                          {% endfor %}
+                                      </tbody>
+                                  </table>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
           </div>
 
           <div class="tab-pane fade" id="repasse" role="tabpanel">
@@ -176,7 +256,7 @@
                                           <div class="d-flex justify-content-between mb-3 text-dark fw-bold">
                                               <span>Repasse (40%):</span><span class="fs-5 text-success">R$ {{ "%.2f"|format(prof.comissao) }}</span>
                                           </div>
-                                          <form action="/financeiro/repasse/pagar" method="POST">
+                                          <form action="{{ url_for('registrar_repasse') }}" method="POST">
                                               <input type="hidden" name="nome_professor" value="{{ prof.nome }}">
                                               <input type="hidden" name="valor_comissao" value="{{ prof.comissao }}">
                                               <button type="submit" class="btn btn-outline-dark btn-sm w-100 fw-bold">Gerar Pagamento no Caixa</button>
@@ -194,7 +274,7 @@
         </div>
     </div>
 
-    <!-- JANELA DE EXPORTAÇÃO COM FILTROS CORRIGIDOS -->
+    <!-- JANELA DE EXPORTAÇÃO COM FILTROS -->
     <div class="modal fade" id="modalExportar" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -202,7 +282,7 @@
             <h5 class="modal-title">Exportar Planilha Financeira</h5>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
-          <form action="/financeiro/exportar" method="POST">
+          <form action="{{ url_for('exportar_financeiro') }}" method="POST">
               <div class="modal-body">
                   <div class="row g-2 mb-3">
                       <div class="col-6"><label class="small fw-bold">Data Inicial</label><input type="date" class="form-control form-control-sm" name="data_inicio" required></div>
