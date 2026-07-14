@@ -4,7 +4,9 @@ from datetime import datetime
 import os
 import csv
 from io import StringIO
+from sqlalchemy import text
 
+# Importando todas as tabelas
 from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula, Fornecedor, Funcionario, ContaReceber, ContaPagar, FluxoCaixa, Produto
 
 app = Flask(__name__)
@@ -20,6 +22,14 @@ db.init_app(app)
 
 with app.app_context():
     db.create_all() 
+    
+    # Vacina para adicionar a coluna nova sem apagar os alunos existentes
+    try:
+        db.session.execute(text("ALTER TABLE alunos ADD COLUMN valor_mensalidade FLOAT DEFAULT 0.0"))
+        db.session.commit()
+    except:
+        db.session.rollback() # Ignora se a coluna já existir
+
     admin_existente = Usuario.query.filter_by(username='admin').first()
     if not admin_existente:
         senha_criptografada = generate_password_hash('admin123')
@@ -57,7 +67,7 @@ def dashboard():
     return render_template('dashboard.html', nome=session.get('nome'), role=session.get('role'))
 
 # ==============================================================================
-# SECRETARIA 
+# SECRETARIA (ALUNOS E PROFESSORES)
 # ==============================================================================
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
@@ -76,6 +86,9 @@ def gerenciar_alunos():
             arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo))
             caminho_arquivo = f"uploads/{nome_arquivo}"
 
+        v_mens = request.form.get('valor_mensalidade', '0')
+        valor_mensalidade = float(v_mens.replace(',', '.')) if v_mens else 0.0
+
         if Aluno.query.filter_by(cpf=cpf).first():
             flash('Erro: CPF já cadastrado.')
         else:
@@ -83,10 +96,11 @@ def gerenciar_alunos():
                                data_nascimento=data_nasc, nome_responsavel=request.form.get('responsavel'),
                                endereco_completo=request.form.get('endereco'), comprovante_endereco=caminho_arquivo,
                                telefone=request.form.get('telefone'), curso=request.form.get('curso'),
-                               nivel=request.form.get('nivel'), data_matricula=data_mat, status=request.form.get('status'))
+                               nivel=request.form.get('nivel'), data_matricula=data_mat, status=request.form.get('status'),
+                               valor_mensalidade=valor_mensalidade)
             db.session.add(novo_aluno)
             db.session.commit()
-            flash('Aluno matriculado!')
+            flash('Aluno matriculado com sucesso!')
             return redirect(url_for('gerenciar_alunos'))
     return render_template('alunos.html', alunos=Aluno.query.order_by(Aluno.nome).all())
 
@@ -98,6 +112,10 @@ def editar_aluno(id):
     aluno.telefone = request.form.get('telefone'); aluno.curso = request.form.get('curso')
     aluno.nivel = request.form.get('nivel'); aluno.status = request.form.get('status')
     aluno.endereco_completo = request.form.get('endereco')
+    
+    v_mens = request.form.get('valor_mensalidade', '0')
+    aluno.valor_mensalidade = float(v_mens.replace(',', '.')) if v_mens else 0.0
+    
     db.session.commit()
     flash('Dados atualizados!')
     return redirect(url_for('gerenciar_alunos'))
@@ -106,6 +124,8 @@ def editar_aluno(id):
 def excluir_aluno(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     aluno = Aluno.query.get_or_404(id)
+    if aluno.comprovante_endereco and os.path.exists(os.path.join(app.root_path, 'static', aluno.comprovante_endereco)):
+        os.remove(os.path.join(app.root_path, 'static', aluno.comprovante_endereco))
     db.session.delete(aluno)
     db.session.commit()
     flash('Aluno excluído.')
@@ -117,11 +137,10 @@ def exportar_alunos_csv():
     alunos = Aluno.query.all()
     si = StringIO()
     cw = csv.writer(si, delimiter=';') 
-    cw.writerow(['Nome', 'CPF', 'Data de Nascimento', 'Email', 'Telefone', 'Curso', 'Nível', 'Status'])
+    cw.writerow(['Nome', 'CPF', 'Mensalidade', 'Email', 'Telefone', 'Responsável', 'Curso', 'Status'])
     for a in alunos:
-        data_nasc = a.data_nascimento.strftime('%d/%m/%Y') if a.data_nascimento else ''
-        cw.writerow([a.nome, a.cpf, data_nasc, a.email, a.telefone, a.curso, a.nivel, a.status])
-    return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=alunos.csv"})
+        cw.writerow([a.nome, a.cpf, a.valor_mensalidade, a.email, a.telefone, a.nome_responsavel, a.curso, a.status])
+    return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_alunos.csv"})
 
 @app.route('/secretaria/professores', methods=['GET', 'POST'])
 def gerenciar_professores():
@@ -162,6 +181,9 @@ def excluir_professor(id):
     flash('Professor excluído.')
     return redirect(url_for('gerenciar_professores'))
 
+# ==============================================================================
+# AGENDA DE AULAS
+# ==============================================================================
 @app.route('/secretaria/aulas', methods=['GET', 'POST'])
 def gerenciar_aulas():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
@@ -178,8 +200,9 @@ def gerenciar_aulas():
             status=status, observacoes=request.form.get('observacoes'))
         db.session.add(nova_aula)
         db.session.commit()
-        flash('Aula agendada!')
+        flash('Aula agendada com sucesso!')
         return redirect(url_for('gerenciar_aulas'))
+
     alunos = Aluno.query.filter_by(status='Ativo').order_by(Aluno.nome).all()
     professores = Professor.query.filter_by(status='Ativo').order_by(Professor.nome).all()
     aulas = Aula.query.order_by(Aula.data_aula.desc(), Aula.horario_inicio.desc()).all()
@@ -196,6 +219,7 @@ def editar_aula(id):
     aula.horario_final = datetime.strptime(request.form.get('horario_final'), '%H:%M').time()
     aula.status = request.form.get('status'); aula.observacoes = request.form.get('observacoes')
     db.session.commit()
+    flash('Aula atualizada!')
     return redirect(url_for('gerenciar_aulas'))
 
 @app.route('/secretaria/aulas/excluir/<int:id>', methods=['POST'])
@@ -219,7 +243,7 @@ def api_aulas_calendario():
     return jsonify(eventos)
 
 # ==============================================================================
-# ESTÚDIOS 
+# ESTÚDIOS (INTEGRADO)
 # ==============================================================================
 @app.route('/estudios', methods=['GET', 'POST'])
 def gerenciar_estudios():
@@ -237,9 +261,8 @@ def gerenciar_estudios():
             AgendamentoEstudio.tipo_estudio == tipo_estudio, AgendamentoEstudio.data_agendamento == data_agendamento,
             AgendamentoEstudio.horario_inicio < horario_final, AgendamentoEstudio.horario_final > horario_inicio
         ).first()
-
         if conflito:
-            flash(f'Erro: Estúdio já reservado.')
+            flash(f'Erro: O {tipo_estudio} já está reservado neste dia.')
             return redirect(url_for('gerenciar_estudios'))
 
         valor_limpo = float(request.form.get('valor', '0').replace(',', '.'))
@@ -279,11 +302,9 @@ def editar_estudio(id):
     ag.data_agendamento = datetime.strptime(request.form.get('data_agendamento'), '%Y-%m-%d').date()
     ag.horario_inicio = datetime.strptime(request.form.get('horario_inicio'), '%H:%M').time()
     ag.horario_final = datetime.strptime(request.form.get('horario_final'), '%H:%M').time()
-    ag.nome_tecnico = request.form.get('nome_tecnico')
     ag.valor = float(request.form.get('valor', '0').replace(',', '.'))
     ag.status_pagamento = request.form.get('status_pagamento')
     ag.status_trabalho = request.form.get('status_trabalho')
-    ag.observacoes = request.form.get('observacoes')
     db.session.commit()
 
     conta = ContaReceber.query.filter_by(modulo_origem='Estúdio', origem_id=ag.id).first()
@@ -315,11 +336,19 @@ def excluir_estudio(id):
     return redirect(url_for('gerenciar_estudios'))
 
 # ==============================================================================
-# FINANCEIRO 
+# MÓDULO 01 - FINANCEIRO & BACKOFFICE (COM INADIMPLENTES E REPASSE RH)
 # ==============================================================================
 @app.route('/financeiro', methods=['GET'])
 def financeiro_dashboard():
-    if 'usuario_id' not in session or session.get('role') != 'admin': return redirect(url_for('dashboard'))
+    if 'usuario_id' not in session or session.get('role') != 'admin':
+        flash('Acesso negado ao Financeiro.')
+        return redirect(url_for('dashboard'))
+    
+    hoje = datetime.utcnow().date()
+    mes_atual = hoje.month
+    ano_atual = hoje.year
+
+    # Cálculos Resumo e Inadimplentes
     contas_receber = ContaReceber.query.order_by(ContaReceber.data_vencimento).all()
     contas_pagar = ContaPagar.query.order_by(ContaPagar.data_vencimento).all()
     
@@ -329,10 +358,38 @@ def financeiro_dashboard():
     total_a_pagar = sum(c.valor for c in contas_pagar if c.status == 'Pendente')
     saldo_atual = total_recebido - total_pago
 
-    return render_template('financeiro.html', receber=contas_receber, pagar=contas_pagar, 
+    # Inteligência de Inadimplentes (Contas Vencidas)
+    inadimplentes = [c for c in contas_receber if c.status == 'Pendente' and c.data_vencimento < hoje]
+
+    # Inteligência do Repasse de Professores (40% da mensalidade)
+    professores = Professor.query.filter_by(status='Ativo').all()
+    repasse_profs = []
+    
+    for prof in professores:
+        # Busca todas as aulas concluídas pelo professor neste mês
+        aulas_concluidas = Aula.query.filter_by(professor_id=prof.id, status='Concluída').all()
+        aulas_mes = [a for a in aulas_concluidas if a.data_aula.month == mes_atual and a.data_aula.year == ano_atual]
+        
+        # Isola os alunos únicos que ele atendeu para não somar a mensalidade duplicada
+        alunos_unicos = list({a.aluno for a in aulas_mes}) 
+        
+        valor_mensalidades = sum((aluno.valor_mensalidade or 0.0) for aluno in alunos_unicos)
+        comissao = valor_mensalidades * 0.40
+        
+        if valor_mensalidades > 0:
+            repasse_profs.append({
+                'nome': prof.nome,
+                'qtd_alunos': len(alunos_unicos),
+                'valor_base': valor_mensalidades,
+                'comissao': comissao
+            })
+
+    return render_template('financeiro.html', 
+                           receber=contas_receber, pagar=contas_pagar, 
                            fornecedores=Fornecedor.query.all(), funcionarios=Funcionario.query.all(),
                            t_recebido=total_recebido, t_a_receber=total_a_receber,
-                           t_pago=total_pago, t_a_pagar=total_a_pagar, saldo=saldo_atual)
+                           t_pago=total_pago, t_a_pagar=total_a_pagar, saldo=saldo_atual,
+                           inadimplentes=inadimplentes, repasse_profs=repasse_profs)
 
 @app.route('/financeiro/exportar', methods=['POST'])
 def exportar_financeiro():
@@ -357,6 +414,23 @@ def exportar_financeiro():
             cw.writerow(['', d.data_vencimento.strftime('%d/%m/%Y'), dp, d.descricao, d.valor, d.status])
 
     return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_financeiro.csv"})
+
+# Rota para lançar Mensalidades ou Contas a Receber manuais
+@app.route('/financeiro/receber/nova', methods=['POST'])
+def nova_conta_receber():
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    valor_limpo = float(request.form.get('valor', '0').replace(',', '.'))
+    data_venc = datetime.strptime(request.form.get('data_vencimento'), '%Y-%m-%d').date()
+    nova_conta = ContaReceber(
+        descricao=request.form.get('descricao'),
+        modulo_origem=request.form.get('modulo_origem', 'Mensalidade'),
+        valor=valor_limpo, data_vencimento=data_venc, status=request.form.get('status'),
+        data_pagamento=datetime.utcnow().date() if request.form.get('status') == 'Pago' else None
+    )
+    db.session.add(nova_conta)
+    db.session.commit()
+    flash('Receita/Mensalidade lançada com sucesso!')
+    return redirect(url_for('financeiro_dashboard'))
 
 @app.route('/financeiro/pagar/nova', methods=['POST'])
 def nova_conta_pagar():
@@ -401,7 +475,7 @@ def novo_produto():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     codigo = request.form.get('codigo_barras')
     if Produto.query.filter_by(codigo_barras=codigo).first():
-        flash('Erro: Já existe um produto com este código de barras.')
+        flash('Erro: Já existe um produto com este código.')
         return redirect(url_for('gerenciar_estoque'))
     novo_prod = Produto(
         codigo_barras=codigo, nome=request.form.get('nome'), categoria=request.form.get('categoria'),
@@ -432,7 +506,7 @@ def excluir_produto(id):
     return redirect(url_for('gerenciar_estoque'))
 
 # ==============================================================================
-# CAIXA PDV (COM FECHAMENTO DE CAIXA)
+# CAIXA PDV E FECHAMENTO
 # ==============================================================================
 @app.route('/caixa', methods=['GET'])
 def caixa_pdv():
@@ -470,30 +544,19 @@ def finalizar_venda():
     db.session.commit()
     return jsonify({'sucesso': True})
 
-# NOVA ROTA: FECHAMENTO DE CAIXA DO DIA
 @app.route('/caixa/fechamento', methods=['GET'])
 def fechamento_caixa():
     if 'usuario_id' not in session: return jsonify({'erro': 'Não autorizado'})
-    
     hoje = datetime.utcnow().date()
-    # Puxa tudo o que foi PAGO HOJE
     recebimentos_hoje = ContaReceber.query.filter_by(data_pagamento=hoje, status='Pago').all()
     
-    resumo = {
-        'Dinheiro': 0.0,
-        'Pix': 0.0,
-        'Cartao_Credito': 0.0,
-        'Cartao_Debito': 0.0,
-        'Total': 0.0
-    }
-    
+    resumo = {'Dinheiro': 0.0, 'Pix': 0.0, 'Cartao_Credito': 0.0, 'Cartao_Debito': 0.0, 'Total': 0.0}
     for r in recebimentos_hoje:
         forma = r.forma_pagamento
         if forma == 'Pix': resumo['Pix'] += r.valor
         elif forma == 'Cartão de Crédito': resumo['Cartao_Credito'] += r.valor
         elif forma == 'Cartão de Débito': resumo['Cartao_Debito'] += r.valor
-        else: resumo['Dinheiro'] += r.valor # Fallback pra Dinheiro
-        
+        else: resumo['Dinheiro'] += r.valor 
         resumo['Total'] += r.valor
         
     return jsonify(resumo)
