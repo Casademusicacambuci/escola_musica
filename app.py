@@ -5,7 +5,8 @@ import os
 import csv
 from io import StringIO
 
-from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula, Fornecedor, Funcionario, ContaReceber, ContaPagar, FluxoCaixa, Produto
+# IMPORTANDO TODAS AS TABELAS (INCLUSIVE A NOVA ORDEM DE SERVIÇO DO LUTHIER)
+from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula, Fornecedor, Funcionario, ContaReceber, ContaPagar, FluxoCaixa, Produto, OrdemServico
 
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_cambuci_2026' 
@@ -18,6 +19,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 db.init_app(app)
 
+# Banco Blindado (Garante que as tabelas existam sem apagar os dados)
 with app.app_context():
     db.create_all() 
     admin_existente = Usuario.query.filter_by(username='admin').first()
@@ -57,7 +59,7 @@ def dashboard():
     return render_template('dashboard.html', nome=session.get('nome'), role=session.get('role'))
 
 # ==============================================================================
-# SECRETARIA E ALUNOS 
+# SECRETARIA E ALUNOS (COM GERAÇÃO DE CARNÊ)
 # ==============================================================================
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
@@ -118,6 +120,8 @@ def gerenciar_alunos():
 def editar_aluno(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     aluno = Aluno.query.get_or_404(id)
+    
+    # Blindagem contra campos vazios
     aluno.nome = request.form.get('nome') or aluno.nome
     aluno.email = request.form.get('email') or aluno.email
     aluno.telefone = request.form.get('telefone') or aluno.telefone
@@ -161,6 +165,9 @@ def exportar_alunos_csv():
         cw.writerow([a.nome, a.cpf, a.valor_mensalidade, a.email, a.telefone, a.nome_responsavel, a.curso, a.status])
     return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_alunos.csv"})
 
+# ==============================================================================
+# PROFESSORES E AULAS
+# ==============================================================================
 @app.route('/secretaria/professores', methods=['GET', 'POST'])
 def gerenciar_professores():
     if 'usuario_id' not in session: return redirect(url_for('login'))
@@ -193,9 +200,12 @@ def gerenciar_professores():
 def editar_professor(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     prof = Professor.query.get_or_404(id)
-    prof.nome = request.form.get('nome'); prof.email = request.form.get('email')
-    prof.telefone = request.form.get('telefone'); prof.curso = request.form.get('curso')
-    prof.status = request.form.get('status'); prof.endereco_completo = request.form.get('endereco')
+    prof.nome = request.form.get('nome') or prof.nome
+    prof.email = request.form.get('email') or prof.email
+    prof.telefone = request.form.get('telefone') or prof.telefone
+    prof.curso = request.form.get('curso') or prof.curso
+    prof.status = request.form.get('status') or prof.status
+    prof.endereco_completo = request.form.get('endereco') or prof.endereco_completo
     db.session.commit()
     flash('Dados atualizados!')
     return redirect(url_for('gerenciar_professores'))
@@ -222,9 +232,6 @@ def exportar_professores_csv():
         cw.writerow([p.nome, p.cpf, data_nasc, p.email, p.telefone, p.curso, p.status])
     return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_professores.csv"})
 
-# ==============================================================================
-# AGENDA DE AULAS & ESTÚDIOS
-# ==============================================================================
 @app.route('/secretaria/aulas', methods=['GET', 'POST'])
 def gerenciar_aulas():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
@@ -251,12 +258,14 @@ def gerenciar_aulas():
 def editar_aula(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     aula = Aula.query.get_or_404(id)
-    aula.aluno_id = request.form.get('aluno_id'); aula.professor_id = request.form.get('professor_id')
+    aula.aluno_id = request.form.get('aluno_id')
+    aula.professor_id = request.form.get('professor_id')
     aula.instrumento = request.form.get('instrumento')
     aula.data_aula = datetime.strptime(request.form.get('data_aula'), '%Y-%m-%d').date()
     aula.horario_inicio = datetime.strptime(request.form.get('horario_inicio'), '%H:%M').time()
     aula.horario_final = datetime.strptime(request.form.get('horario_final'), '%H:%M').time()
-    aula.status = request.form.get('status'); aula.observacoes = request.form.get('observacoes')
+    aula.status = request.form.get('status')
+    aula.observacoes = request.form.get('observacoes')
     db.session.commit()
     flash('Aula atualizada!')
     return redirect(url_for('gerenciar_aulas'))
@@ -281,6 +290,9 @@ def api_aulas_calendario():
         })
     return jsonify(eventos)
 
+# ==============================================================================
+# ESTÚDIOS
+# ==============================================================================
 @app.route('/estudios', methods=['GET', 'POST'])
 def gerenciar_estudios():
     if 'usuario_id' not in session: return redirect(url_for('login'))
@@ -355,7 +367,7 @@ def excluir_estudio(id):
     return redirect(url_for('gerenciar_estudios'))
 
 # ==============================================================================
-# MÓDULO FINANCEIRO: CORREÇÃO MATEMÁTICA E CARNÊS
+# MÓDULO FINANCEIRO (COM NOVA REGRA DE 40% POR AULA E DIVISÃO DE CARNÊS)
 # ==============================================================================
 @app.route('/financeiro', methods=['GET'])
 def financeiro_dashboard():
@@ -365,7 +377,6 @@ def financeiro_dashboard():
     
     hoje = datetime.utcnow().date()
     
-    # Define a divisão do mês atual vs futuro para os carnês
     if hoje.month == 12:
         limite_mes = datetime(hoje.year + 1, 1, 1).date()
     else:
@@ -374,7 +385,7 @@ def financeiro_dashboard():
     contas_receber_todas = ContaReceber.query.order_by(ContaReceber.data_vencimento).all()
     contas_pagar = ContaPagar.query.order_by(ContaPagar.data_vencimento).all()
     
-    # MÁGICA 1: O Painel ignora as Sangrias do Caixa PDV para não descontar 2 vezes!
+    # Ignora as sangrias do PDV no saldo
     contas_receber = [c for c in contas_receber_todas if c.modulo_origem != 'Sangria / Despesa']
     
     total_recebido = sum(c.valor for c in contas_receber if c.status == 'Pago')
@@ -385,7 +396,6 @@ def financeiro_dashboard():
 
     inadimplentes = [c for c in contas_receber if c.status == 'Pendente' and c.data_vencimento < hoje]
 
-    # MÁGICA 2: Divisão de abas. O que é até este mês, e o que é carnê futuro!
     receber_atual = [c for c in contas_receber if c.data_vencimento < limite_mes]
     receber_futuro = [c for c in contas_receber if c.data_vencimento >= limite_mes]
 
@@ -448,7 +458,6 @@ def exportar_financeiro():
     
     if tipo in ['receitas', 'ambos']:
         cw.writerow(['ENTRADAS', 'Vencimento', 'Pagamento', 'Origem', 'Descricao', 'Valor', 'Status'])
-        # Ignora as sangrias na planilha também
         query_receitas = ContaReceber.query.filter(ContaReceber.data_vencimento >= d_inicio, ContaReceber.data_vencimento <= d_fim, ContaReceber.modulo_origem != 'Sangria / Despesa')
         if filtro_modulo != 'Todos':
             query_receitas = query_receitas.filter(ContaReceber.modulo_origem == filtro_modulo)
@@ -661,6 +670,112 @@ def fechamento_caixa():
         else: resumo['Dinheiro'] += r.valor 
         resumo['Total'] += r.valor
     return jsonify(resumo)
+
+# ==============================================================================
+# MÓDULO LUTHIER / OFICINA
+# ==============================================================================
+@app.route('/luthier', methods=['GET'])
+def luthier_dashboard():
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    ordens = OrdemServico.query.order_by(OrdemServico.data_abertura.desc()).all()
+    return render_template('luthier.html', ordens=ordens)
+
+@app.route('/luthier/nova', methods=['POST'])
+def luthier_nova_os():
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    
+    fotos = []
+    for i in range(1, 5):
+        arquivo = request.files.get(f'foto_{i}')
+        if arquivo and arquivo.filename != '':
+            nome_arquivo = f"os_foto_{i}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+            arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo))
+            fotos.append(f"uploads/{nome_arquivo}")
+        else:
+            fotos.append(None)
+
+    nova_os = OrdemServico(
+        cliente_nome=request.form.get('cliente_nome'), cliente_cpf=request.form.get('cliente_cpf'),
+        cliente_telefone=request.form.get('cliente_telefone'), cliente_email=request.form.get('cliente_email'),
+        cliente_endereco=request.form.get('cliente_endereco'),
+        instrumento_tipo=request.form.get('instrumento_tipo'), instrumento_marca=request.form.get('instrumento_marca'),
+        instrumento_modelo=request.form.get('instrumento_modelo'), descricao_problema=request.form.get('descricao_problema'),
+        foto_1=fotos[0], foto_2=fotos[1], foto_3=fotos[2], foto_4=fotos[3],
+        video_link=request.form.get('video_link')
+    )
+    db.session.add(nova_os)
+    db.session.commit()
+    flash('Ordem de Serviço criada com sucesso! Ela está na aba "Em Análise".')
+    return redirect(url_for('luthier_dashboard'))
+
+@app.route('/luthier/orcamento/<int:id>', methods=['POST'])
+def luthier_orcamento(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    os = OrdemServico.query.get_or_404(id)
+    
+    os.solucao_sugerida = request.form.get('solucao_sugerida')
+    os.valor_mao_de_obra = float(request.form.get('valor_mao_de_obra', '0').replace(',', '.'))
+    os.valor_pecas = float(request.form.get('valor_pecas', '0').replace(',', '.'))
+    os.prazo_estimado = request.form.get('prazo_estimado')
+    os.data_entrega = datetime.strptime(request.form.get('data_entrega'), '%Y-%m-%d').date()
+    os.luthier_responsavel = request.form.get('luthier_responsavel')
+    os.status = 'Aguardando Aprovação'
+    
+    db.session.commit()
+    flash('Orçamento salvo! Aguarde a aprovação do cliente.')
+    return redirect(url_for('luthier_dashboard'))
+
+@app.route('/luthier/aprovar/<int:id>', methods=['POST'])
+def luthier_aprovar(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    os = OrdemServico.query.get_or_404(id)
+    os.status = 'Em Manutenção'
+    
+    valor_total = os.valor_mao_de_obra + os.valor_pecas
+    valor_sinal = valor_total / 2.0
+    
+    db.session.add(ContaReceber(
+        descricao=f"Sinal (50%) OS-{os.id} Luthier ({os.cliente_nome})",
+        modulo_origem="Luthier", origem_id=os.id, valor=valor_sinal,
+        data_vencimento=datetime.utcnow().date(), status="Pendente"
+    ))
+    db.session.commit()
+    flash(f'OS aprovada! Cobrança de Sinal gerada (REC-). Digite o código no Caixa PDV para cobrar.')
+    return redirect(url_for('luthier_dashboard'))
+
+@app.route('/luthier/finalizar/<int:id>', methods=['POST'])
+def luthier_finalizar(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    os = OrdemServico.query.get_or_404(id)
+    os.status = 'Finalizado'
+    
+    valor_total = os.valor_mao_de_obra + os.valor_pecas
+    valor_restante = valor_total / 2.0
+    
+    db.session.add(ContaReceber(
+        descricao=f"Pgto Final (50%) OS-{os.id} Luthier ({os.cliente_nome})",
+        modulo_origem="Luthier", origem_id=os.id, valor=valor_restante,
+        data_vencimento=datetime.utcnow().date(), status="Pendente"
+    ))
+    
+    comissao = os.valor_mao_de_obra * 0.40
+    db.session.add(ContaPagar(
+        descricao=f"Comissão Luthier {os.luthier_responsavel} (OS-{os.id})",
+        valor=comissao, data_vencimento=datetime.utcnow().date(), status="Pendente"
+    ))
+    
+    db.session.commit()
+    flash('Serviço concluído! Cobrança final enviada ao cliente e comissão do Luthier gerada.')
+    return redirect(url_for('luthier_dashboard'))
+
+@app.route('/luthier/entregar/<int:id>', methods=['POST'])
+def luthier_entregar(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    os = OrdemServico.query.get_or_404(id)
+    os.status = 'Despachado/Entregue'
+    db.session.commit()
+    flash('Instrumento entregue/despachado para o cliente com sucesso!')
+    return redirect(url_for('luthier_dashboard'))
 
 if __name__ == '__main__':
     app.run(debug=True)
