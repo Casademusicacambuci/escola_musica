@@ -21,7 +21,7 @@
         {% with messages = get_flashed_messages() %}
           {% if messages %}
             {% for message in messages %}
-              <div class="alert alert-info text-center" role="alert">{{ message }}</div>
+              <div class="alert alert-info text-center fw-bold shadow-sm" role="alert">{{ message }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
@@ -32,7 +32,8 @@
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <h5 class="card-title mb-3 text-primary">Nova Matrícula</h5>
-                        <form method="POST" action="{{ url_for('gerenciar_alunos') }}" enctype="multipart/form-data">
+                        <p class="small text-muted mb-3">O sistema gerará automaticamente as mensalidades até Dezembro após salvar.</p>
+                        <form method="POST" action="/secretaria/alunos" enctype="multipart/form-data">
                             <div class="mb-2">
                                 <label class="form-label small mb-1">Nome Completo</label>
                                 <input type="text" class="form-control form-control-sm" name="nome" required>
@@ -58,7 +59,7 @@
                                 </div>
                                 <div class="col-6">
                                     <label class="form-label small mb-1 fw-bold text-success">Mensalidade (R$)</label>
-                                    <input type="number" step="0.01" class="form-control form-control-sm border-success" name="valor_mensalidade" placeholder="Ex: 200.00" required>
+                                    <input type="number" step="0.01" class="form-control form-control-sm border-success" name="valor_mensalidade" placeholder="Ex: 290.00" required>
                                 </div>
                             </div>
                             <div class="row g-2 mb-2">
@@ -85,7 +86,7 @@
                                 <input class="form-control form-control-sm border-primary" type="file" name="comprovante">
                             </div>
                             <div class="d-grid mt-3">
-                                <button type="submit" class="btn btn-primary btn-sm">Salvar Matrícula</button>
+                                <button type="submit" class="btn btn-primary btn-sm fw-bold">Salvar e Gerar Carnê</button>
                             </div>
                         </form>
                     </div>
@@ -98,7 +99,7 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="card-title text-secondary mb-0">Matriculados ({{ alunos|length }})</h5>
-                            <a href="{{ url_for('exportar_alunos_csv') }}" class="btn btn-outline-success btn-sm">Planilha (CSV)</a>
+                            <a href="/secretaria/alunos/csv" class="btn btn-outline-success btn-sm">Planilha (CSV)</a>
                         </div>
                         {% if not alunos %}
                             <p class="text-muted text-center py-4">Nenhum aluno cadastrado.</p>
@@ -108,7 +109,6 @@
                                     <thead class="table-dark">
                                         <tr>
                                             <th>Nome</th>
-                                            <th>Curso</th>
                                             <th>Mensalidade</th>
                                             <th>Anexo</th>
                                             <th class="text-center">Ações</th>
@@ -118,7 +118,6 @@
                                         {% for aluno in alunos %}
                                         <tr>
                                             <td><strong>{{ aluno.nome }}</strong><br><small class="text-muted">{{ aluno.telefone }}</small></td>
-                                            <td><span class="badge bg-secondary">{{ aluno.curso }}</span></td>
                                             <td><strong class="text-success">R$ {{ "%.2f"|format(aluno.valor_mensalidade) }}</strong></td>
                                             <td>
                                                 {% if aluno.comprovante_endereco %}
@@ -128,12 +127,53 @@
                                                 {% endif %}
                                             </td>
                                             <td class="text-center">
+                                                <!-- BOTÃO DO CARNÊ -->
+                                                <button type="button" class="btn btn-warning btn-xs py-0 px-1 mb-1 fw-bold" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalFin{{ aluno.id }}">Carnê ($)</button>
+                                                
                                                 <button type="button" class="btn btn-primary btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalEditar{{ aluno.id }}">Editar</button>
-                                                <form action="{{ url_for('excluir_aluno', id=aluno.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Excluir aluno?');">
+                                                <form action="/secretaria/alunos/excluir/{{ aluno.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Isso excluirá o aluno e todo o carnê dele não pago. Confirmar?');">
                                                     <button type="submit" class="btn btn-danger btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;">X</button>
                                                 </form>
                                             </td>
                                         </tr>
+
+                                        <!-- MODAL DO CARNÊ HISTÓRICO -->
+                                        <div class="modal fade" id="modalFin{{ aluno.id }}" tabindex="-1" aria-hidden="true">
+                                          <div class="modal-dialog">
+                                            <div class="modal-content">
+                                              <div class="modal-header bg-warning text-dark">
+                                                <h6 class="modal-title fw-bold">Histórico de Mensalidades: {{ aluno.nome }}</h6>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                              </div>
+                                              <div class="modal-body p-0">
+                                                <table class="table table-sm table-striped mb-0 text-center" style="font-size: 0.85rem;">
+                                                    <thead class="table-light">
+                                                        <tr><th>Vencimento</th><th>Valor</th><th>Cód. PDV</th><th>Status</th></tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for c in contas_alunos[aluno.id] %}
+                                                        <tr>
+                                                            <td>{{ c.data_vencimento.strftime('%d/%m/%Y') }}</td>
+                                                            <td>R$ {{ "%.2f"|format(c.valor) }}</td>
+                                                            <td><strong style="letter-spacing:1px;">REC-{{ c.id }}</strong></td>
+                                                            <td>
+                                                                {% if c.status == 'Pago' %}
+                                                                    <span class="badge bg-success">Pago</span>
+                                                                {% else %}
+                                                                    <span class="badge bg-danger">A Pagar</span>
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                        {% if not contas_alunos[aluno.id] %}
+                                                        <tr><td colspan="4" class="py-4 text-muted">Nenhuma mensalidade gerada para este aluno.</td></tr>
+                                                        {% endif %}
+                                                    </tbody>
+                                                </table>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
 
                                         <!-- Modal de Edição -->
                                         <div class="modal fade" id="modalEditar{{ aluno.id }}" tabindex="-1" aria-hidden="true">
@@ -143,7 +183,8 @@
                                                 <h5 class="modal-title">Editar Aluno: {{ aluno.nome }}</h5>
                                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                               </div>
-                                              <form action="{{ url_for('editar_aluno', id=aluno.id) }}" method="POST">
+                                              <!-- ROTA DE CORREÇÃO FORÇADA -->
+                                              <form action="/secretaria/alunos/editar/{{ aluno.id }}" method="POST">
                                                   <div class="modal-body text-start">
                                                     <div class="mb-2">
                                                         <label class="form-label small">Nome Completo</label>
@@ -179,7 +220,7 @@
                                                     </div>
                                                   </div>
                                                   <div class="modal-footer">
-                                                    <button type="submit" class="btn btn-primary btn-sm w-100">Salvar Alterações</button>
+                                                    <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">Salvar Alterações</button>
                                                   </div>
                                               </form>
                                             </div>
