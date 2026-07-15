@@ -3,9 +3,6 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
-# ==========================================
-# MÓDULOS DE BASE (USUÁRIOS E SECRETARIA)
-# ==========================================
 class Usuario(db.Model):
     __tablename__ = 'usuarios'
     id = db.Column(db.Integer, primary_key=True)
@@ -30,7 +27,7 @@ class Aluno(db.Model):
     nivel = db.Column(db.String(30), nullable=False, default='Iniciante')
     data_matricula = db.Column(db.Date, default=datetime.utcnow)
     status = db.Column(db.String(20), nullable=False, default='Ativo')
-    valor_mensalidade = db.Column(db.Float, default=0.0) # NOVO: Para cálculo do repasse
+    valor_mensalidade = db.Column(db.Float, default=0.0) 
     aulas = db.relationship('Aula', backref='aluno', lazy=True)
 
 class Professor(db.Model):
@@ -60,9 +57,6 @@ class Aula(db.Model):
     status = db.Column(db.String(20), nullable=False, default='Agendada')
     observacoes = db.Column(db.Text)
 
-# ==========================================
-# MÓDULOS DE ESTÚDIO
-# ==========================================
 class AgendamentoEstudio(db.Model):
     __tablename__ = 'agendamentos_estudio'
     id = db.Column(db.Integer, primary_key=True)
@@ -81,9 +75,6 @@ class AgendamentoEstudio(db.Model):
     status_trabalho = db.Column(db.String(20), nullable=False, default='Agendado')
     observacoes = db.Column(db.Text) 
 
-# ==========================================
-# MÓDULO 01 - FINANCEIRO & BACKOFFICE 
-# ==========================================
 class Fornecedor(db.Model):
     __tablename__ = 'fornecedores'
     id = db.Column(db.Integer, primary_key=True)
@@ -147,9 +138,6 @@ class FluxoCaixa(db.Model):
     data_movimento = db.Column(db.DateTime, default=datetime.utcnow)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
 
-# ==========================================
-# MÓDULOS DE LOJA / ESTOQUE
-# ==========================================
 class Produto(db.Model):
     __tablename__ = 'produtos'
     id = db.Column(db.Integer, primary_key=True)
@@ -159,3 +147,39 @@ class Produto(db.Model):
     preco_custo = db.Column(db.Float, nullable=False, default=0.0)
     preco_venda = db.Column(db.Float, nullable=False)
     quantidade_estoque = db.Column(db.Integer, nullable=False, default=0)
+
+# ==========================================
+# NOVO: MÓDULO LUTHIER (ORDEM DE SERVIÇO)
+# ==========================================
+class OrdemServico(db.Model):
+    __tablename__ = 'ordens_servico'
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_nome = db.Column(db.String(100), nullable=False)
+    cliente_cpf = db.Column(db.String(14))
+    cliente_telefone = db.Column(db.String(20), nullable=False)
+    cliente_email = db.Column(db.String(120))
+    cliente_endereco = db.Column(db.Text)
+    
+    instrumento_tipo = db.Column(db.String(50), nullable=False)
+    instrumento_marca = db.Column(db.String(50))
+    instrumento_modelo = db.Column(db.String(50))
+    descricao_problema = db.Column(db.Text, nullable=False)
+    
+    foto_1 = db.Column(db.String(255))
+    foto_2 = db.Column(db.String(255))
+    foto_3 = db.Column(db.String(255))
+    foto_4 = db.Column(db.String(255))
+    video_link = db.Column(db.String(255)) # Pode ser link do YouTube ou Drive
+    
+    # Status: 'Em Análise', 'Aguardando Aprovação', 'Em Manutenção', 'Finalizado', 'Despachado/Entregue'
+    status = db.Column(db.String(50), default='Em Análise')
+    
+    solucao_sugerida = db.Column(db.Text)
+    prazo_estimado = db.Column(db.String(50))
+    data_entrega = db.Column(db.Date)
+    
+    valor_mao_de_obra = db.Column(db.Float, default=0.0)
+    valor_pecas = db.Column(db.Float, default=0.0)
+    luthier_responsavel = db.Column(db.String(100))
+    
+    data_abertura = db.Column(db.DateTime, default=datetime.utcnow)
