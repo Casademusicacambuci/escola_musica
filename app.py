@@ -5,7 +5,6 @@ import os
 import csv
 from io import StringIO
 
-# IMPORTANDO TODAS AS TABELAS (INCLUSIVE A NOVA ORDEM DE SERVIÇO DO LUTHIER)
 from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula, Fornecedor, Funcionario, ContaReceber, ContaPagar, FluxoCaixa, Produto, OrdemServico
 
 app = Flask(__name__)
@@ -19,7 +18,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 db.init_app(app)
 
-# Banco Blindado (Garante que as tabelas existam sem apagar os dados)
 with app.app_context():
     db.create_all() 
     admin_existente = Usuario.query.filter_by(username='admin').first()
@@ -59,7 +57,7 @@ def dashboard():
     return render_template('dashboard.html', nome=session.get('nome'), role=session.get('role'))
 
 # ==============================================================================
-# SECRETARIA E ALUNOS (COM GERAÇÃO DE CARNÊ)
+# SECRETARIA E ALUNOS 
 # ==============================================================================
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
@@ -94,7 +92,6 @@ def gerenciar_alunos():
             db.session.add(novo_aluno)
             db.session.flush() 
             
-            # GERAÇÃO DO CARNÊ ATÉ DEZEMBRO
             mes_atual = data_mat.month
             ano_atual = data_mat.year
             for mes in range(mes_atual, 13):
@@ -120,8 +117,6 @@ def gerenciar_alunos():
 def editar_aluno(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     aluno = Aluno.query.get_or_404(id)
-    
-    # Blindagem contra campos vazios
     aluno.nome = request.form.get('nome') or aluno.nome
     aluno.email = request.form.get('email') or aluno.email
     aluno.telefone = request.form.get('telefone') or aluno.telefone
@@ -165,9 +160,6 @@ def exportar_alunos_csv():
         cw.writerow([a.nome, a.cpf, a.valor_mensalidade, a.email, a.telefone, a.nome_responsavel, a.curso, a.status])
     return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_alunos.csv"})
 
-# ==============================================================================
-# PROFESSORES E AULAS
-# ==============================================================================
 @app.route('/secretaria/professores', methods=['GET', 'POST'])
 def gerenciar_professores():
     if 'usuario_id' not in session: return redirect(url_for('login'))
@@ -258,14 +250,12 @@ def gerenciar_aulas():
 def editar_aula(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     aula = Aula.query.get_or_404(id)
-    aula.aluno_id = request.form.get('aluno_id')
-    aula.professor_id = request.form.get('professor_id')
+    aula.aluno_id = request.form.get('aluno_id'); aula.professor_id = request.form.get('professor_id')
     aula.instrumento = request.form.get('instrumento')
     aula.data_aula = datetime.strptime(request.form.get('data_aula'), '%Y-%m-%d').date()
     aula.horario_inicio = datetime.strptime(request.form.get('horario_inicio'), '%H:%M').time()
     aula.horario_final = datetime.strptime(request.form.get('horario_final'), '%H:%M').time()
-    aula.status = request.form.get('status')
-    aula.observacoes = request.form.get('observacoes')
+    aula.status = request.form.get('status'); aula.observacoes = request.form.get('observacoes')
     db.session.commit()
     flash('Aula atualizada!')
     return redirect(url_for('gerenciar_aulas'))
@@ -367,7 +357,7 @@ def excluir_estudio(id):
     return redirect(url_for('gerenciar_estudios'))
 
 # ==============================================================================
-# MÓDULO FINANCEIRO (COM NOVA REGRA DE 40% POR AULA E DIVISÃO DE CARNÊS)
+# MÓDULO FINANCEIRO
 # ==============================================================================
 @app.route('/financeiro', methods=['GET'])
 def financeiro_dashboard():
@@ -376,7 +366,6 @@ def financeiro_dashboard():
         return redirect(url_for('dashboard'))
     
     hoje = datetime.utcnow().date()
-    
     if hoje.month == 12:
         limite_mes = datetime(hoje.year + 1, 1, 1).date()
     else:
@@ -385,7 +374,6 @@ def financeiro_dashboard():
     contas_receber_todas = ContaReceber.query.order_by(ContaReceber.data_vencimento).all()
     contas_pagar = ContaPagar.query.order_by(ContaPagar.data_vencimento).all()
     
-    # Ignora as sangrias do PDV no saldo
     contas_receber = [c for c in contas_receber_todas if c.modulo_origem != 'Sangria / Despesa']
     
     total_recebido = sum(c.valor for c in contas_receber if c.status == 'Pago')
@@ -672,7 +660,7 @@ def fechamento_caixa():
     return jsonify(resumo)
 
 # ==============================================================================
-# MÓDULO LUTHIER / OFICINA
+# MÓDULO LUTHIER / OFICINA (Com Blindagem de Data de Entrega)
 # ==============================================================================
 @app.route('/luthier', methods=['GET'])
 def luthier_dashboard():
@@ -714,15 +702,25 @@ def luthier_orcamento(id):
     os = OrdemServico.query.get_or_404(id)
     
     os.solucao_sugerida = request.form.get('solucao_sugerida')
-    os.valor_mao_de_obra = float(request.form.get('valor_mao_de_obra', '0').replace(',', '.'))
-    os.valor_pecas = float(request.form.get('valor_pecas', '0').replace(',', '.'))
+    
+    # Blindagem de campos vazios para não dar tela de erro
+    v_mao_obra = request.form.get('valor_mao_de_obra', '0').replace(',', '.')
+    os.valor_mao_de_obra = float(v_mao_obra) if v_mao_obra else 0.0
+    
+    v_pecas = request.form.get('valor_pecas', '0').replace(',', '.')
+    os.valor_pecas = float(v_pecas) if v_pecas else 0.0
+    
     os.prazo_estimado = request.form.get('prazo_estimado')
-    os.data_entrega = datetime.strptime(request.form.get('data_entrega'), '%Y-%m-%d').date()
+    
+    data_ent_str = request.form.get('data_entrega')
+    if data_ent_str:
+        os.data_entrega = datetime.strptime(data_ent_str, '%Y-%m-%d').date()
+        
     os.luthier_responsavel = request.form.get('luthier_responsavel')
     os.status = 'Aguardando Aprovação'
     
     db.session.commit()
-    flash('Orçamento salvo! Aguarde a aprovação do cliente.')
+    flash('Orçamento salvo! Clique em "Enviar Zap" para falar com o cliente.')
     return redirect(url_for('luthier_dashboard'))
 
 @app.route('/luthier/aprovar/<int:id>', methods=['POST'])
@@ -731,7 +729,7 @@ def luthier_aprovar(id):
     os = OrdemServico.query.get_or_404(id)
     os.status = 'Em Manutenção'
     
-    valor_total = os.valor_mao_de_obra + os.valor_pecas
+    valor_total = (os.valor_mao_de_obra or 0) + (os.valor_pecas or 0)
     valor_sinal = valor_total / 2.0
     
     db.session.add(ContaReceber(
@@ -749,7 +747,7 @@ def luthier_finalizar(id):
     os = OrdemServico.query.get_or_404(id)
     os.status = 'Finalizado'
     
-    valor_total = os.valor_mao_de_obra + os.valor_pecas
+    valor_total = (os.valor_mao_de_obra or 0) + (os.valor_pecas or 0)
     valor_restante = valor_total / 2.0
     
     db.session.add(ContaReceber(
@@ -758,11 +756,12 @@ def luthier_finalizar(id):
         data_vencimento=datetime.utcnow().date(), status="Pendente"
     ))
     
-    comissao = os.valor_mao_de_obra * 0.40
-    db.session.add(ContaPagar(
-        descricao=f"Comissão Luthier {os.luthier_responsavel} (OS-{os.id})",
-        valor=comissao, data_vencimento=datetime.utcnow().date(), status="Pendente"
-    ))
+    comissao = (os.valor_mao_de_obra or 0) * 0.40
+    if comissao > 0:
+        db.session.add(ContaPagar(
+            descricao=f"Comissão Luthier {os.luthier_responsavel} (OS-{os.id})",
+            valor=comissao, data_vencimento=datetime.utcnow().date(), status="Pendente"
+        ))
     
     db.session.commit()
     flash('Serviço concluído! Cobrança final enviada ao cliente e comissão do Luthier gerada.')
@@ -774,7 +773,7 @@ def luthier_entregar(id):
     os = OrdemServico.query.get_or_404(id)
     os.status = 'Despachado/Entregue'
     db.session.commit()
-    flash('Instrumento entregue/despachado para o cliente com sucesso!')
+    flash('Instrumento entregue! A ficha foi movida para o Arquivo Morto no final da página.')
     return redirect(url_for('luthier_dashboard'))
 
 if __name__ == '__main__':
