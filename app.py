@@ -18,7 +18,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 db.init_app(app)
 
-# Banco Blindado
 with app.app_context():
     db.create_all() 
     admin_existente = Usuario.query.filter_by(username='admin').first()
@@ -58,7 +57,7 @@ def dashboard():
     return render_template('dashboard.html', nome=session.get('nome'), role=session.get('role'))
 
 # ==============================================================================
-# SECRETARIA E PROFESSORES
+# SECRETARIA E ALUNOS (COM GERAÇÃO DE CARNÊ ANUAL)
 # ==============================================================================
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
@@ -69,6 +68,7 @@ def gerenciar_alunos():
         data_nasc = datetime.strptime(data_nasc_str, '%Y-%m-%d').date() if data_nasc_str else None
         data_mat = datetime.strptime(data_mat_str, '%Y-%m-%d').date() if data_mat_str else datetime.utcnow().date()
         cpf = request.form.get('cpf')
+        
         arquivo = request.files.get('comprovante')
         caminho_arquivo = None
         if arquivo and arquivo.filename != '':
@@ -90,15 +90,40 @@ def gerenciar_alunos():
                                nivel=request.form.get('nivel'), data_matricula=data_mat, status=request.form.get('status'),
                                valor_mensalidade=valor_mensalidade)
             db.session.add(novo_aluno)
+            db.session.flush() # Pega o ID antes de commitar para o Carnê
+            
+            # GERAÇÃO DO CARNÊ ATÉ DEZEMBRO (Vencimento dia 10)
+            mes_atual = data_mat.month
+            ano_atual = data_mat.year
+            for mes in range(mes_atual, 13):
+                vencimento = datetime(ano_atual, mes, 10).date()
+                nova_conta = ContaReceber(
+                    descricao=f"Mensalidade {mes:02d}/{ano_atual} - {novo_aluno.nome}",
+                    modulo_origem="Mensalidade", origem_id=novo_aluno.id,
+                    valor=valor_mensalidade, data_vencimento=vencimento, status="Pendente"
+                )
+                db.session.add(nova_conta)
+                
             db.session.commit()
-            flash('Aluno matriculado com sucesso!')
+            flash('Aluno matriculado e carnê de mensalidades gerado até dezembro!')
             return redirect(url_for('gerenciar_alunos'))
-    return render_template('alunos.html', alunos=Aluno.query.order_by(Aluno.nome).all())
+            
+    alunos = Aluno.query.order_by(Aluno.nome).all()
+    # Puxa o carnê de cada aluno para a tela
+    contas_alunos = {}
+    for a in alunos:
+        contas_alunos[a.id] = ContaReceber.query.filter_by(modulo_origem='Mensalidade', origem_id=a.id).order_by(ContaReceber.data_vencimento).all()
+    return render_template('alunos.html', alunos=alunos, contas_alunos=contas_alunos)
 
-@app.route('/secretaria/alunos/editar/<int:id>', methods=['POST'])
+# CORREÇÃO DO ERRO 404 NO EDITAR
+@app.route('/secretaria/alunos/editar/<id>', methods=['POST'])
 def editar_aluno(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    aluno = Aluno.query.get_or_404(id)
+    aluno = Aluno.query.get(int(id))
+    if not aluno:
+        flash('Erro de sistema: Aluno não localizado no banco.')
+        return redirect(url_for('gerenciar_alunos'))
+        
     aluno.nome = request.form.get('nome')
     aluno.email = request.form.get('email')
     aluno.telefone = request.form.get('telefone')
@@ -116,11 +141,13 @@ def editar_aluno(id):
 def excluir_aluno(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     aluno = Aluno.query.get_or_404(id)
+    # Apaga também as contas a receber pendentes (o carnê) dele
+    ContaReceber.query.filter_by(modulo_origem='Mensalidade', origem_id=aluno.id, status='Pendente').delete()
     if aluno.comprovante_endereco and os.path.exists(os.path.join(app.root_path, 'static', aluno.comprovante_endereco)):
         os.remove(os.path.join(app.root_path, 'static', aluno.comprovante_endereco))
     db.session.delete(aluno)
     db.session.commit()
-    flash('Aluno excluído.')
+    flash('Aluno e faturas pendentes excluídos.')
     return redirect(url_for('gerenciar_alunos'))
 
 @app.route('/secretaria/alunos/csv')
@@ -140,7 +167,6 @@ def gerenciar_professores():
         data_nasc_str = request.form.get('data_nascimento')
         data_nasc = datetime.strptime(data_nasc_str, '%Y-%m-%d').date() if data_nasc_str else None
         cpf = request.form.get('cpf')
-        
         arquivo = request.files.get('comprovante')
         caminho_arquivo = None
         if arquivo and arquivo.filename != '':
@@ -276,7 +302,6 @@ def gerenciar_estudios():
         db.session.add(novo_agendamento)
         db.session.commit()
         
-        # Quando conclui, envia para o financeiro como "Pendente" ou "Pago"
         if request.form.get('status_trabalho') == 'Concluído':
             nova_conta = ContaReceber(
                 descricao=f"{tipo_estudio} - Cliente: {novo_agendamento.nome_cliente}",
@@ -329,7 +354,7 @@ def excluir_estudio(id):
     return redirect(url_for('gerenciar_estudios'))
 
 # ==============================================================================
-# MÓDULO 01 - FINANCEIRO & BACKOFFICE 
+# MÓDULO FINANCEIRO (COM NOVA REGRA DE 40% POR AULA)
 # ==============================================================================
 @app.route('/financeiro', methods=['GET'])
 def financeiro_dashboard():
@@ -352,21 +377,25 @@ def financeiro_dashboard():
 
     inadimplentes = [c for c in contas_receber if c.status == 'Pendente' and c.data_vencimento < hoje]
 
+    # NOVA REGRA DOS 40% DIVIDIDO POR 4 (POR AULA)
     professores = Professor.query.filter_by(status='Ativo').all()
     repasse_profs = []
     for prof in professores:
         aulas_concluidas = Aula.query.filter_by(professor_id=prof.id, status='Concluída').all()
         aulas_mes = [a for a in aulas_concluidas if a.data_aula.month == mes_atual and a.data_aula.year == ano_atual]
-        alunos_unicos = list({a.aluno for a in aulas_mes}) 
-        valor_mensalidades = sum((aluno.valor_mensalidade or 0.0) for aluno in alunos_unicos)
-        comissao = valor_mensalidades * 0.40
         
-        if valor_mensalidades > 0:
+        comissao_total = 0.0
+        
+        for aula in aulas_mes:
+            if aula.aluno and aula.aluno.valor_mensalidade:
+                # Cada aula dada vale (40% da mensalidade) / 4
+                comissao_total += (aula.aluno.valor_mensalidade * 0.40) / 4.0
+        
+        if comissao_total > 0:
             repasse_profs.append({
                 'nome': prof.nome,
-                'qtd_alunos': len(alunos_unicos),
-                'valor_base': valor_mensalidades,
-                'comissao': comissao
+                'qtd_aulas': len(aulas_mes),
+                'comissao': comissao_total
             })
 
     return render_template('financeiro.html', 
@@ -384,7 +413,7 @@ def registrar_repasse():
     mes_atual = datetime.utcnow().strftime('%m/%Y')
     
     nova_despesa = ContaPagar(
-        descricao=f"Repasse Professor(a) {nome_prof} - Mês {mes_atual}",
+        descricao=f"Repasse Prof(a) {nome_prof} - Mês {mes_atual}",
         valor=valor_comissao,
         data_vencimento=datetime.utcnow().date(),
         status="Pendente"
@@ -459,7 +488,6 @@ def nova_conta_pagar():
     flash('Despesa lançada com sucesso!')
     return redirect(url_for('financeiro_dashboard'))
 
-# NOVA ROTA: O BOTÃO VERDE DE PAGAR DIRETO NO FINANCEIRO
 @app.route('/financeiro/pagar/confirmar/<int:id>', methods=['POST'])
 def confirmar_pagamento(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
@@ -532,7 +560,7 @@ def excluir_produto(id):
     return redirect(url_for('gerenciar_estoque'))
 
 # ==============================================================================
-# CAIXA PDV (COM A INTELIGÊNCIA PAG- E REC-)
+# CAIXA PDV 
 # ==============================================================================
 @app.route('/caixa', methods=['GET'])
 def caixa_pdv():
@@ -543,8 +571,6 @@ def caixa_pdv():
 def api_buscar_produto(codigo):
     if 'usuario_id' not in session: return jsonify({'erro': 'Não autorizado'})
     codigo = codigo.strip().upper()
-    
-    # 1. Verifica se é um Recebimento Pendente (REC-)
     if codigo.startswith('REC-'):
         try:
             conta_id = int(codigo.split('-')[1])
@@ -554,23 +580,19 @@ def api_buscar_produto(codigo):
                 return jsonify({'id': f'REC-{conta.id}', 'nome': f"PAGAMENTO: {conta.modulo_origem} ({conta.descricao})", 'preco': conta.valor, 'tipo': 'receita'})
         except: pass
 
-    # 2. Verifica se é um Pagamento/Despesa (PAG-) -> A genialidade que você sugeriu!
     if codigo.startswith('PAG-'):
         try:
             conta_id = int(codigo.split('-')[1])
             conta = ContaPagar.query.get(conta_id)
             if conta:
                 if conta.status == 'Pago': return jsonify({'erro': 'Esta despesa já consta como PAGA!'})
-                # O preço entra negativo na tela para subtrair do carrinho!
                 return jsonify({'id': f'PAG-{conta.id}', 'nome': f"SAÍDA DE CAIXA: {conta.descricao}", 'preco': -abs(conta.valor), 'tipo': 'despesa'})
         except: pass
 
-    # 3. Verifica se é um Produto normal de Estoque
     produto = Produto.query.filter_by(codigo_barras=codigo).first()
     if produto:
         if produto.quantidade_estoque <= 0: return jsonify({'erro': f'Produto "{produto.nome}" sem estoque!'})
         return jsonify({'id': produto.id, 'nome': produto.nome, 'preco': produto.preco_venda, 'tipo': 'produto'})
-        
     return jsonify({'erro': 'Código não encontrado. Verifique se digitou certo.'})
 
 @app.route('/caixa/finalizar', methods=['POST'])
@@ -582,37 +604,28 @@ def finalizar_venda():
     if not itens: return jsonify({'sucesso': False, 'erro': 'Carrinho vazio'})
 
     produtos_fisicos = []
-    
     for item in itens:
         item_id = str(item['id'])
-        
-        # Se for Mensalidade/Estúdio a receber
         if item_id.startswith('REC-'):
             conta = ContaReceber.query.get(int(item_id.split('-')[1]))
             if conta:
                 conta.status = 'Pago'; conta.data_pagamento = datetime.utcnow().date(); conta.forma_pagamento = forma_pagamento
-                
-        # Se for um Pagamento de Despesa/Salário (PAG-)
         elif item_id.startswith('PAG-'):
             conta_p = ContaPagar.query.get(int(item_id.split('-')[1]))
             if conta_p:
                 conta_p.status = 'Pago'
                 conta_p.data_pagamento = datetime.utcnow().date()
-                # Cria uma saída negativa fantasma no caixa para a gaveta bater no Fechamento do dia!
                 db.session.add(ContaReceber(
                     descricao=f"SAÍDA PDV: Pagamento {conta_p.descricao}", modulo_origem="Sangria / Despesa", valor=-abs(conta_p.valor),
                     data_vencimento=datetime.utcnow().date(), data_pagamento=datetime.utcnow().date(),
                     status="Pago", forma_pagamento=forma_pagamento
                 ))
-
-        # Se for Produto Físico (Café, Loja)
         else:
             produto = Produto.query.get(item['id'])
             if produto:
                 produto.quantidade_estoque -= item['quantidade']
                 produtos_fisicos.append(f"{item['quantidade']}x {produto.nome}")
                 
-    # Lança a Receita dos produtos físicos vendidos
     if produtos_fisicos:
         total_produtos = sum(float(i['preco']) * int(i['quantidade']) for i in itens if not str(i['id']).startswith('REC-') and not str(i['id']).startswith('PAG-'))
         if total_produtos > 0:
