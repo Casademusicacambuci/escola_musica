@@ -250,12 +250,14 @@ def gerenciar_aulas():
 def editar_aula(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     aula = Aula.query.get_or_404(id)
-    aula.aluno_id = request.form.get('aluno_id'); aula.professor_id = request.form.get('professor_id')
+    aula.aluno_id = request.form.get('aluno_id')
+    aula.professor_id = request.form.get('professor_id')
     aula.instrumento = request.form.get('instrumento')
     aula.data_aula = datetime.strptime(request.form.get('data_aula'), '%Y-%m-%d').date()
     aula.horario_inicio = datetime.strptime(request.form.get('horario_inicio'), '%H:%M').time()
     aula.horario_final = datetime.strptime(request.form.get('horario_final'), '%H:%M').time()
-    aula.status = request.form.get('status'); aula.observacoes = request.form.get('observacoes')
+    aula.status = request.form.get('status')
+    aula.observacoes = request.form.get('observacoes')
     db.session.commit()
     flash('Aula atualizada!')
     return redirect(url_for('gerenciar_aulas'))
@@ -357,7 +359,7 @@ def excluir_estudio(id):
     return redirect(url_for('gerenciar_estudios'))
 
 # ==============================================================================
-# MÓDULO FINANCEIRO
+# MÓDULO FINANCEIRO (COM NOVA EXPORTAÇÃO CSV LIMPA)
 # ==============================================================================
 @app.route('/financeiro', methods=['GET'])
 def financeiro_dashboard():
@@ -430,39 +432,46 @@ def registrar_repasse():
     flash(f'Pagamento gerado! Vá na aba "A Pagar (Saídas)" para visualizar ou editar.')
     return redirect(url_for('financeiro_dashboard'))
 
+# A NOVA FUNÇÃO DE EXPORTAR (LIMPA E TABULAR PARA O EXCEL)
 @app.route('/financeiro/exportar', methods=['POST'])
 def exportar_financeiro():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    d_inicio = datetime.strptime(request.form.get('data_inicio'), '%Y-%m-%d').date()
-    d_fim = datetime.strptime(request.form.get('data_fim'), '%Y-%m-%d').date()
+    d_inicio_str = request.form.get('data_inicio')
+    d_fim_str = request.form.get('data_fim')
+    
+    # Prevenção caso o usuário envie vazio
+    d_inicio = datetime.strptime(d_inicio_str, '%Y-%m-%d').date() if d_inicio_str else datetime.utcnow().date()
+    d_fim = datetime.strptime(d_fim_str, '%Y-%m-%d').date() if d_fim_str else datetime.utcnow().date()
+    
     tipo = request.form.get('tipo_relatorio')
     filtro_modulo = request.form.get('filtro_modulo', 'Todos')
 
-    si = StringIO(); cw = csv.writer(si, delimiter=';')
-    cw.writerow([f'RELATORIO FINANCEIRO - Periodo: {d_inicio} ate {d_fim}'])
-    if filtro_modulo != 'Todos':
-        cw.writerow([f'Filtro Aplicado: {filtro_modulo}'])
-    cw.writerow([])
+    si = StringIO()
+    cw = csv.writer(si, delimiter=';')
+    
+    # Cabeçalho Limpo, Contínuo e Único para o Excel não se perder
+    cw.writerow(['TIPO', 'VENCIMENTO', 'PAGAMENTO', 'MÓDULO/ORIGEM', 'DESCRIÇÃO', 'VALOR (R$)', 'STATUS'])
     
     if tipo in ['receitas', 'ambos']:
-        cw.writerow(['ENTRADAS', 'Vencimento', 'Pagamento', 'Origem', 'Descricao', 'Valor', 'Status'])
         query_receitas = ContaReceber.query.filter(ContaReceber.data_vencimento >= d_inicio, ContaReceber.data_vencimento <= d_fim, ContaReceber.modulo_origem != 'Sangria / Despesa')
         if filtro_modulo != 'Todos':
             query_receitas = query_receitas.filter(ContaReceber.modulo_origem == filtro_modulo)
             
         for r in query_receitas.order_by(ContaReceber.data_vencimento).all():
             dp = r.data_pagamento.strftime('%d/%m/%Y') if r.data_pagamento else ''
-            cw.writerow(['', r.data_vencimento.strftime('%d/%m/%Y'), dp, r.modulo_origem, r.descricao, r.valor, r.status])
+            # Transforma ponto em vírgula para o Excel Brasileiro entender como Moeda
+            valor_br = f"{r.valor:.2f}".replace('.', ',')
+            cw.writerow(['ENTRADA', r.data_vencimento.strftime('%d/%m/%Y'), dp, r.modulo_origem, r.descricao, valor_br, r.status])
             
     if tipo in ['despesas', 'ambos']:
-        cw.writerow([])
-        cw.writerow(['SAIDAS', 'Vencimento', 'Pagamento', 'Descricao', 'Valor', 'Status'])
+        # Despesas são gerais (não são separadas por módulo no BD), então exporta sempre se "Todos" estiver selecionado
         if filtro_modulo == 'Todos':
             for d in ContaPagar.query.filter(ContaPagar.data_vencimento >= d_inicio, ContaPagar.data_vencimento <= d_fim).order_by(ContaPagar.data_vencimento).all():
                 dp = d.data_pagamento.strftime('%d/%m/%Y') if d.data_pagamento else ''
-                cw.writerow(['', d.data_vencimento.strftime('%d/%m/%Y'), dp, d.descricao, d.valor, d.status])
+                valor_br = f"{d.valor:.2f}".replace('.', ',')
+                cw.writerow(['SAÍDA', d.data_vencimento.strftime('%d/%m/%Y'), dp, 'Despesa / Repasse', d.descricao, valor_br, d.status])
 
-    return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment;filename=relatorio_financeiro.csv"})
+    return Response('\ufeff' + si.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": f"attachment;filename=relatorio_financeiro.csv"})
 
 @app.route('/financeiro/receber/nova', methods=['POST'])
 def nova_conta_receber():
@@ -660,7 +669,7 @@ def fechamento_caixa():
     return jsonify(resumo)
 
 # ==============================================================================
-# MÓDULO LUTHIER / OFICINA (Com Blindagem de Data de Entrega)
+# MÓDULO LUTHIER / OFICINA
 # ==============================================================================
 @app.route('/luthier', methods=['GET'])
 def luthier_dashboard():
@@ -703,7 +712,6 @@ def luthier_orcamento(id):
     
     os.solucao_sugerida = request.form.get('solucao_sugerida')
     
-    # Blindagem de campos vazios para não dar tela de erro
     v_mao_obra = request.form.get('valor_mao_de_obra', '0').replace(',', '.')
     os.valor_mao_de_obra = float(v_mao_obra) if v_mao_obra else 0.0
     
