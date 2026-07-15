@@ -5,95 +5,91 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Casa de Música Cambuci</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #f4f6f9; }
-        .navbar { background-color: #212529; }
-        .card-modulo { transition: transform 0.2s; height: 100%; }
-        .card-modulo:hover { transform: translateY(-5px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
-        .modulo-bloqueado { opacity: 0.5; filter: grayscale(100%); cursor: not-allowed; }
-        .modulo-bloqueado:hover { transform: none; box-shadow: none; }
-    </style>
 </head>
-<body>
+<body class="bg-light">
 
-    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="/dashboard">
                 <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" height="30" class="me-2 rounded bg-white p-1">
-                <span>CRM | Casa de Música Cambuci</span>
+                <span>Casa de Música Cambuci</span>
             </a>
-            <div class="d-flex text-white align-items-center">
-                <span class="me-3 d-none d-md-block">Olá, <strong>{{ nome }}</strong> (Nível: {{ role | upper }})</span>
+            <div class="d-flex align-items-center text-white">
+                <span class="me-3 fw-bold">Operador: {{ nome }}</span>
                 <a href="/logout" class="btn btn-outline-light btn-sm">Sair</a>
             </div>
         </div>
     </nav>
 
-    <div class="container">
-        <h3 class="mb-4 text-center">Painel de Controle</h3>
+    <div class="container mb-5">
+        <h4 class="mb-4 text-secondary fw-bold">Painel de Controle (ERP)</h4>
         
-        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-5">
+        <div class="row g-4">
             
-            <div class="col">
-                <div class="card card-modulo text-center p-3 {% if role != 'admin' %} modulo-bloqueado {% endif %}">
-                    <div class="card-body">
-                        <h5 class="card-title text-success">01. Financeiro</h5>
-                        <p class="card-text text-muted small">Caixa, Pagamentos e NF.</p>
-                        <a href="/financeiro" class="btn btn-success btn-sm w-100 fw-bold {% if role != 'admin' %} disabled {% endif %}">Acessar Painel Financeiro</a>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col">
-                <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'secretaria'] %} modulo-bloqueado {% endif %}">
-                    <div class="card-body">
-                        <h5 class="card-title text-primary">02. Secretaria</h5>
-                        <p class="card-text text-muted small mb-2">Alunos, Professores e Aulas.</p>
-                        <div class="d-grid gap-2">
-                            <a href="/secretaria/alunos" class="btn btn-primary btn-sm {% if role not in ['admin', 'secretaria'] %} disabled {% endif %}">Alunos</a>
-                            <a href="/secretaria/professores" class="btn btn-outline-primary btn-sm {% if role not in ['admin', 'secretaria'] %} disabled {% endif %}">Professores</a>
-                            <a href="/secretaria/aulas" class="btn btn-dark btn-sm fw-bold {% if role not in ['admin', 'secretaria'] %} disabled {% endif %}">Agenda de Aulas</a>
+            <!-- 01. FINANCEIRO E CAIXA -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 border-top border-success border-3">
+                    <div class="card-body text-center d-flex flex-column">
+                        <h5 class="card-title text-success fw-bold">01. Financeiro & Caixa</h5>
+                        <p class="small text-muted mb-4">Gestão de pagamentos, PDV e repasses.</p>
+                        <div class="mt-auto">
+                            <a href="/financeiro" class="btn btn-success w-100 mb-2 fw-bold">Painel Financeiro</a>
+                            <a href="/caixa" class="btn btn-dark w-100 fw-bold">Caixa Livre (PDV)</a>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="col">
-                <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'estudio', 'secretaria'] %} modulo-bloqueado {% endif %}">
-                    <div class="card-body">
-                        <h5 class="card-title text-danger">03. Estúdios (Central)</h5>
-                        <p class="card-text text-muted small">Gravação, Videoclipe e Ensaios.</p>
-                        <a href="/estudios" class="btn btn-danger btn-sm w-100 {% if role not in ['admin', 'estudio', 'secretaria'] %} disabled {% endif %}">Acessar Agenda</a>
+            <!-- 02. SECRETARIA -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 border-top border-primary border-3">
+                    <div class="card-body text-center d-flex flex-column">
+                        <h5 class="card-title text-primary fw-bold">02. Secretaria</h5>
+                        <p class="small text-muted mb-4">Alunos, Professores e Aulas.</p>
+                        <div class="mt-auto">
+                            <a href="/secretaria/alunos" class="btn btn-primary w-100 mb-2 fw-bold">Alunos</a>
+                            <a href="/secretaria/professores" class="btn btn-outline-primary w-100 mb-2 fw-bold">Professores</a>
+                            <a href="/secretaria/aulas" class="btn btn-dark w-100 fw-bold">Agenda de Aulas</a>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="col">
-                <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'loja'] %} modulo-bloqueado {% endif %}">
-                    <div class="card-body">
-                        <h5 class="card-title text-info">04. Loja & Luthier</h5>
-                        <p class="card-text text-muted small">Serviços e Manutenção.</p>
-                        <a href="#" class="btn btn-info text-white btn-sm w-100 {% if role not in ['admin', 'loja'] %} disabled {% endif %}">Em breve</a>
+            <!-- 03. ESTÚDIOS -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 border-top border-danger border-3">
+                    <div class="card-body text-center d-flex flex-column">
+                        <h5 class="card-title text-danger fw-bold">03. Estúdios (Central)</h5>
+                        <p class="small text-muted mb-4">Gravação, Videoclipe e Ensaios.</p>
+                        <div class="mt-auto">
+                            <a href="/estudios" class="btn btn-danger w-100 fw-bold">Acessar Agenda</a>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="col">
-                <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'loja'] %} modulo-bloqueado {% endif %}">
-                    <div class="card-body">
-                        <h5 class="card-title text-secondary">05. Estoque</h5>
-                        <p class="card-text text-muted small">Produtos, Café e Códigos de Barras.</p>
-                        <a href="/estoque" class="btn btn-secondary btn-sm w-100 {% if role not in ['admin', 'loja'] %} disabled {% endif %}">Acessar Estoque</a>
+            <!-- 04. LUTHIER (AGORA DESTRANCADO!) -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 border-top border-info border-3">
+                    <div class="card-body text-center d-flex flex-column">
+                        <h5 class="card-title text-info fw-bold">04. Oficina Luthier</h5>
+                        <p class="small text-muted mb-4">Serviços, Manutenção e Orçamentos.</p>
+                        <div class="mt-auto">
+                            <a href="/luthier" class="btn btn-info text-white w-100 fw-bold">Acessar Oficina (O.S.)</a>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="col">
-                <div class="card card-modulo text-center p-3 {% if role not in ['admin', 'caixa', 'secretaria', 'loja'] %} modulo-bloqueado {% endif %}">
-                    <div class="card-body">
-                        <h5 class="card-title text-warning">06. Caixa (PDV Único)</h5>
-                        <p class="card-text text-muted small">Frente de Caixa e Recibos.</p>
-                        <a href="/caixa" class="btn btn-warning text-dark btn-sm w-100 fw-bold {% if role not in ['admin', 'caixa', 'secretaria', 'loja'] %} disabled {% endif %}">Abrir PDV</a>
+            <!-- 05. ESTOQUE / LOJA -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 border-top border-secondary border-3">
+                    <div class="card-body text-center d-flex flex-column">
+                        <h5 class="card-title text-secondary fw-bold">05. Estoque da Loja</h5>
+                        <p class="small text-muted mb-4">Produtos Físicos e Códigos de Barras.</p>
+                        <div class="mt-auto">
+                            <a href="/estoque" class="btn btn-secondary w-100 fw-bold">Acessar Estoque</a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -101,5 +97,6 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
