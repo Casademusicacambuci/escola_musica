@@ -286,7 +286,7 @@
                           {% if os.foto_1 %}<div class="col-6"><a href="{{ url_for('static', filename=os.foto_1) }}" target="_blank"><img src="{{ url_for('static', filename=os.foto_1) }}" class="img-fluid rounded border shadow-sm"></a></div>{% endif %}
                           {% if os.foto_2 %}<div class="col-6"><a href="{{ url_for('static', filename=os.foto_2) }}" target="_blank"><img src="{{ url_for('static', filename=os.foto_2) }}" class="img-fluid rounded border shadow-sm"></a></div>{% endif %}
                           {% if os.foto_3 %}<div class="col-6"><a href="{{ url_for('static', filename=os.foto_3) }}" target="_blank"><img src="{{ url_for('static', filename=os.foto_3) }}" class="img-fluid rounded border shadow-sm"></a></div>{% endif %}
-                          {% if os.foto_4 %div class="col-6"><a href="{{ url_for('static', filename=os.foto_4) }}" target="_blank"><img src="{{ url_for('static', filename=os.foto_4) }}" class="img-fluid rounded border shadow-sm"></a></div>{% endif %}
+                          {% if os.foto_4 %}<div class="col-6"><a href="{{ url_for('static', filename=os.foto_4) }}" target="_blank"><img src="{{ url_for('static', filename=os.foto_4) }}" class="img-fluid rounded border shadow-sm"></a></div>{% endif %}
                       </div>
                       {% if not os.foto_1 and not os.foto_2 and not os.foto_3 and not os.foto_4 %}
                         <p class="small text-muted text-center mt-3">Nenhuma foto anexada.</p>
