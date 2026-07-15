@@ -57,7 +57,7 @@ def dashboard():
     return render_template('dashboard.html', nome=session.get('nome'), role=session.get('role'))
 
 # ==============================================================================
-# SECRETARIA E ALUNOS (BLINDAGEM DO EDITAR)
+# SECRETARIA E ALUNOS 
 # ==============================================================================
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
@@ -114,13 +114,10 @@ def gerenciar_alunos():
         contas_alunos[a.id] = ContaReceber.query.filter_by(modulo_origem='Mensalidade', origem_id=a.id).order_by(ContaReceber.data_vencimento).all()
     return render_template('alunos.html', alunos=alunos, contas_alunos=contas_alunos)
 
-# A CURA DO ERRO 500 E ATUALIZAÇÃO DO CARNÊ
 @app.route('/secretaria/alunos/editar/<int:id>', methods=['POST'])
 def editar_aluno(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     aluno = Aluno.query.get_or_404(id)
-    
-    # Blindagem: Se o form enviar vazio, mantém a informação que já estava salva
     aluno.nome = request.form.get('nome') or aluno.nome
     aluno.email = request.form.get('email') or aluno.email
     aluno.telefone = request.form.get('telefone') or aluno.telefone
@@ -132,7 +129,6 @@ def editar_aluno(id):
     v_mens = request.form.get('valor_mensalidade')
     if v_mens:
         novo_valor = float(v_mens.replace(',', '.'))
-        # Se o administrador alterou o preço, atualiza os carnês pendentes!
         if novo_valor != aluno.valor_mensalidade:
             aluno.valor_mensalidade = novo_valor
             pendentes = ContaReceber.query.filter_by(modulo_origem="Mensalidade", origem_id=aluno.id, status="Pendente").all()
@@ -359,7 +355,7 @@ def excluir_estudio(id):
     return redirect(url_for('gerenciar_estudios'))
 
 # ==============================================================================
-# MÓDULO FINANCEIRO
+# MÓDULO FINANCEIRO: CORREÇÃO MATEMÁTICA E CARNÊS
 # ==============================================================================
 @app.route('/financeiro', methods=['GET'])
 def financeiro_dashboard():
@@ -368,11 +364,18 @@ def financeiro_dashboard():
         return redirect(url_for('dashboard'))
     
     hoje = datetime.utcnow().date()
-    mes_atual = hoje.month
-    ano_atual = hoje.year
+    
+    # Define a divisão do mês atual vs futuro para os carnês
+    if hoje.month == 12:
+        limite_mes = datetime(hoje.year + 1, 1, 1).date()
+    else:
+        limite_mes = datetime(hoje.year, hoje.month + 1, 1).date()
 
-    contas_receber = ContaReceber.query.order_by(ContaReceber.data_vencimento).all()
+    contas_receber_todas = ContaReceber.query.order_by(ContaReceber.data_vencimento).all()
     contas_pagar = ContaPagar.query.order_by(ContaPagar.data_vencimento).all()
+    
+    # MÁGICA 1: O Painel ignora as Sangrias do Caixa PDV para não descontar 2 vezes!
+    contas_receber = [c for c in contas_receber_todas if c.modulo_origem != 'Sangria / Despesa']
     
     total_recebido = sum(c.valor for c in contas_receber if c.status == 'Pago')
     total_a_receber = sum(c.valor for c in contas_receber if c.status == 'Pendente')
@@ -382,11 +385,15 @@ def financeiro_dashboard():
 
     inadimplentes = [c for c in contas_receber if c.status == 'Pendente' and c.data_vencimento < hoje]
 
+    # MÁGICA 2: Divisão de abas. O que é até este mês, e o que é carnê futuro!
+    receber_atual = [c for c in contas_receber if c.data_vencimento < limite_mes]
+    receber_futuro = [c for c in contas_receber if c.data_vencimento >= limite_mes]
+
     professores = Professor.query.filter_by(status='Ativo').all()
     repasse_profs = []
     for prof in professores:
         aulas_concluidas = Aula.query.filter_by(professor_id=prof.id, status='Concluída').all()
-        aulas_mes = [a for a in aulas_concluidas if a.data_aula.month == mes_atual and a.data_aula.year == ano_atual]
+        aulas_mes = [a for a in aulas_concluidas if a.data_aula.month == hoje.month and a.data_aula.year == hoje.year]
         
         comissao_total = 0.0
         for aula in aulas_mes:
@@ -401,7 +408,7 @@ def financeiro_dashboard():
             })
 
     return render_template('financeiro.html', 
-                           receber=contas_receber, pagar=contas_pagar, 
+                           receber_atual=receber_atual, receber_futuro=receber_futuro, pagar=contas_pagar, 
                            fornecedores=Fornecedor.query.all(), funcionarios=Funcionario.query.all(),
                            t_recebido=total_recebido, t_a_receber=total_a_receber,
                            t_pago=total_pago, t_a_pagar=total_a_pagar, saldo=saldo_atual,
@@ -441,7 +448,8 @@ def exportar_financeiro():
     
     if tipo in ['receitas', 'ambos']:
         cw.writerow(['ENTRADAS', 'Vencimento', 'Pagamento', 'Origem', 'Descricao', 'Valor', 'Status'])
-        query_receitas = ContaReceber.query.filter(ContaReceber.data_vencimento >= d_inicio, ContaReceber.data_vencimento <= d_fim)
+        # Ignora as sangrias na planilha também
+        query_receitas = ContaReceber.query.filter(ContaReceber.data_vencimento >= d_inicio, ContaReceber.data_vencimento <= d_fim, ContaReceber.modulo_origem != 'Sangria / Despesa')
         if filtro_modulo != 'Todos':
             query_receitas = query_receitas.filter(ContaReceber.modulo_origem == filtro_modulo)
             
