@@ -57,7 +57,7 @@ def dashboard():
     return render_template('dashboard.html', nome=session.get('nome'), role=session.get('role'))
 
 # ==============================================================================
-# SECRETARIA E ALUNOS (COM GERAÇÃO DE CARNÊ ANUAL)
+# SECRETARIA E ALUNOS (BLINDAGEM DO EDITAR)
 # ==============================================================================
 @app.route('/secretaria/alunos', methods=['GET', 'POST'])
 def gerenciar_alunos():
@@ -90,9 +90,9 @@ def gerenciar_alunos():
                                nivel=request.form.get('nivel'), data_matricula=data_mat, status=request.form.get('status'),
                                valor_mensalidade=valor_mensalidade)
             db.session.add(novo_aluno)
-            db.session.flush() # Pega o ID antes de commitar para o Carnê
+            db.session.flush() 
             
-            # GERAÇÃO DO CARNÊ ATÉ DEZEMBRO (Vencimento dia 10)
+            # GERAÇÃO DO CARNÊ ATÉ DEZEMBRO
             mes_atual = data_mat.month
             ano_atual = data_mat.year
             for mes in range(mes_atual, 13):
@@ -109,30 +109,36 @@ def gerenciar_alunos():
             return redirect(url_for('gerenciar_alunos'))
             
     alunos = Aluno.query.order_by(Aluno.nome).all()
-    # Puxa o carnê de cada aluno para a tela
     contas_alunos = {}
     for a in alunos:
         contas_alunos[a.id] = ContaReceber.query.filter_by(modulo_origem='Mensalidade', origem_id=a.id).order_by(ContaReceber.data_vencimento).all()
     return render_template('alunos.html', alunos=alunos, contas_alunos=contas_alunos)
 
-# CORREÇÃO DO ERRO 404 NO EDITAR
-@app.route('/secretaria/alunos/editar/<id>', methods=['POST'])
+# A CURA DO ERRO 500 E ATUALIZAÇÃO DO CARNÊ
+@app.route('/secretaria/alunos/editar/<int:id>', methods=['POST'])
 def editar_aluno(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    aluno = Aluno.query.get(int(id))
-    if not aluno:
-        flash('Erro de sistema: Aluno não localizado no banco.')
-        return redirect(url_for('gerenciar_alunos'))
-        
-    aluno.nome = request.form.get('nome')
-    aluno.email = request.form.get('email')
-    aluno.telefone = request.form.get('telefone')
-    aluno.curso = request.form.get('curso')
-    aluno.nivel = request.form.get('nivel')
-    aluno.status = request.form.get('status')
-    aluno.endereco_completo = request.form.get('endereco')
-    v_mens = request.form.get('valor_mensalidade', '0')
-    aluno.valor_mensalidade = float(v_mens.replace(',', '.')) if v_mens else 0.0
+    aluno = Aluno.query.get_or_404(id)
+    
+    # Blindagem: Se o form enviar vazio, mantém a informação que já estava salva
+    aluno.nome = request.form.get('nome') or aluno.nome
+    aluno.email = request.form.get('email') or aluno.email
+    aluno.telefone = request.form.get('telefone') or aluno.telefone
+    aluno.curso = request.form.get('curso') or aluno.curso
+    aluno.nivel = request.form.get('nivel') or aluno.nivel
+    aluno.status = request.form.get('status') or aluno.status
+    aluno.endereco_completo = request.form.get('endereco') or aluno.endereco_completo
+    
+    v_mens = request.form.get('valor_mensalidade')
+    if v_mens:
+        novo_valor = float(v_mens.replace(',', '.'))
+        # Se o administrador alterou o preço, atualiza os carnês pendentes!
+        if novo_valor != aluno.valor_mensalidade:
+            aluno.valor_mensalidade = novo_valor
+            pendentes = ContaReceber.query.filter_by(modulo_origem="Mensalidade", origem_id=aluno.id, status="Pendente").all()
+            for p in pendentes:
+                p.valor = novo_valor
+
     db.session.commit()
     flash('Dados do aluno atualizados com sucesso!')
     return redirect(url_for('gerenciar_alunos'))
@@ -141,7 +147,6 @@ def editar_aluno(id):
 def excluir_aluno(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     aluno = Aluno.query.get_or_404(id)
-    # Apaga também as contas a receber pendentes (o carnê) dele
     ContaReceber.query.filter_by(modulo_origem='Mensalidade', origem_id=aluno.id, status='Pendente').delete()
     if aluno.comprovante_endereco and os.path.exists(os.path.join(app.root_path, 'static', aluno.comprovante_endereco)):
         os.remove(os.path.join(app.root_path, 'static', aluno.comprovante_endereco))
@@ -354,7 +359,7 @@ def excluir_estudio(id):
     return redirect(url_for('gerenciar_estudios'))
 
 # ==============================================================================
-# MÓDULO FINANCEIRO (COM NOVA REGRA DE 40% POR AULA)
+# MÓDULO FINANCEIRO
 # ==============================================================================
 @app.route('/financeiro', methods=['GET'])
 def financeiro_dashboard():
@@ -377,7 +382,6 @@ def financeiro_dashboard():
 
     inadimplentes = [c for c in contas_receber if c.status == 'Pendente' and c.data_vencimento < hoje]
 
-    # NOVA REGRA DOS 40% DIVIDIDO POR 4 (POR AULA)
     professores = Professor.query.filter_by(status='Ativo').all()
     repasse_profs = []
     for prof in professores:
@@ -385,10 +389,8 @@ def financeiro_dashboard():
         aulas_mes = [a for a in aulas_concluidas if a.data_aula.month == mes_atual and a.data_aula.year == ano_atual]
         
         comissao_total = 0.0
-        
         for aula in aulas_mes:
             if aula.aluno and aula.aluno.valor_mensalidade:
-                # Cada aula dada vale (40% da mensalidade) / 4
                 comissao_total += (aula.aluno.valor_mensalidade * 0.40) / 4.0
         
         if comissao_total > 0:
