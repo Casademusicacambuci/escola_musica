@@ -21,7 +21,7 @@
         {% with messages = get_flashed_messages() %}
           {% if messages %}
             {% for message in messages %}
-              <div class="alert alert-info text-center fw-bold shadow-sm" role="alert">{{ message }}</div>
+              <div class="alert alert-info text-center" role="alert">{{ message }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
@@ -127,7 +127,6 @@
                                                 {% endif %}
                                             </td>
                                             <td class="text-center">
-                                                <!-- BOTÃO DO CARNÊ -->
                                                 <button type="button" class="btn btn-warning btn-xs py-0 px-1 mb-1 fw-bold" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalFin{{ aluno.id }}">Carnê ($)</button>
                                                 
                                                 <button type="button" class="btn btn-primary btn-xs py-0 px-1 mb-1" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#modalEditar{{ aluno.id }}">Editar</button>
@@ -175,7 +174,7 @@
                                           </div>
                                         </div>
 
-                                        <!-- Modal de Edição -->
+                                        <!-- Modal de Edição (CORRIGIDO PARA EVITAR ERRO 500) -->
                                         <div class="modal fade" id="modalEditar{{ aluno.id }}" tabindex="-1" aria-hidden="true">
                                           <div class="modal-dialog">
                                             <div class="modal-content">
@@ -183,7 +182,6 @@
                                                 <h5 class="modal-title">Editar Aluno: {{ aluno.nome }}</h5>
                                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                               </div>
-                                              <!-- ROTA DE CORREÇÃO FORÇADA -->
                                               <form action="/secretaria/alunos/editar/{{ aluno.id }}" method="POST">
                                                   <div class="modal-body text-start">
                                                     <div class="mb-2">
@@ -201,11 +199,20 @@
                                                         </div>
                                                     </div>
                                                     <div class="row g-2 mb-2">
-                                                        <div class="col-6">
+                                                        <div class="col-4">
                                                             <label class="form-label small">Curso</label>
                                                             <input type="text" class="form-control form-control-sm" name="curso" value="{{ aluno.curso }}" required>
                                                         </div>
-                                                        <div class="col-6">
+                                                        <div class="col-4">
+                                                            <label class="form-label small">Nível</label>
+                                                            <select class="form-select form-select-sm" name="nivel" required>
+                                                                <option value="Iniciante" {% if aluno.nivel == 'Iniciante' %}selected{% endif %}>Iniciante</option>
+                                                                <option value="Básico" {% if aluno.nivel == 'Básico' %}selected{% endif %}>Básico</option>
+                                                                <option value="Intermediário" {% if aluno.nivel == 'Intermediário' %}selected{% endif %}>Intermediário</option>
+                                                                <option value="Avançado" {% if aluno.nivel == 'Avançado' %}selected{% endif %}>Avançado</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-4">
                                                             <label class="form-label small">Status</label>
                                                             <select class="form-select form-select-sm" name="status">
                                                                 <option value="Ativo" {% if aluno.status == 'Ativo' %}selected{% endif %}>Ativo</option>
