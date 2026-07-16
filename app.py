@@ -5,7 +5,7 @@ import os
 import csv
 from io import StringIO
 
-from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula, Fornecedor, Funcionario, ContaReceber, ContaPagar, FluxoCaixa, Produto, OrdemServico
+from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula, Fornecedor, Funcionario, ContaReceber, ContaPagar, FluxoCaixa, Produto, OrdemServico, MovimentacaoEstoque
 
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_cambuci_2026' 
@@ -526,12 +526,14 @@ def excluir_conta_receber(id):
     return redirect(url_for('financeiro_dashboard'))
 
 # ==============================================================================
-# ESTOQUE
+# ESTOQUE (COM O NOVO INVENTÁRIO)
 # ==============================================================================
 @app.route('/estoque', methods=['GET'])
 def gerenciar_estoque():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    return render_template('estoque.html', produtos=Produto.query.order_by(Produto.nome).all())
+    produtos = Produto.query.order_by(Produto.nome).all()
+    movimentacoes = MovimentacaoEstoque.query.order_by(MovimentacaoEstoque.data_hora.desc()).limit(100).all()
+    return render_template('estoque.html', produtos=produtos, movimentacoes=movimentacoes)
 
 @app.route('/estoque/novo', methods=['POST'])
 def novo_produto():
@@ -540,24 +542,53 @@ def novo_produto():
     if Produto.query.filter_by(codigo_barras=codigo).first():
         flash('Erro: Já existe um produto com este código.')
         return redirect(url_for('gerenciar_estoque'))
+        
+    quantidade_inicial = int(request.form.get('quantidade_estoque', '0'))
+    
     novo_prod = Produto(
         codigo_barras=codigo, nome=request.form.get('nome'), categoria=request.form.get('categoria'),
         preco_custo=float(request.form.get('preco_custo').replace(',', '.')),
         preco_venda=float(request.form.get('preco_venda').replace(',', '.')),
-        quantidade_estoque=int(request.form.get('quantidade_estoque', '0'))
+        quantidade_estoque=quantidade_inicial
     )
     db.session.add(novo_prod)
     db.session.commit()
+    
+    # RASTREADOR: Lança a Entrada Inicial no Inventário
+    if quantidade_inicial > 0:
+        db.session.add(MovimentacaoEstoque(
+            produto_id=novo_prod.id, nome_produto=novo_prod.nome,
+            tipo_movimento='Entrada (Novo Cadastro)', quantidade=quantidade_inicial,
+            operador=session.get('nome', 'Administrador')
+        ))
+        db.session.commit()
+        
     return redirect(url_for('gerenciar_estoque'))
 
 @app.route('/estoque/editar/<int:id>', methods=['POST'])
 def editar_produto(id):
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     p = Produto.query.get_or_404(id)
+    
+    nova_qtd = int(request.form.get('quantidade_estoque'))
+    diferenca = nova_qtd - p.quantidade_estoque
+    
     p.codigo_barras = request.form.get('codigo_barras')
-    p.nome = request.form.get('nome'); p.categoria = request.form.get('categoria')
-    p.preco_custo = float(request.form.get('preco_custo').replace(',', '.')); p.preco_venda = float(request.form.get('preco_venda').replace(',', '.'))
-    p.quantidade_estoque = int(request.form.get('quantidade_estoque'))
+    p.nome = request.form.get('nome')
+    p.categoria = request.form.get('categoria')
+    p.preco_custo = float(request.form.get('preco_custo').replace(',', '.'))
+    p.preco_venda = float(request.form.get('preco_venda').replace(',', '.'))
+    p.quantidade_estoque = nova_qtd
+    
+    # RASTREADOR: Lança a diferença se o estoque for alterado na mão
+    if diferenca != 0:
+        tipo = 'Entrada (Ajuste)' if diferenca > 0 else 'Saída (Ajuste)'
+        db.session.add(MovimentacaoEstoque(
+            produto_id=p.id, nome_produto=p.nome,
+            tipo_movimento=tipo, quantidade=abs(diferenca),
+            operador=session.get('nome', 'Administrador')
+        ))
+        
     db.session.commit()
     return redirect(url_for('gerenciar_estoque'))
 
@@ -569,7 +600,7 @@ def excluir_produto(id):
     return redirect(url_for('gerenciar_estoque'))
 
 # ==============================================================================
-# CAIXA PDV (SEM HÍFEN NO CÓDIGO)
+# CAIXA PDV (COM TRAVA DE ESTOQUE NEGATIVO E RASTREADOR)
 # ==============================================================================
 @app.route('/caixa', methods=['GET'])
 def caixa_pdv():
@@ -579,9 +610,11 @@ def caixa_pdv():
 @app.route('/api/produto/<codigo>')
 def api_buscar_produto(codigo):
     if 'usuario_id' not in session: return jsonify({'erro': 'Não autorizado'})
+    
+    # Pegando a quantidade que o Caixa pediu (Ex: 6 cafés)
+    qtd_solicitada = int(request.args.get('qtd', 1))
     codigo = codigo.strip().upper()
     
-    # Reconhece REC1, REC2 sem traço
     if codigo.startswith('REC'):
         try:
             conta_id = int(codigo[3:])
@@ -591,7 +624,6 @@ def api_buscar_produto(codigo):
                 return jsonify({'id': f'REC{conta.id}', 'nome': f"PAGAMENTO: {conta.modulo_origem} ({conta.descricao})", 'preco': conta.valor, 'tipo': 'receita'})
         except: pass
 
-    # Reconhece PAG1, PAG2 sem traço
     if codigo.startswith('PAG'):
         try:
             conta_id = int(codigo[3:])
@@ -603,7 +635,10 @@ def api_buscar_produto(codigo):
 
     produto = Produto.query.filter_by(codigo_barras=codigo).first()
     if produto:
-        if produto.quantidade_estoque <= 0: return jsonify({'erro': f'Produto "{produto.nome}" sem estoque!'})
+        # AQUI ESTÁ A CORREÇÃO DO SEU TESTE (TRAVA INTELIGENTE)
+        if produto.quantidade_estoque < qtd_solicitada: 
+            return jsonify({'erro': f'Estoque insuficiente! Temos apenas {produto.quantidade_estoque} un. de "{produto.nome}" na prateleira.'})
+            
         return jsonify({'id': produto.id, 'nome': produto.nome, 'preco': produto.preco_venda, 'tipo': 'produto'})
     return jsonify({'erro': 'Código não encontrado. Verifique se digitou certo.'})
 
@@ -637,6 +672,13 @@ def finalizar_venda():
             if produto:
                 produto.quantidade_estoque -= item['quantidade']
                 produtos_fisicos.append(f"{item['quantidade']}x {produto.nome}")
+                
+                # RASTREADOR: Lança a Saída do Produto no Inventário!
+                db.session.add(MovimentacaoEstoque(
+                    produto_id=produto.id, nome_produto=produto.nome,
+                    tipo_movimento='Saída (Venda PDV)', quantidade=item['quantidade'],
+                    operador=session.get('nome', 'Operador de Caixa')
+                ))
                 
     if produtos_fisicos:
         total_produtos = sum(float(i['preco']) * int(i['quantidade']) for i in itens if not str(i['id']).startswith('REC') and not str(i['id']).startswith('PAG'))
