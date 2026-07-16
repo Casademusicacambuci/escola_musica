@@ -34,16 +34,16 @@
 
     <div class="container mb-5">
         <div class="row">
-            <!-- ÁREA DE BUSCA (LEITOR DE CÓDIGO) -->
             <div class="col-lg-7 mb-4">
                 <div class="card shadow-sm border-0 border-top border-warning border-3 mb-3">
                     <div class="card-body bg-light">
-                        <label class="form-label fw-bold text-dark fs-5">Código de Barras ou Cobrança (REC-)</label>
+                        <label class="form-label fw-bold text-dark fs-5">Código de Barras ou Cobrança</label>
                         <div class="input-group input-group-lg">
-                            <input type="text" class="form-control border-warning" id="codigoInput" placeholder="Ex: 101 (Café) ou REC-5 (Mensalidade/Estúdio)..." autofocus>
+                            <input type="text" class="form-control border-warning" id="codigoInput" placeholder="Ex: 3*001 (3 Cafés) ou REC5 (Mensalidade)" autofocus>
                             <button class="btn btn-warning fw-bold" type="button" onclick="buscarProduto()">Inserir</button>
                         </div>
-                        <small class="text-muted mt-2 d-block">Para cobrar mensalidades e estúdios, digite o código <strong>REC-</strong> que está no Financeiro.</small>
+                        <small class="text-muted mt-2 d-block">Para multiplicar produtos digite a quantidade e o sinal * ou X antes (Ex: <strong>2*101</strong> ou <strong>2x101</strong>).</small>
+                        <small class="text-muted d-block">Para cobrar mensalidades ou estúdios, digite apenas <strong>REC</strong> + o número (Ex: REC1).</small>
                     </div>
                 </div>
 
@@ -70,7 +70,6 @@
                 </div>
             </div>
 
-            <!-- CUPOM / CARRINHO -->
             <div class="col-lg-5">
                 <div class="cupom-fiscal d-flex flex-column">
                     <div class="text-center mb-3">
@@ -99,7 +98,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE FECHAMENTO (Igual ao anterior) -->
+    <!-- MODAL DE FECHAMENTO -->
     <div class="modal fade" id="modalFechamento" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-sm">
         <div class="modal-content" id="modalFechamentoContent">
@@ -136,21 +135,43 @@
         });
 
         function buscarProduto() {
-            const codigo = inputCodigo.value.trim();
-            if(!codigo) return;
-            fetch(`/api/produto/${codigo}`)
+            let rawInput = inputCodigo.value.trim();
+            if(!rawInput) return;
+
+            let qtd = 1;
+            let codigoBusca = rawInput;
+
+            // A MÁGICA DA MULTIPLICAÇÃO (Suporta 3*001 ou 3x001)
+            if(rawInput.includes('*')) {
+                let partes = rawInput.split('*');
+                qtd = parseInt(partes[0]) || 1;
+                codigoBusca = partes[1].trim();
+            } else if (rawInput.toLowerCase().includes('x')) {
+                let partes = rawInput.toLowerCase().split('x');
+                if(!isNaN(partes[0].trim()) && partes[0].trim() !== '') {
+                    qtd = parseInt(partes[0]) || 1;
+                    codigoBusca = partes[1].trim();
+                }
+            }
+
+            if(!codigoBusca) return;
+
+            fetch(`/api/produto/${codigoBusca}`)
                 .then(response => response.json())
                 .then(produto => {
                     if (produto.erro) { alert(produto.erro); } 
-                    else { adicionarAoCarrinho(produto); }
+                    else { adicionarAoCarrinho(produto, qtd); }
                     inputCodigo.value = ''; inputCodigo.focus();
                 });
         }
 
-        function adicionarAoCarrinho(produto) {
+        function adicionarAoCarrinho(produto, qtdInserida) {
             let itemExistente = carrinho.find(i => String(i.id) === String(produto.id));
-            if (itemExistente) { itemExistente.quantidade += 1; } 
-            else { carrinho.push({ id: produto.id, nome: produto.nome, preco: produto.preco, quantidade: 1 }); }
+            if (itemExistente) { 
+                itemExistente.quantidade += qtdInserida; 
+            } else { 
+                carrinho.push({ id: produto.id, nome: produto.nome, preco: produto.preco, quantidade: qtdInserida }); 
+            }
             atualizarTela();
         }
 
@@ -182,7 +203,7 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosVenda)
             }).then(response => response.json()).then(data => {
                 if (data.sucesso) {
-                    alert("✅ Venda finalizada e baixada no Financeiro!");
+                    alert("✅ Venda finalizada com sucesso!");
                     carrinho = []; atualizarTela(); inputCodigo.focus();
                 } else { alert("Erro ao finalizar venda."); }
             });
