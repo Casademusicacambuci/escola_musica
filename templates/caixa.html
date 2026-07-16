@@ -141,7 +141,6 @@
             let qtd = 1;
             let codigoBusca = rawInput;
 
-            // A MÁGICA DA MULTIPLICAÇÃO (Suporta 3*001 ou 3x001)
             if(rawInput.includes('*')) {
                 let partes = rawInput.split('*');
                 qtd = parseInt(partes[0]) || 1;
@@ -156,7 +155,8 @@
 
             if(!codigoBusca) return;
 
-            fetch(`/api/produto/${codigoBusca}`)
+            // AQUI ESTÁ A CHAVE: Mando pro sistema a quantidade exata que o cliente pediu
+            fetch(`/api/produto/${codigoBusca}?qtd=${qtd}`)
                 .then(response => response.json())
                 .then(produto => {
                     if (produto.erro) { alert(produto.erro); } 
