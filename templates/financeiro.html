@@ -65,7 +65,7 @@
                   <h5 class="alert-heading fw-bold">⚠ ALERTA DE INADIMPLÊNCIA</h5>
                   <ul class="mb-0 mt-2 small">
                       {% for i in inadimplentes %}
-                          <li><strong>{{ i.data_vencimento.strftime('%d/%m/%Y') }}</strong> - {{ i.descricao }} <strong class="text-danger">(R$ {{ "%.2f"|format(i.valor) }})</strong> - Digite <strong>REC-{{ i.id }}</strong> no caixa para cobrar.</li>
+                          <li><strong>{{ i.data_vencimento.strftime('%d/%m/%Y') }}</strong> - {{ i.descricao }} <strong class="text-danger">(R$ {{ "%.2f"|format(i.valor) }})</strong> - Digite <strong>REC{{ i.id }}</strong> no caixa para cobrar.</li>
                       {% endfor %}
                   </ul>
               </div>
@@ -125,9 +125,9 @@
                                           <tr>
                                               <td>
                                                 {% if r.status == 'Pendente' %}
-                                                    <span class="badge bg-dark fs-6" style="letter-spacing: 1px;">REC-{{ r.id }}</span>
+                                                    <span class="badge bg-dark fs-6" style="letter-spacing: 1px;">REC{{ r.id }}</span>
                                                 {% else %}
-                                                    <span class="text-muted small">REC-{{ r.id }}</span>
+                                                    <span class="text-muted small">REC{{ r.id }}</span>
                                                 {% endif %}
                                               </td>
                                               <td>{{ r.data_vencimento.strftime('%d/%m/%Y') }}</td>
@@ -182,7 +182,7 @@
                               <tbody>
                                   {% for r in receber_futuro %}
                                   <tr>
-                                      <td><span class="badge bg-dark fs-6" style="letter-spacing: 1px;">REC-{{ r.id }}</span></td>
+                                      <td><span class="badge bg-dark fs-6" style="letter-spacing: 1px;">REC{{ r.id }}</span></td>
                                       <td>{{ r.data_vencimento.strftime('%d/%m/%Y') }}</td>
                                       <td><span class="badge bg-secondary">{{ r.modulo_origem }}</span></td>
                                       <td>{{ r.descricao }}</td>
@@ -250,9 +250,9 @@
                                           <tr>
                                               <td>
                                                 {% if p.status == 'Pendente' %}
-                                                    <span class="badge bg-dark fs-6" style="letter-spacing: 1px;">PAG-{{ p.id }}</span>
+                                                    <span class="badge bg-dark fs-6" style="letter-spacing: 1px;">PAG{{ p.id }}</span>
                                                 {% else %}
-                                                    <span class="text-muted small">PAG-{{ p.id }}</span>
+                                                    <span class="text-muted small">PAG{{ p.id }}</span>
                                                 {% endif %}
                                               </td>
                                               <td>{{ p.data_vencimento.strftime('%d/%m/%Y') }}</td>
