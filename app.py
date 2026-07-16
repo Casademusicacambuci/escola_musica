@@ -359,7 +359,7 @@ def excluir_estudio(id):
     return redirect(url_for('gerenciar_estudios'))
 
 # ==============================================================================
-# MÓDULO FINANCEIRO (COM NOVA EXPORTAÇÃO CSV LIMPA)
+# MÓDULO FINANCEIRO
 # ==============================================================================
 @app.route('/financeiro', methods=['GET'])
 def financeiro_dashboard():
@@ -432,14 +432,11 @@ def registrar_repasse():
     flash(f'Pagamento gerado! Vá na aba "A Pagar (Saídas)" para visualizar ou editar.')
     return redirect(url_for('financeiro_dashboard'))
 
-# A NOVA FUNÇÃO DE EXPORTAR (LIMPA E TABULAR PARA O EXCEL)
 @app.route('/financeiro/exportar', methods=['POST'])
 def exportar_financeiro():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
     d_inicio_str = request.form.get('data_inicio')
     d_fim_str = request.form.get('data_fim')
-    
-    # Prevenção caso o usuário envie vazio
     d_inicio = datetime.strptime(d_inicio_str, '%Y-%m-%d').date() if d_inicio_str else datetime.utcnow().date()
     d_fim = datetime.strptime(d_fim_str, '%Y-%m-%d').date() if d_fim_str else datetime.utcnow().date()
     
@@ -448,8 +445,6 @@ def exportar_financeiro():
 
     si = StringIO()
     cw = csv.writer(si, delimiter=';')
-    
-    # Cabeçalho Limpo, Contínuo e Único para o Excel não se perder
     cw.writerow(['TIPO', 'VENCIMENTO', 'PAGAMENTO', 'MÓDULO/ORIGEM', 'DESCRIÇÃO', 'VALOR (R$)', 'STATUS'])
     
     if tipo in ['receitas', 'ambos']:
@@ -459,12 +454,10 @@ def exportar_financeiro():
             
         for r in query_receitas.order_by(ContaReceber.data_vencimento).all():
             dp = r.data_pagamento.strftime('%d/%m/%Y') if r.data_pagamento else ''
-            # Transforma ponto em vírgula para o Excel Brasileiro entender como Moeda
             valor_br = f"{r.valor:.2f}".replace('.', ',')
             cw.writerow(['ENTRADA', r.data_vencimento.strftime('%d/%m/%Y'), dp, r.modulo_origem, r.descricao, valor_br, r.status])
             
     if tipo in ['despesas', 'ambos']:
-        # Despesas são gerais (não são separadas por módulo no BD), então exporta sempre se "Todos" estiver selecionado
         if filtro_modulo == 'Todos':
             for d in ContaPagar.query.filter(ContaPagar.data_vencimento >= d_inicio, ContaPagar.data_vencimento <= d_fim).order_by(ContaPagar.data_vencimento).all():
                 dp = d.data_pagamento.strftime('%d/%m/%Y') if d.data_pagamento else ''
@@ -576,7 +569,7 @@ def excluir_produto(id):
     return redirect(url_for('gerenciar_estoque'))
 
 # ==============================================================================
-# CAIXA PDV 
+# CAIXA PDV (SEM HÍFEN NO CÓDIGO)
 # ==============================================================================
 @app.route('/caixa', methods=['GET'])
 def caixa_pdv():
@@ -587,22 +580,25 @@ def caixa_pdv():
 def api_buscar_produto(codigo):
     if 'usuario_id' not in session: return jsonify({'erro': 'Não autorizado'})
     codigo = codigo.strip().upper()
-    if codigo.startswith('REC-'):
+    
+    # Reconhece REC1, REC2 sem traço
+    if codigo.startswith('REC'):
         try:
-            conta_id = int(codigo.split('-')[1])
+            conta_id = int(codigo[3:])
             conta = ContaReceber.query.get(conta_id)
             if conta:
                 if conta.status == 'Pago': return jsonify({'erro': 'Esta cobrança já consta como PAGA no Financeiro!'})
-                return jsonify({'id': f'REC-{conta.id}', 'nome': f"PAGAMENTO: {conta.modulo_origem} ({conta.descricao})", 'preco': conta.valor, 'tipo': 'receita'})
+                return jsonify({'id': f'REC{conta.id}', 'nome': f"PAGAMENTO: {conta.modulo_origem} ({conta.descricao})", 'preco': conta.valor, 'tipo': 'receita'})
         except: pass
 
-    if codigo.startswith('PAG-'):
+    # Reconhece PAG1, PAG2 sem traço
+    if codigo.startswith('PAG'):
         try:
-            conta_id = int(codigo.split('-')[1])
+            conta_id = int(codigo[3:])
             conta = ContaPagar.query.get(conta_id)
             if conta:
                 if conta.status == 'Pago': return jsonify({'erro': 'Esta despesa já consta como PAGA!'})
-                return jsonify({'id': f'PAG-{conta.id}', 'nome': f"SAÍDA DE CAIXA: {conta.descricao}", 'preco': -abs(conta.valor), 'tipo': 'despesa'})
+                return jsonify({'id': f'PAG{conta.id}', 'nome': f"SAÍDA DE CAIXA: {conta.descricao}", 'preco': -abs(conta.valor), 'tipo': 'despesa'})
         except: pass
 
     produto = Produto.query.filter_by(codigo_barras=codigo).first()
@@ -622,12 +618,12 @@ def finalizar_venda():
     produtos_fisicos = []
     for item in itens:
         item_id = str(item['id'])
-        if item_id.startswith('REC-'):
-            conta = ContaReceber.query.get(int(item_id.split('-')[1]))
+        if item_id.startswith('REC'):
+            conta = ContaReceber.query.get(int(item_id[3:]))
             if conta:
                 conta.status = 'Pago'; conta.data_pagamento = datetime.utcnow().date(); conta.forma_pagamento = forma_pagamento
-        elif item_id.startswith('PAG-'):
-            conta_p = ContaPagar.query.get(int(item_id.split('-')[1]))
+        elif item_id.startswith('PAG'):
+            conta_p = ContaPagar.query.get(int(item_id[3:]))
             if conta_p:
                 conta_p.status = 'Pago'
                 conta_p.data_pagamento = datetime.utcnow().date()
@@ -643,7 +639,7 @@ def finalizar_venda():
                 produtos_fisicos.append(f"{item['quantidade']}x {produto.nome}")
                 
     if produtos_fisicos:
-        total_produtos = sum(float(i['preco']) * int(i['quantidade']) for i in itens if not str(i['id']).startswith('REC-') and not str(i['id']).startswith('PAG-'))
+        total_produtos = sum(float(i['preco']) * int(i['quantidade']) for i in itens if not str(i['id']).startswith('REC') and not str(i['id']).startswith('PAG'))
         if total_produtos > 0:
             db.session.add(ContaReceber(
                 descricao="Venda PDV: " + ", ".join(produtos_fisicos), modulo_origem="Loja / PDV", valor=total_produtos,
@@ -746,7 +742,7 @@ def luthier_aprovar(id):
         data_vencimento=datetime.utcnow().date(), status="Pendente"
     ))
     db.session.commit()
-    flash(f'OS aprovada! Cobrança de Sinal gerada (REC-). Digite o código no Caixa PDV para cobrar.')
+    flash(f'OS aprovada! Cobrança de Sinal gerada (REC). Digite o código REC{os.id} no Caixa para cobrar.')
     return redirect(url_for('luthier_dashboard'))
 
 @app.route('/luthier/finalizar/<int:id>', methods=['POST'])
