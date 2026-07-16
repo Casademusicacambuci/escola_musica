@@ -148,9 +148,6 @@ class Produto(db.Model):
     preco_venda = db.Column(db.Float, nullable=False)
     quantidade_estoque = db.Column(db.Integer, nullable=False, default=0)
 
-# ==========================================
-# NOVO: MÓDULO LUTHIER (ORDEM DE SERVIÇO)
-# ==========================================
 class OrdemServico(db.Model):
     __tablename__ = 'ordens_servico'
     id = db.Column(db.Integer, primary_key=True)
@@ -159,27 +156,31 @@ class OrdemServico(db.Model):
     cliente_telefone = db.Column(db.String(20), nullable=False)
     cliente_email = db.Column(db.String(120))
     cliente_endereco = db.Column(db.Text)
-    
     instrumento_tipo = db.Column(db.String(50), nullable=False)
     instrumento_marca = db.Column(db.String(50))
     instrumento_modelo = db.Column(db.String(50))
     descricao_problema = db.Column(db.Text, nullable=False)
-    
     foto_1 = db.Column(db.String(255))
     foto_2 = db.Column(db.String(255))
     foto_3 = db.Column(db.String(255))
     foto_4 = db.Column(db.String(255))
-    video_link = db.Column(db.String(255)) # Pode ser link do YouTube ou Drive
-    
-    # Status: 'Em Análise', 'Aguardando Aprovação', 'Em Manutenção', 'Finalizado', 'Despachado/Entregue'
+    video_link = db.Column(db.String(255)) 
     status = db.Column(db.String(50), default='Em Análise')
-    
     solucao_sugerida = db.Column(db.Text)
     prazo_estimado = db.Column(db.String(50))
     data_entrega = db.Column(db.Date)
-    
     valor_mao_de_obra = db.Column(db.Float, default=0.0)
     valor_pecas = db.Column(db.Float, default=0.0)
     luthier_responsavel = db.Column(db.String(100))
-    
     data_abertura = db.Column(db.DateTime, default=datetime.utcnow)
+
+# A NOVA TABELA PARA RASTREAR OS CAFÉS E PRODUTOS (INVENTÁRIO)
+class MovimentacaoEstoque(db.Model):
+    __tablename__ = 'movimentacoes_estoque'
+    id = db.Column(db.Integer, primary_key=True)
+    produto_id = db.Column(db.Integer, nullable=True)
+    nome_produto = db.Column(db.String(100), nullable=False)
+    tipo_movimento = db.Column(db.String(50), nullable=False) 
+    quantidade = db.Column(db.Integer, nullable=False)
+    data_hora = db.Column(db.DateTime, default=datetime.utcnow)
+    operador = db.Column(db.String(100))
