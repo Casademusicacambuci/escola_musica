@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balcão da Loja - Casa de Música Cambuci</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-info mb-4 shadow-sm">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center text-dark" href="/dashboard">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" height="30" class="me-2 rounded bg-white p-1">
+                <span>&larr; Voltar | Balcão da <strong>Loja</strong> (Pré-Venda)</span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mb-5">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-info text-center fw-bold shadow-sm">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <!-- PAINEL DE CRIAÇÃO DO PEDIDO (VENDEDOR) -->
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm border-0 border-top border-info border-3">
+                    <div class="card-body bg-white">
+                        <h5 class="text-dark fw-bold mb-1">Abrir Novo Pedido (Comanda)</h5>
+                        <p class="small text-muted mb-4">Adicione os produtos e gere a pré-venda para o cliente pagar no Caixa.</p>
+                        
+                        <div class="row g-2 mb-3">
+                            <div class="col-12">
+                                <label class="small fw-bold">Buscar Produto (Cód. Barras ou Nome)</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="buscaProduto" placeholder="Ex: 001 ou Violão..." autofocus>
+                                    <button class="btn btn-info fw-bold text-dark" type="button" onclick="buscarItemLoja()">Localizar</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CARRINHO DO VENDEDOR -->
+                        <div class="bg-light p-3 rounded border mb-3">
+                            <h6 class="fw-bold mb-3">Itens do Pedido</h6>
+                            <table class="table table-sm table-borderless align-middle mb-0">
+                                <tbody id="carrinhoVendedor">
+                                    <tr><td colspan="4" class="text-center text-muted small py-3">Nenhum produto adicionado ainda.</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="text-end mt-3 border-top pt-2">
+                                <h5 class="fw-bold text-success mb-0" id="totalVendedor">R$ 0.00</h5>
+                            </div>
+                        </div>
+
+                        <form id="formPedido" action="/loja/novo_pedido" method="POST">
+                            <input type="hidden" name="itens_json" id="itensJson">
+                            <input type="hidden" name="total_pedido" id="totalPedidoInput">
+                            
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <label class="small fw-bold">Seu Nome (Vendedor)</label>
+                                    <input type="text" class="form-control" name="vendedor_nome" required>
+                                </div>
+                                <div class="col-6">
+                                    <label class="small fw-bold">Nome do Cliente (Opcional)</label>
+                                    <input type="text" class="form-control" name="cliente_nome" placeholder="Para chamar no Caixa">
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-dark w-100 fw-bold btn-lg shadow-sm" onclick="gerarPedido()">Gerar Número do Pedido (PED)</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FILA DE PEDIDOS ABERTOS -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h5 class="text-secondary fw-bold mb-3">Pedidos Aguardando Pagamento</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle" style="font-size: 0.9rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nº Pedido</th>
+                                        <th>Cliente</th>
+                                        <th>Vendedor</th>
+                                        <th>Total</th>
+                                        <th>Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ped in pedidos %}
+                                    <tr>
+                                        <td><span class="badge bg-dark fs-6" style="letter-spacing: 1px;">PED{{ ped.id }}</span></td>
+                                        <td>{{ ped.cliente_nome or 'Balcão' }}</td>
+                                        <td>{{ ped.vendedor_nome }}</td>
+                                        <td class="text-success fw-bold">R$ {{ "%.2f"|format(ped.valor_total) }}</td>
+                                        <td>
+                                            <form action="/loja/cancelar_pedido/{{ ped.id }}" method="POST" onsubmit="return confirm('Cancelar este pedido da loja?');">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold">X</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% if not pedidos %}
+                                    <tr><td colspan="5" class="text-center text-muted py-4">Nenhum pedido aberto no momento.</td></tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="alert alert-warning mt-3 small text-center mb-0">
+                            <strong>Instrução ao Caixa:</strong> O cliente deve apresentar o número <strong>PED</strong> no terminal do PDV para finalizar o pagamento e dar baixa no estoque.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let itensPedido = []; let valorTotal = 0.0;
+        const inputBusca = document.getElementById('buscaProduto');
+
+        inputBusca.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") { event.preventDefault(); buscarItemLoja(); }
+        });
+
+        function buscarItemLoja() {
+            let codigo = inputBusca.value.trim();
+            if(!codigo) return;
+
+            fetch(`/api/produto/${codigo}`)
+                .then(response => response.json())
+                .then(produto => {
+                    if (produto.erro) { alert(produto.erro); } 
+                    else {
+                        let itemExistente = itensPedido.find(i => String(i.id) === String(produto.id));
+                        if (itemExistente) { itemExistente.quantidade += 1; } 
+                        else { itensPedido.push({ id: produto.id, nome: produto.nome, preco: produto.preco, quantidade: 1 }); }
+                        atualizarCarrinhoLoja();
+                    }
+                    inputBusca.value = ''; inputBusca.focus();
+                });
+        }
+
+        function atualizarCarrinhoLoja() {
+            const tbody = document.getElementById('carrinhoVendedor');
+            tbody.innerHTML = ''; valorTotal = 0.0;
+            
+            if(itensPedido.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted small py-3">Nenhum produto adicionado ainda.</td></tr>';
+                document.getElementById('totalVendedor').innerText = 'R$ 0.00';
+                return;
+            }
+
+            itensPedido.forEach((item, index) => {
+                let sub = item.quantidade * item.preco; valorTotal += sub;
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="width: 15%;"><strong>${item.quantidade}x</strong></td>
+                    <td style="width: 50%;">${item.nome}</td>
+                    <td style="width: 25%;" class="text-end">R$ ${sub.toFixed(2)}</td>
+                    <td style="width: 10%;" class="text-end"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="removerItemLoja(${index})">X</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('totalVendedor').innerText = `R$ ${valorTotal.toFixed(2)}`;
+            document.getElementById('itensJson').value = JSON.stringify(itensPedido);
+            document.getElementById('totalPedidoInput').value = valorTotal;
+        }
+
+        function removerItemLoja(index) {
+            itensPedido.splice(index, 1); atualizarCarrinhoLoja();
+        }
+
+        function gerarPedido() {
+            if(itensPedido.length === 0) { alert('Adicione produtos para gerar o pedido!'); return; }
+            document.getElementById('formPedido').submit();
+        }
+    </script>
+</body>
+</html>
