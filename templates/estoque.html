@@ -12,7 +12,7 @@
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="/dashboard">
                 <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" height="30" class="me-2 rounded bg-white p-1">
-                <span>&larr; Voltar | Gestão de <strong>Estoque</strong></span>
+                <span>&larr; Voltar | Gestão de <strong>Estoque & E-commerce</strong></span>
             </a>
         </div>
     </nav>
@@ -26,93 +26,118 @@
           {% endif %}
         {% endwith %}
 
-        <!-- ABAS PARA DIVIDIR PRATELEIRA DO INVENTÁRIO -->
         <ul class="nav nav-tabs mb-4" id="estoqueTabs" role="tablist">
-          <li class="nav-item">
-            <button class="nav-link active fw-bold text-secondary" data-bs-toggle="tab" data-bs-target="#prateleira" type="button" role="tab">Prateleira (Estoque Atual)</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link fw-bold text-primary" data-bs-toggle="tab" data-bs-target="#historico" type="button" role="tab">Histórico de Inventário (Relatório)</button>
-          </li>
+          <li class="nav-item"><button class="nav-link active fw-bold text-secondary" data-bs-toggle="tab" data-bs-target="#prateleira" type="button" role="tab">Prateleira da Loja</button></li>
+          <li class="nav-item"><button class="nav-link fw-bold text-primary" data-bs-toggle="tab" data-bs-target="#historico" type="button" role="tab">Histórico de Inventário</button></li>
         </ul>
 
         <div class="tab-content" id="estoqueTabsContent">
             
-            <!-- ABA 1: PRATELEIRA / CADASTRO -->
             <div class="tab-pane fade show active" id="prateleira" role="tabpanel">
                 <div class="row">
-                    <!-- Cadastro -->
+                    <!-- CADASTRO DE PRODUTO OMNICHANNEL -->
                     <div class="col-lg-4 mb-4">
                         <div class="card shadow-sm border-0 border-top border-secondary border-3">
                             <div class="card-body">
                                 <h5 class="card-title text-secondary mb-3">Cadastrar Novo Produto</h5>
                                 <form method="POST" action="/estoque/novo">
                                     <div class="mb-2">
-                                        <label class="small fw-bold">Código de Barras / Cód. Manual</label>
-                                        <input type="text" class="form-control form-control-sm" name="codigo_barras" placeholder="Ex: 001, 789123..." required>
+                                        <label class="small fw-bold">Cód. Barras (SKU)</label>
+                                        <input type="text" class="form-control form-control-sm" name="codigo_barras" placeholder="Ex: 789..." required>
                                     </div>
                                     <div class="mb-2">
                                         <label class="small fw-bold">Nome do Produto</label>
-                                        <input type="text" class="form-control form-control-sm" name="nome" placeholder="Ex: Café Expresso, Encordoamento 0.10" required>
-                                    </div>
-                                    <div class="mb-2">
-                                        <label class="small fw-bold">Categoria</label>
-                                        <select class="form-select form-select-sm" name="categoria">
-                                            <option value="Loja">Loja de Instrumentos</option>
-                                            <option value="Café">Cafeteria / Lanchonete</option>
-                                            <option value="Luthieria">Peças Luthieria</option>
-                                            <option value="Outros">Outros</option>
-                                        </select>
+                                        <input type="text" class="form-control form-control-sm" name="nome" placeholder="Ex: Violão Folk" required>
                                     </div>
                                     <div class="row g-2 mb-2">
                                         <div class="col-6">
-                                            <label class="small fw-bold text-danger">Preço de Custo (R$)</label>
+                                            <label class="small fw-bold">Marca</label>
+                                            <input type="text" class="form-control form-control-sm" name="marca" placeholder="Ex: Tagima">
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="small fw-bold">Modelo</label>
+                                            <input type="text" class="form-control form-control-sm" name="modelo" placeholder="Ex: Dallas">
+                                        </div>
+                                    </div>
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-6">
+                                            <label class="small fw-bold">Categoria</label>
+                                            <select class="form-select form-select-sm" name="categoria">
+                                                <option value="Instrumentos">Instrumentos</option>
+                                                <option value="Acessórios">Acessórios</option>
+                                                <option value="Luthieria">Peças Luthieria</option>
+                                                <option value="Café">Cafeteria / Brindes</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="small fw-bold">Logística</label>
+                                            <select class="form-select form-select-sm border-info" name="modalidade">
+                                                <option value="Físico">Loja Física</option>
+                                                <option value="Dropshipping">Dropshipping</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-6">
+                                            <label class="small fw-bold text-danger">Custo (R$)</label>
                                             <input type="number" step="0.01" class="form-control form-control-sm" name="preco_custo" required>
                                         </div>
                                         <div class="col-6">
-                                            <label class="small fw-bold text-success">Preço de Venda (R$)</label>
+                                            <label class="small fw-bold text-success">Venda (R$)</label>
                                             <input type="number" step="0.01" class="form-control form-control-sm" name="preco_venda" required>
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="small fw-bold text-primary">Quantidade Inicial no Estoque</label>
+                                        <label class="small fw-bold text-primary">Estoque Atual (Deixe 0 se Dropshipping)</label>
                                         <input type="number" class="form-control form-control-sm border-primary fw-bold" name="quantidade_estoque" value="0" required>
                                     </div>
-                                    <button type="submit" class="btn btn-secondary btn-sm w-100 fw-bold">Salvar no Estoque</button>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" name="exibir_site" id="exibirSite" checked>
+                                        <label class="form-check-label small fw-bold text-dark" for="exibirSite">Exibir no Site (E-commerce)</label>
+                                    </div>
+                                    <button type="submit" class="btn btn-secondary btn-sm w-100 fw-bold">Salvar Produto</button>
                                 </form>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Lista de Produtos -->
+                    <!-- LISTA DE PRODUTOS -->
                     <div class="col-lg-8">
                         <div class="card shadow-sm border-0 border-top border-dark border-3">
                             <div class="card-body">
-                                <h5 class="card-title text-dark mb-3">Prateleira da Loja / Café</h5>
+                                <h5 class="card-title text-dark mb-3">Catálogo da Loja</h5>
                                 <div class="table-responsive">
                                     <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
                                         <thead class="table-dark">
                                             <tr>
-                                                <th>Cód. Barras</th>
                                                 <th>Produto</th>
-                                                <th>Categoria</th>
-                                                <th>Qtd.</th>
-                                                <th>Venda (R$)</th>
+                                                <th>Logística</th>
+                                                <th>Estoque</th>
+                                                <th>Site</th>
+                                                <th>Preço (R$)</th>
                                                 <th>Ação</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {% for p in produtos %}
                                             <tr>
-                                                <td><span class="badge bg-secondary">{{ p.codigo_barras }}</span></td>
-                                                <td><strong>{{ p.nome }}</strong></td>
-                                                <td>{{ p.categoria }}</td>
+                                                <td><strong>{{ p.nome }}</strong><br><small class="text-muted">{{ p.marca }} {{ p.modelo }}</small></td>
                                                 <td>
-                                                    {% if p.quantidade_estoque <= 5 %}
-                                                        <span class="badge bg-danger fs-6">{{ p.quantidade_estoque }}</span>
+                                                    {% if p.modalidade == 'Dropshipping' %}
+                                                        <span class="badge bg-info text-dark">Drop</span>
                                                     {% else %}
-                                                        <span class="badge bg-success fs-6">{{ p.quantidade_estoque }}</span>
+                                                        <span class="badge bg-secondary">Físico</span>
                                                     {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if p.modalidade == 'Dropshipping' %}
+                                                        <span class="text-muted">Ilimitado</span>
+                                                    {% else %}
+                                                        <strong class="{% if p.quantidade_estoque <= 0 %}text-danger{% else %}text-success{% endif %}">{{ p.quantidade_estoque }} un.</strong>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if p.exibir_site %} <span class="badge bg-success">SIM</span> {% else %} <span class="badge bg-danger">NÃO</span> {% endif %}
                                                 </td>
                                                 <td class="text-success fw-bold">R$ {{ "%.2f"|format(p.preco_venda) }}</td>
                                                 <td>
@@ -123,34 +148,51 @@
                                                 </td>
                                             </tr>
 
-                                            <!-- MODAL DE EDITAR ESTOQUE -->
+                                            <!-- MODAL DE EDITAR -->
                                             <div class="modal fade" id="modalEditar{{ p.id }}" tabindex="-1" aria-hidden="true">
                                               <div class="modal-dialog">
                                                 <div class="modal-content">
                                                   <div class="modal-header bg-primary text-white">
-                                                    <h5 class="modal-title">Editar Produto</h5>
+                                                    <h5 class="modal-title">Editar: {{ p.nome }}</h5>
                                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                                   </div>
                                                   <form action="/estoque/editar/{{ p.id }}" method="POST">
                                                       <div class="modal-body text-start">
                                                           <div class="mb-2"><label class="small">Cód. Barras</label><input type="text" class="form-control form-control-sm" name="codigo_barras" value="{{ p.codigo_barras }}" required></div>
                                                           <div class="mb-2"><label class="small">Nome</label><input type="text" class="form-control form-control-sm" name="nome" value="{{ p.nome }}" required></div>
-                                                          <div class="mb-2">
-                                                            <label class="small">Categoria</label>
-                                                            <select class="form-select form-select-sm" name="categoria">
-                                                                <option value="Loja" {% if p.categoria == 'Loja' %}selected{% endif %}>Loja</option>
-                                                                <option value="Café" {% if p.categoria == 'Café' %}selected{% endif %}>Café</option>
-                                                                <option value="Luthieria" {% if p.categoria == 'Luthieria' %}selected{% endif %}>Luthieria</option>
-                                                                <option value="Outros" {% if p.categoria == 'Outros' %}selected{% endif %}>Outros</option>
-                                                            </select>
+                                                          <div class="row g-2 mb-2">
+                                                            <div class="col-6"><label class="small">Marca</label><input type="text" class="form-control form-control-sm" name="marca" value="{{ p.marca }}"></div>
+                                                            <div class="col-6"><label class="small">Modelo</label><input type="text" class="form-control form-control-sm" name="modelo" value="{{ p.modelo }}"></div>
+                                                          </div>
+                                                          <div class="row g-2 mb-2">
+                                                            <div class="col-6">
+                                                                <label class="small">Categoria</label>
+                                                                <select class="form-select form-select-sm" name="categoria">
+                                                                    <option value="Instrumentos" {% if p.categoria == 'Instrumentos' %}selected{% endif %}>Instrumentos</option>
+                                                                    <option value="Acessórios" {% if p.categoria == 'Acessórios' %}selected{% endif %}>Acessórios</option>
+                                                                    <option value="Luthieria" {% if p.categoria == 'Luthieria' %}selected{% endif %}>Luthieria</option>
+                                                                    <option value="Café" {% if p.categoria == 'Café' %}selected{% endif %}>Café</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <label class="small">Logística</label>
+                                                                <select class="form-select form-select-sm" name="modalidade">
+                                                                    <option value="Físico" {% if p.modalidade == 'Físico' %}selected{% endif %}>Físico</option>
+                                                                    <option value="Dropshipping" {% if p.modalidade == 'Dropshipping' %}selected{% endif %}>Dropshipping</option>
+                                                                </select>
+                                                            </div>
                                                           </div>
                                                           <div class="row g-2 mb-2">
                                                             <div class="col-6"><label class="small">Preço Custo</label><input type="number" step="0.01" class="form-control form-control-sm" name="preco_custo" value="{{ p.preco_custo }}" required></div>
                                                             <div class="col-6"><label class="small">Preço Venda</label><input type="number" step="0.01" class="form-control form-control-sm" name="preco_venda" value="{{ p.preco_venda }}" required></div>
                                                           </div>
                                                           <div class="mb-2">
-                                                            <label class="small fw-bold text-primary">Quantidade Atual (Qualquer alteração será salva no Inventário)</label>
+                                                            <label class="small fw-bold">Estoque Físico</label>
                                                             <input type="number" class="form-control form-control-sm fw-bold border-primary" name="quantidade_estoque" value="{{ p.quantidade_estoque }}" required>
+                                                          </div>
+                                                          <div class="form-check form-switch mt-3">
+                                                            <input class="form-check-input" type="checkbox" name="exibir_site" id="site{{ p.id }}" {% if p.exibir_site %}checked{% endif %}>
+                                                            <label class="form-check-label small fw-bold" for="site{{ p.id }}">Visível no Site (E-commerce)</label>
                                                           </div>
                                                       </div>
                                                       <div class="modal-footer"><button type="submit" class="btn btn-primary w-100">Atualizar</button></div>
@@ -168,12 +210,12 @@
                 </div>
             </div>
 
-            <!-- ABA 2: HISTÓRICO DE INVENTÁRIO (O RASTREADOR) -->
+            <!-- ABA 2: HISTÓRICO -->
             <div class="tab-pane fade" id="historico" role="tabpanel">
                 <div class="card shadow-sm border-0 border-top border-primary border-3">
                     <div class="card-body">
                         <h5 class="card-title text-primary mb-1">Histórico de Movimentações (Inventário)</h5>
-                        <p class="small text-muted mb-4">Veja as últimas 100 entradas e saídas de produtos. Ideal para saber os horários de pico de vendas e reposição.</p>
+                        <p class="small text-muted mb-4">Veja as últimas entradas e saídas físicas.</p>
                         
                         <div class="table-responsive">
                             <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
@@ -202,9 +244,6 @@
                                         <td class="text-muted small">{{ m.operador }}</td>
                                     </tr>
                                     {% endfor %}
-                                    {% if not movimentacoes %}
-                                    <tr><td colspan="5" class="text-center text-muted py-4">Nenhuma movimentação registrada ainda. Venda produtos no Caixa ou atualize o estoque!</td></tr>
-                                    {% endif %}
                                 </tbody>
                             </table>
                         </div>
