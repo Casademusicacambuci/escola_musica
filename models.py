@@ -142,11 +142,15 @@ class Produto(db.Model):
     __tablename__ = 'produtos'
     id = db.Column(db.Integer, primary_key=True)
     codigo_barras = db.Column(db.String(50), unique=True, nullable=False)
-    nome = db.Column(db.String(100), nullable=False)
+    nome = db.Column(db.String(150), nullable=False)
+    marca = db.Column(db.String(100)) # Novo E-commerce
+    modelo = db.Column(db.String(100)) # Novo E-commerce
     categoria = db.Column(db.String(50), nullable=False) 
     preco_custo = db.Column(db.Float, nullable=False, default=0.0)
     preco_venda = db.Column(db.Float, nullable=False)
     quantidade_estoque = db.Column(db.Integer, nullable=False, default=0)
+    modalidade = db.Column(db.String(30), default='Físico') # Físico ou Dropshipping
+    exibir_site = db.Column(db.Boolean, default=False) # Liga com E-commerce
 
 class OrdemServico(db.Model):
     __tablename__ = 'ordens_servico'
@@ -174,7 +178,6 @@ class OrdemServico(db.Model):
     luthier_responsavel = db.Column(db.String(100))
     data_abertura = db.Column(db.DateTime, default=datetime.utcnow)
 
-# A NOVA TABELA PARA RASTREAR OS CAFÉS E PRODUTOS (INVENTÁRIO)
 class MovimentacaoEstoque(db.Model):
     __tablename__ = 'movimentacoes_estoque'
     id = db.Column(db.Integer, primary_key=True)
@@ -184,3 +187,25 @@ class MovimentacaoEstoque(db.Model):
     quantidade = db.Column(db.Integer, nullable=False)
     data_hora = db.Column(db.DateTime, default=datetime.utcnow)
     operador = db.Column(db.String(100))
+
+# ==========================================
+# NOVO: MÓDULO LOJA (PRÉ-VENDA / COMANDA)
+# ==========================================
+class PedidoLoja(db.Model):
+    __tablename__ = 'pedidos_loja'
+    id = db.Column(db.Integer, primary_key=True)
+    vendedor_nome = db.Column(db.String(100), nullable=False)
+    cliente_nome = db.Column(db.String(100)) # Opcional
+    data_pedido = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default='Aberto') # Aberto, Pago, Cancelado
+    valor_total = db.Column(db.Float, default=0.0)
+    itens = db.relationship('ItemPedidoLoja', backref='pedido', lazy=True, cascade='all, delete')
+
+class ItemPedidoLoja(db.Model):
+    __tablename__ = 'itens_pedido_loja'
+    id = db.Column(db.Integer, primary_key=True)
+    pedido_id = db.Column(db.Integer, db.ForeignKey('pedidos_loja.id'), nullable=False)
+    produto_id = db.Column(db.Integer, db.ForeignKey('produtos.id'), nullable=False)
+    quantidade = db.Column(db.Integer, nullable=False)
+    preco_unitario = db.Column(db.Float, nullable=False)
+    produto = db.relationship('Produto')
