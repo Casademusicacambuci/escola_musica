@@ -4,8 +4,9 @@ from datetime import datetime
 import os
 import csv
 from io import StringIO
+import json
 
-from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula, Fornecedor, Funcionario, ContaReceber, ContaPagar, FluxoCaixa, Produto, OrdemServico, MovimentacaoEstoque
+from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula, Fornecedor, Funcionario, ContaReceber, ContaPagar, FluxoCaixa, Produto, OrdemServico, MovimentacaoEstoque, PedidoLoja, ItemPedidoLoja
 
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_cambuci_2026' 
@@ -526,7 +527,7 @@ def excluir_conta_receber(id):
     return redirect(url_for('financeiro_dashboard'))
 
 # ==============================================================================
-# ESTOQUE (COM O NOVO INVENTÁRIO)
+# ESTOQUE (COM MARCA, MODELO E E-COMMERCE)
 # ==============================================================================
 @app.route('/estoque', methods=['GET'])
 def gerenciar_estoque():
@@ -544,18 +545,22 @@ def novo_produto():
         return redirect(url_for('gerenciar_estoque'))
         
     quantidade_inicial = int(request.form.get('quantidade_estoque', '0'))
+    exibir = True if request.form.get('exibir_site') == 'on' else False
     
     novo_prod = Produto(
-        codigo_barras=codigo, nome=request.form.get('nome'), categoria=request.form.get('categoria'),
+        codigo_barras=codigo, nome=request.form.get('nome'), 
+        marca=request.form.get('marca'), modelo=request.form.get('modelo'),
+        categoria=request.form.get('categoria'),
         preco_custo=float(request.form.get('preco_custo').replace(',', '.')),
         preco_venda=float(request.form.get('preco_venda').replace(',', '.')),
-        quantidade_estoque=quantidade_inicial
+        quantidade_estoque=quantidade_inicial,
+        modalidade=request.form.get('modalidade', 'Físico'),
+        exibir_site=exibir
     )
     db.session.add(novo_prod)
     db.session.commit()
     
-    # RASTREADOR: Lança a Entrada Inicial no Inventário
-    if quantidade_inicial > 0:
+    if quantidade_inicial > 0 and novo_prod.modalidade == 'Físico':
         db.session.add(MovimentacaoEstoque(
             produto_id=novo_prod.id, nome_produto=novo_prod.nome,
             tipo_movimento='Entrada (Novo Cadastro)', quantidade=quantidade_inicial,
@@ -575,13 +580,16 @@ def editar_produto(id):
     
     p.codigo_barras = request.form.get('codigo_barras')
     p.nome = request.form.get('nome')
+    p.marca = request.form.get('marca')
+    p.modelo = request.form.get('modelo')
     p.categoria = request.form.get('categoria')
     p.preco_custo = float(request.form.get('preco_custo').replace(',', '.'))
     p.preco_venda = float(request.form.get('preco_venda').replace(',', '.'))
     p.quantidade_estoque = nova_qtd
+    p.modalidade = request.form.get('modalidade', 'Físico')
+    p.exibir_site = True if request.form.get('exibir_site') == 'on' else False
     
-    # RASTREADOR: Lança a diferença se o estoque for alterado na mão
-    if diferenca != 0:
+    if diferenca != 0 and p.modalidade == 'Físico':
         tipo = 'Entrada (Ajuste)' if diferenca > 0 else 'Saída (Ajuste)'
         db.session.add(MovimentacaoEstoque(
             produto_id=p.id, nome_produto=p.nome,
@@ -599,8 +607,63 @@ def excluir_produto(id):
     db.session.commit()
     return redirect(url_for('gerenciar_estoque'))
 
+
 # ==============================================================================
-# CAIXA PDV (COM TRAVA DE ESTOQUE NEGATIVO E RASTREADOR)
+# NOVO: MÓDULO LOJA (BALCÃO DO VENDEDOR / PRÉ-VENDA)
+# ==============================================================================
+@app.route('/loja', methods=['GET'])
+def painel_loja():
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    # Mostra os pedidos que o vendedor fez e estão esperando o cliente pagar no caixa
+    pedidos_abertos = PedidoLoja.query.filter_by(status='Aberto').order_by(PedidoLoja.data_pedido.desc()).all()
+    return render_template('loja.html', pedidos=pedidos_abertos)
+
+@app.route('/loja/novo_pedido', methods=['POST'])
+def gerar_pedido_loja():
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    
+    vendedor = request.form.get('vendedor_nome')
+    cliente = request.form.get('cliente_nome')
+    itens_json = request.form.get('itens_json')
+    
+    if not itens_json:
+        flash("Nenhum item no pedido!")
+        return redirect(url_for('painel_loja'))
+        
+    itens_array = json.loads(itens_json)
+    
+    novo_pedido = PedidoLoja(
+        vendedor_nome=vendedor,
+        cliente_nome=cliente,
+        valor_total=float(request.form.get('total_pedido', 0))
+    )
+    db.session.add(novo_pedido)
+    db.session.flush() # Pega o ID (PED1)
+    
+    for item in itens_array:
+        db.session.add(ItemPedidoLoja(
+            pedido_id=novo_pedido.id,
+            produto_id=item['id'],
+            quantidade=item['quantidade'],
+            preco_unitario=item['preco']
+        ))
+        
+    db.session.commit()
+    flash(f"Pedido PED{novo_pedido.id} gerado com sucesso! Peça para o cliente pagar no Caixa.")
+    return redirect(url_for('painel_loja'))
+
+@app.route('/loja/cancelar_pedido/<int:id>', methods=['POST'])
+def cancelar_pedido_loja(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    pedido = PedidoLoja.query.get_or_404(id)
+    db.session.delete(pedido)
+    db.session.commit()
+    flash("Pedido cancelado.")
+    return redirect(url_for('painel_loja'))
+
+
+# ==============================================================================
+# CAIXA PDV (COM INTEGRAÇÃO DA PRÉ-VENDA E DROPSHIPPING)
 # ==============================================================================
 @app.route('/caixa', methods=['GET'])
 def caixa_pdv():
@@ -611,10 +674,10 @@ def caixa_pdv():
 def api_buscar_produto(codigo):
     if 'usuario_id' not in session: return jsonify({'erro': 'Não autorizado'})
     
-    # Pegando a quantidade que o Caixa pediu (Ex: 6 cafés)
     qtd_solicitada = int(request.args.get('qtd', 1))
     codigo = codigo.strip().upper()
     
+    # 1. Puxa Contas a Receber (Mensalidades, etc)
     if codigo.startswith('REC'):
         try:
             conta_id = int(codigo[3:])
@@ -624,6 +687,7 @@ def api_buscar_produto(codigo):
                 return jsonify({'id': f'REC{conta.id}', 'nome': f"PAGAMENTO: {conta.modulo_origem} ({conta.descricao})", 'preco': conta.valor, 'tipo': 'receita'})
         except: pass
 
+    # 2. Puxa Contas a Pagar (Saídas de Caixa)
     if codigo.startswith('PAG'):
         try:
             conta_id = int(codigo[3:])
@@ -633,13 +697,24 @@ def api_buscar_produto(codigo):
                 return jsonify({'id': f'PAG{conta.id}', 'nome': f"SAÍDA DE CAIXA: {conta.descricao}", 'preco': -abs(conta.valor), 'tipo': 'despesa'})
         except: pass
 
+    # 3. Puxa Pedidos da Loja (Pré-venda do Vendedor)
+    if codigo.startswith('PED'):
+        try:
+            pedido_id = int(codigo[3:])
+            pedido = PedidoLoja.query.get(pedido_id)
+            if pedido:
+                if pedido.status == 'Pago': return jsonify({'erro': 'Este Pedido já foi pago no caixa!'})
+                return jsonify({'id': f'PED{pedido.id}', 'nome': f"PEDIDO LOJA #{pedido.id} (Vend: {pedido.vendedor_nome})", 'preco': pedido.valor_total, 'tipo': 'pedido_loja'})
+        except: pass
+
+    # 4. Puxa Produto Físico (Bipando o Código de Barras direto no Caixa)
     produto = Produto.query.filter_by(codigo_barras=codigo).first()
     if produto:
-        # AQUI ESTÁ A CORREÇÃO DO SEU TESTE (TRAVA INTELIGENTE)
-        if produto.quantidade_estoque < qtd_solicitada: 
+        if produto.modalidade == 'Físico' and produto.quantidade_estoque < qtd_solicitada: 
             return jsonify({'erro': f'Estoque insuficiente! Temos apenas {produto.quantidade_estoque} un. de "{produto.nome}" na prateleira.'})
             
         return jsonify({'id': produto.id, 'nome': produto.nome, 'preco': produto.preco_venda, 'tipo': 'produto'})
+        
     return jsonify({'erro': 'Código não encontrado. Verifique se digitou certo.'})
 
 @app.route('/caixa/finalizar', methods=['POST'])
@@ -651,12 +726,17 @@ def finalizar_venda():
     if not itens: return jsonify({'sucesso': False, 'erro': 'Carrinho vazio'})
 
     produtos_fisicos = []
+    
     for item in itens:
         item_id = str(item['id'])
+        
+        # Se for Mensalidade
         if item_id.startswith('REC'):
             conta = ContaReceber.query.get(int(item_id[3:]))
             if conta:
                 conta.status = 'Pago'; conta.data_pagamento = datetime.utcnow().date(); conta.forma_pagamento = forma_pagamento
+                
+        # Se for Despesa (Saída do Caixa)
         elif item_id.startswith('PAG'):
             conta_p = ContaPagar.query.get(int(item_id[3:]))
             if conta_p:
@@ -667,24 +747,47 @@ def finalizar_venda():
                     data_vencimento=datetime.utcnow().date(), data_pagamento=datetime.utcnow().date(),
                     status="Pago", forma_pagamento=forma_pagamento
                 ))
+                
+        # Se for um Pedido da Loja (Pré-venda)
+        elif item_id.startswith('PED'):
+            pedido = PedidoLoja.query.get(int(item_id[3:]))
+            if pedido:
+                pedido.status = 'Pago'
+                # Dá baixa no estoque de CADA item dentro do Pedido (Apenas os Físicos)
+                for i_pedido in pedido.itens:
+                    if i_pedido.produto.modalidade == 'Físico':
+                        i_pedido.produto.quantidade_estoque -= i_pedido.quantidade
+                        db.session.add(MovimentacaoEstoque(
+                            produto_id=i_pedido.produto.id, nome_produto=i_pedido.produto.nome,
+                            tipo_movimento='Saída (Venda Pedido)', quantidade=i_pedido.quantidade,
+                            operador=session.get('nome', 'Caixa')
+                        ))
+                # Lança o valor total do pedido no Financeiro
+                db.session.add(ContaReceber(
+                    descricao=f"Venda Loja (Pedido #{pedido.id} - Vend: {pedido.vendedor_nome})", modulo_origem="Loja / PDV", valor=pedido.valor_total,
+                    data_vencimento=datetime.utcnow().date(), data_pagamento=datetime.utcnow().date(),
+                    status="Pago", forma_pagamento=forma_pagamento
+                ))
+                
+        # Se bipo um Produto Avulso direto no caixa
         else:
             produto = Produto.query.get(item['id'])
             if produto:
-                produto.quantidade_estoque -= item['quantidade']
+                if produto.modalidade == 'Físico':
+                    produto.quantidade_estoque -= item['quantidade']
+                    db.session.add(MovimentacaoEstoque(
+                        produto_id=produto.id, nome_produto=produto.nome,
+                        tipo_movimento='Saída (Venda Direta PDV)', quantidade=item['quantidade'],
+                        operador=session.get('nome', 'Caixa')
+                    ))
                 produtos_fisicos.append(f"{item['quantidade']}x {produto.nome}")
                 
-                # RASTREADOR: Lança a Saída do Produto no Inventário!
-                db.session.add(MovimentacaoEstoque(
-                    produto_id=produto.id, nome_produto=produto.nome,
-                    tipo_movimento='Saída (Venda PDV)', quantidade=item['quantidade'],
-                    operador=session.get('nome', 'Operador de Caixa')
-                ))
-                
+    # Salva os produtos avulsos bipados direto no caixa no financeiro
     if produtos_fisicos:
-        total_produtos = sum(float(i['preco']) * int(i['quantidade']) for i in itens if not str(i['id']).startswith('REC') and not str(i['id']).startswith('PAG'))
+        total_produtos = sum(float(i['preco']) * int(i['quantidade']) for i in itens if not str(i['id']).startswith('REC') and not str(i['id']).startswith('PAG') and not str(i['id']).startswith('PED'))
         if total_produtos > 0:
             db.session.add(ContaReceber(
-                descricao="Venda PDV: " + ", ".join(produtos_fisicos), modulo_origem="Loja / PDV", valor=total_produtos,
+                descricao="Venda Avulsa PDV: " + ", ".join(produtos_fisicos), modulo_origem="Loja / PDV", valor=total_produtos,
                 data_vencimento=datetime.utcnow().date(), data_pagamento=datetime.utcnow().date(),
                 status="Pago", forma_pagamento=forma_pagamento
             ))
