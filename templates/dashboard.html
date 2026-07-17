@@ -8,7 +8,7 @@
 </head>
 <body class="bg-light">
 
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="/dashboard">
                 <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" height="30" class="me-2 rounded bg-white p-1">
@@ -26,21 +26,19 @@
         
         <div class="row g-4">
             
-            <!-- 01. FINANCEIRO E CAIXA -->
             <div class="col-md-6 col-lg-4">
                 <div class="card h-100 shadow-sm border-0 border-top border-success border-3">
                     <div class="card-body text-center d-flex flex-column">
-                        <h5 class="card-title text-success fw-bold">01. Financeiro & Caixa</h5>
-                        <p class="small text-muted mb-4">Gestão de pagamentos, PDV e repasses.</p>
+                        <h5 class="card-title text-success fw-bold">01. Financeiro & PDV</h5>
+                        <p class="small text-muted mb-4">Gestão de pagamentos, Fluxo e Caixa Livre.</p>
                         <div class="mt-auto">
                             <a href="/financeiro" class="btn btn-success w-100 mb-2 fw-bold">Painel Financeiro</a>
-                            <a href="/caixa" class="btn btn-dark w-100 fw-bold">Caixa Livre (PDV)</a>
+                            <a href="/caixa" class="btn btn-dark w-100 fw-bold">Terminal Caixa (PDV)</a>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 02. SECRETARIA -->
             <div class="col-md-6 col-lg-4">
                 <div class="card h-100 shadow-sm border-0 border-top border-primary border-3">
                     <div class="card-body text-center d-flex flex-column">
@@ -55,40 +53,50 @@
                 </div>
             </div>
 
-            <!-- 03. ESTÚDIOS -->
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 shadow-sm border-0 border-top border-danger border-3">
-                    <div class="card-body text-center d-flex flex-column">
-                        <h5 class="card-title text-danger fw-bold">03. Estúdios (Central)</h5>
-                        <p class="small text-muted mb-4">Gravação, Videoclipe e Ensaios.</p>
-                        <div class="mt-auto">
-                            <a href="/estudios" class="btn btn-danger w-100 fw-bold">Acessar Agenda</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 04. LUTHIER (AGORA DESTRANCADO!) -->
+            <!-- NOVO MÓDULO: LOJA E VENDEDORES -->
             <div class="col-md-6 col-lg-4">
                 <div class="card h-100 shadow-sm border-0 border-top border-info border-3">
                     <div class="card-body text-center d-flex flex-column">
-                        <h5 class="card-title text-info fw-bold">04. Oficina Luthier</h5>
-                        <p class="small text-muted mb-4">Serviços, Manutenção e Orçamentos.</p>
+                        <h5 class="card-title text-info fw-bold">03. Loja de Instrumentos</h5>
+                        <p class="small text-muted mb-4">Balcão de Atendimento e Vendas Físicas.</p>
                         <div class="mt-auto">
-                            <a href="/luthier" class="btn btn-info text-white w-100 fw-bold">Acessar Oficina (O.S.)</a>
+                            <a href="/loja" class="btn btn-info text-dark w-100 mb-2 fw-bold">Acessar Balcão (Pré-Venda)</a>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 05. ESTOQUE / LOJA -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 border-top border-warning border-3">
+                    <div class="card-body text-center d-flex flex-column">
+                        <h5 class="card-title text-warning fw-bold">04. Oficina Luthier</h5>
+                        <p class="small text-muted mb-4">Serviços, Manutenção e Orçamentos.</p>
+                        <div class="mt-auto">
+                            <a href="/luthier" class="btn btn-warning text-dark w-100 fw-bold">Acessar Oficina (O.S.)</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="col-md-6 col-lg-4">
                 <div class="card h-100 shadow-sm border-0 border-top border-secondary border-3">
                     <div class="card-body text-center d-flex flex-column">
-                        <h5 class="card-title text-secondary fw-bold">05. Estoque da Loja</h5>
-                        <p class="small text-muted mb-4">Produtos Físicos e Códigos de Barras.</p>
+                        <h5 class="card-title text-secondary fw-bold">05. Estoque & E-commerce</h5>
+                        <p class="small text-muted mb-4">Gestão de Produtos, Cadastro e Inventário.</p>
                         <div class="mt-auto">
                             <a href="/estoque" class="btn btn-secondary w-100 fw-bold">Acessar Estoque</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 border-top border-danger border-3">
+                    <div class="card-body text-center d-flex flex-column">
+                        <h5 class="card-title text-danger fw-bold">06. Estúdios (Central)</h5>
+                        <p class="small text-muted mb-4">Gravação, Videoclipe e Ensaios.</p>
+                        <div class="mt-auto">
+                            <a href="/estudios" class="btn btn-danger w-100 fw-bold">Acessar Agenda</a>
                         </div>
                     </div>
                 </div>
