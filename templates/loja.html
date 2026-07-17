@@ -5,15 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Balcão da Loja - Casa de Música Cambuci</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        /* Estilo para garantir que na impressão só saia a comanda */
-        @media print {
-            body * { visibility: hidden; }
-            .print-area, .print-area * { visibility: visible; }
-            .print-area { position: absolute; left: 0; top: 0; width: 100%; border: none; box-shadow: none; }
-            .d-print-none { display: none !important; }
-        }
-    </style>
 </head>
 <body class="bg-light">
 
@@ -110,61 +101,13 @@
                                         <td>{{ ped.vendedor_nome }}</td>
                                         <td class="text-success fw-bold">R$ {{ "%.2f"|format(ped.valor_total) }}</td>
                                         <td class="text-center">
-                                            <!-- BOTÃO DE IMPRIMIR A COMANDA -->
-                                            <button class="btn btn-outline-dark btn-sm py-0 px-2 fw-bold" data-bs-toggle="modal" data-bs-target="#modalPrint{{ ped.id }}">🖨️</button>
+                                            <!-- NOVO BOTÃO DE IMPRESSÃO: REDIRECIONA PARA A ROTA NATIVA (Foge da tela branca do Android) -->
+                                            <a href="/loja/imprimir/{{ ped.id }}" class="btn btn-outline-dark btn-sm py-0 px-2 fw-bold">🖨️</a>
                                             <form action="/loja/cancelar_pedido/{{ ped.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Cancelar este pedido da loja?');">
                                                 <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold">X</button>
                                             </form>
                                         </td>
                                     </tr>
-
-                                    <!-- MODAL COM O TICKET DE IMPRESSÃO -->
-                                    <div class="modal fade" id="modalPrint{{ ped.id }}" tabindex="-1" aria-hidden="true">
-                                        <div class="modal-dialog modal-sm">
-                                            <div class="modal-content">
-                                                <div class="modal-body text-center print-area" id="printContent{{ ped.id }}" style="font-family: monospace; color: #000;">
-                                                    <h5 class="fw-bold mb-0">CASA DE MÚSICA</h5>
-                                                    <p class="small text-muted mb-2">Comanda de Pré-Venda</p>
-                                                    
-                                                    <h3 class="fw-bold border-bottom border-dark pb-2">PED{{ ped.id }}</h3>
-                                                    
-                                                    <div class="text-start small mb-2 border-bottom border-dark pb-2">
-                                                        <p class="mb-0"><strong>Vendedor:</strong> {{ ped.vendedor_nome }}</p>
-                                                        <p class="mb-0"><strong>Cliente:</strong> {{ ped.cliente_nome or 'Balcão' }}</p>
-                                                        <p class="mb-0"><strong>Data:</strong> {{ ped.data_pedido.strftime('%d/%m/%Y %H:%M') }}</p>
-                                                    </div>
-
-                                                    <table class="table table-sm table-borderless text-start mb-0" style="font-size: 0.8rem;">
-                                                        <thead>
-                                                            <tr class="border-bottom border-dark">
-                                                                <th>Qtd</th>
-                                                                <th>Produto</th>
-                                                                <th class="text-end">R$</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {% for i in ped.itens %}
-                                                            <tr>
-                                                                <td>{{ i.quantidade }}</td>
-                                                                <td>{{ i.produto.nome }}</td>
-                                                                <td class="text-end">{{ "%.2f"|format(i.preco_unitario * i.quantidade) }}</td>
-                                                            </tr>
-                                                            {% endfor %}
-                                                        </tbody>
-                                                    </table>
-                                                    
-                                                    <div class="text-end border-top border-dark pt-2 mt-2">
-                                                        <h5 class="fw-bold">TOTAL: R$ {{ "%.2f"|format(ped.valor_total) }}</h5>
-                                                    </div>
-                                                    
-                                                    <p class="small text-center mt-4">Apresente este ticket no Caixa para efetuar o pagamento e retirar seu produto.</p>
-                                                </div>
-                                                <div class="modal-footer d-print-none">
-                                                    <button type="button" class="btn btn-secondary w-100 fw-bold" onclick="imprimirDiv('printContent{{ ped.id }}')">🖨️ Imprimir Ticket</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                     {% endfor %}
                                     {% if not pedidos %}
                                     <tr><td colspan="5" class="text-center text-muted py-4">Nenhum pedido aberto no momento.</td></tr>
@@ -241,16 +184,6 @@
         function gerarPedido() {
             if(itensPedido.length === 0) { alert('Adicione produtos para gerar o pedido!'); return; }
             document.getElementById('formPedido').submit();
-        }
-
-        // FUNÇÃO DE IMPRESSÃO
-        function imprimirDiv(divId) {
-            let content = document.getElementById(divId).innerHTML;
-            let originalContent = document.body.innerHTML;
-            document.body.innerHTML = "<div class='print-area'>" + content + "</div>";
-            window.print();
-            document.body.innerHTML = originalContent;
-            window.location.reload(); 
         }
     </script>
 </body>
