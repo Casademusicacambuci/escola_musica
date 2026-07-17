@@ -527,7 +527,7 @@ def excluir_conta_receber(id):
     return redirect(url_for('financeiro_dashboard'))
 
 # ==============================================================================
-# ESTOQUE (COM MARCA, MODELO E E-COMMERCE)
+# ESTOQUE
 # ==============================================================================
 @app.route('/estoque', methods=['GET'])
 def gerenciar_estoque():
@@ -609,12 +609,11 @@ def excluir_produto(id):
 
 
 # ==============================================================================
-# NOVO: MÓDULO LOJA (BALCÃO DO VENDEDOR / PRÉ-VENDA)
+# MÓDULO LOJA (BALCÃO DO VENDEDOR / PRÉ-VENDA)
 # ==============================================================================
 @app.route('/loja', methods=['GET'])
 def painel_loja():
     if 'usuario_id' not in session: return redirect(url_for('dashboard'))
-    # Mostra os pedidos que o vendedor fez e estão esperando o cliente pagar no caixa
     pedidos_abertos = PedidoLoja.query.filter_by(status='Aberto').order_by(PedidoLoja.data_pedido.desc()).all()
     return render_template('loja.html', pedidos=pedidos_abertos)
 
@@ -638,7 +637,7 @@ def gerar_pedido_loja():
         valor_total=float(request.form.get('total_pedido', 0))
     )
     db.session.add(novo_pedido)
-    db.session.flush() # Pega o ID (PED1)
+    db.session.flush() 
     
     for item in itens_array:
         db.session.add(ItemPedidoLoja(
@@ -649,7 +648,7 @@ def gerar_pedido_loja():
         ))
         
     db.session.commit()
-    flash(f"Pedido PED{novo_pedido.id} gerado com sucesso! Peça para o cliente pagar no Caixa.")
+    flash(f"Pedido PED{novo_pedido.id} gerado com sucesso!")
     return redirect(url_for('painel_loja'))
 
 @app.route('/loja/cancelar_pedido/<int:id>', methods=['POST'])
@@ -661,9 +660,86 @@ def cancelar_pedido_loja(id):
     flash("Pedido cancelado.")
     return redirect(url_for('painel_loja'))
 
+# ROTA EXCLUSIVA PARA A IMPRESSÃO DA COMANDA DA LOJA (Evita o Bug da Tela Branca no Android)
+@app.route('/loja/imprimir/<int:id>', methods=['GET'])
+def imprimir_comanda_loja(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    pedido = PedidoLoja.query.get_or_404(id)
+    # Eu monto a página HTML nativa apenas com os dados do recibo, forçando o Android a entender.
+    html_recibo = f"""
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Imprimir Comanda PED{pedido.id}</title>
+        <style>
+            body {{ font-family: monospace; color: #000; padding: 20px; text-align: center; max-width: 300px; margin: 0 auto; }}
+            h3, h5 {{ margin: 0; padding: 0; }}
+            .divider {{ border-bottom: 1px dashed #000; margin: 10px 0; }}
+            .text-left {{ text-align: left; }}
+            .text-right {{ text-align: right; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }}
+            th, td {{ padding: 2px 0; }}
+            .total {{ font-size: 18px; font-weight: bold; margin-top: 10px; text-align: right; }}
+            @media print {{
+                .no-print {{ display: none; }}
+            }}
+        </style>
+    </head>
+    <body onload="window.print();">
+        <button class="no-print" onclick="window.history.back();" style="padding: 10px; margin-bottom: 20px; width: 100%;">Voltar para Loja</button>
+        
+        <h5>CASA DE MÚSICA CAMBUCI</h5>
+        <p style="font-size: 12px; margin: 2px 0;">Comanda de Pré-Venda</p>
+        
+        <div class="divider"></div>
+        <h3>PED{pedido.id}</h3>
+        <div class="divider"></div>
+        
+        <div class="text-left" style="font-size: 14px;">
+            <p style="margin: 2px 0;"><strong>Vend:</strong> {pedido.vendedor_nome}</p>
+            <p style="margin: 2px 0;"><strong>Cliente:</strong> {pedido.cliente_nome or 'Balcão'}</p>
+            <p style="margin: 2px 0;"><strong>Data:</strong> {pedido.data_pedido.strftime('%d/%m/%Y %H:%M')}</p>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <table>
+            <thead>
+                <tr style="border-bottom: 1px solid #000;">
+                    <th class="text-left">Qtd</th>
+                    <th class="text-left">Item</th>
+                    <th class="text-right">R$</th>
+                </tr>
+            </thead>
+            <tbody>
+    """
+    
+    for i in pedido.itens:
+        html_recibo += f"""
+                <tr>
+                    <td class="text-left">{i.quantidade}x</td>
+                    <td class="text-left">{i.produto.nome[:15]}</td>
+                    <td class="text-right">{(i.preco_unitario * i.quantidade):.2f}</td>
+                </tr>
+        """
+        
+    html_recibo += f"""
+            </tbody>
+        </table>
+        
+        <div class="divider"></div>
+        <div class="total">TOTAL: R$ {pedido.valor_total:.2f}</div>
+        
+        <p style="font-size: 12px; margin-top: 20px;">Apresente este ticket no Caixa para efetuar o pagamento.</p>
+    </body>
+    </html>
+    """
+    return html_recibo
 
 # ==============================================================================
-# CAIXA PDV (COM INTEGRAÇÃO DA PRÉ-VENDA E DROPSHIPPING)
+# CAIXA PDV
 # ==============================================================================
 @app.route('/caixa', methods=['GET'])
 def caixa_pdv():
@@ -677,7 +753,6 @@ def api_buscar_produto(codigo):
     qtd_solicitada = int(request.args.get('qtd', 1))
     codigo = codigo.strip().upper()
     
-    # 1. Puxa Contas a Receber (Mensalidades, etc)
     if codigo.startswith('REC'):
         try:
             conta_id = int(codigo[3:])
@@ -687,7 +762,6 @@ def api_buscar_produto(codigo):
                 return jsonify({'id': f'REC{conta.id}', 'nome': f"PAGAMENTO: {conta.modulo_origem} ({conta.descricao})", 'preco': conta.valor, 'tipo': 'receita'})
         except: pass
 
-    # 2. Puxa Contas a Pagar (Saídas de Caixa)
     if codigo.startswith('PAG'):
         try:
             conta_id = int(codigo[3:])
@@ -697,7 +771,6 @@ def api_buscar_produto(codigo):
                 return jsonify({'id': f'PAG{conta.id}', 'nome': f"SAÍDA DE CAIXA: {conta.descricao}", 'preco': -abs(conta.valor), 'tipo': 'despesa'})
         except: pass
 
-    # 3. Puxa Pedidos da Loja (Pré-venda do Vendedor)
     if codigo.startswith('PED'):
         try:
             pedido_id = int(codigo[3:])
@@ -707,7 +780,6 @@ def api_buscar_produto(codigo):
                 return jsonify({'id': f'PED{pedido.id}', 'nome': f"PEDIDO LOJA #{pedido.id} (Vend: {pedido.vendedor_nome})", 'preco': pedido.valor_total, 'tipo': 'pedido_loja'})
         except: pass
 
-    # 4. Puxa Produto Físico (Bipando o Código de Barras direto no Caixa)
     produto = Produto.query.filter_by(codigo_barras=codigo).first()
     if produto:
         if produto.modalidade == 'Físico' and produto.quantidade_estoque < qtd_solicitada: 
@@ -730,13 +802,11 @@ def finalizar_venda():
     for item in itens:
         item_id = str(item['id'])
         
-        # Se for Mensalidade
         if item_id.startswith('REC'):
             conta = ContaReceber.query.get(int(item_id[3:]))
             if conta:
                 conta.status = 'Pago'; conta.data_pagamento = datetime.utcnow().date(); conta.forma_pagamento = forma_pagamento
                 
-        # Se for Despesa (Saída do Caixa)
         elif item_id.startswith('PAG'):
             conta_p = ContaPagar.query.get(int(item_id[3:]))
             if conta_p:
@@ -748,12 +818,10 @@ def finalizar_venda():
                     status="Pago", forma_pagamento=forma_pagamento
                 ))
                 
-        # Se for um Pedido da Loja (Pré-venda)
         elif item_id.startswith('PED'):
             pedido = PedidoLoja.query.get(int(item_id[3:]))
             if pedido:
                 pedido.status = 'Pago'
-                # Dá baixa no estoque de CADA item dentro do Pedido (Apenas os Físicos)
                 for i_pedido in pedido.itens:
                     if i_pedido.produto.modalidade == 'Físico':
                         i_pedido.produto.quantidade_estoque -= i_pedido.quantidade
@@ -762,14 +830,12 @@ def finalizar_venda():
                             tipo_movimento='Saída (Venda Pedido)', quantidade=i_pedido.quantidade,
                             operador=session.get('nome', 'Caixa')
                         ))
-                # Lança o valor total do pedido no Financeiro
                 db.session.add(ContaReceber(
                     descricao=f"Venda Loja (Pedido #{pedido.id} - Vend: {pedido.vendedor_nome})", modulo_origem="Loja / PDV", valor=pedido.valor_total,
                     data_vencimento=datetime.utcnow().date(), data_pagamento=datetime.utcnow().date(),
                     status="Pago", forma_pagamento=forma_pagamento
                 ))
                 
-        # Se bipo um Produto Avulso direto no caixa
         else:
             produto = Produto.query.get(item['id'])
             if produto:
@@ -782,7 +848,6 @@ def finalizar_venda():
                     ))
                 produtos_fisicos.append(f"{item['quantidade']}x {produto.nome}")
                 
-    # Salva os produtos avulsos bipados direto no caixa no financeiro
     if produtos_fisicos:
         total_produtos = sum(float(i['preco']) * int(i['quantidade']) for i in itens if not str(i['id']).startswith('REC') and not str(i['id']).startswith('PAG') and not str(i['id']).startswith('PED'))
         if total_produtos > 0:
