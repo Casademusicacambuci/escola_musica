@@ -527,7 +527,7 @@ def excluir_conta_receber(id):
     return redirect(url_for('financeiro_dashboard'))
 
 # ==============================================================================
-# ESTOQUE (AGORA COM CAMPOS FISCAIS NCM E CFOP)
+# ESTOQUE
 # ==============================================================================
 @app.route('/estoque', methods=['GET'])
 def gerenciar_estoque():
@@ -556,8 +556,8 @@ def novo_produto():
         quantidade_estoque=quantidade_inicial,
         modalidade=request.form.get('modalidade', 'Físico'),
         exibir_site=exibir,
-        ncm=request.form.get('ncm'), # SALVA O NCM
-        cfop=request.form.get('cfop', '5102') # SALVA O CFOP (Padrão 5102)
+        ncm=request.form.get('ncm'),
+        cfop=request.form.get('cfop', '5102')
     )
     db.session.add(novo_prod)
     db.session.commit()
@@ -875,6 +875,122 @@ def fechamento_caixa():
         else: resumo['Dinheiro'] += r.valor 
         resumo['Total'] += r.valor
     return jsonify(resumo)
+
+# ==============================================================================
+# MÓDULO LUTHIER / OFICINA
+# ==============================================================================
+@app.route('/luthier', methods=['GET'])
+def luthier_dashboard():
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    ordens = OrdemServico.query.order_by(OrdemServico.data_abertura.desc()).all()
+    return render_template('luthier.html', ordens=ordens)
+
+@app.route('/luthier/nova', methods=['POST'])
+def luthier_nova_os():
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    
+    fotos = []
+    for i in range(1, 5):
+        arquivo = request.files.get(f'foto_{i}')
+        if arquivo and arquivo.filename != '':
+            nome_arquivo = f"os_foto_{i}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+            arquivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nome_arquivo))
+            fotos.append(f"uploads/{nome_arquivo}")
+        else:
+            fotos.append(None)
+
+    nova_os = OrdemServico(
+        cliente_nome=request.form.get('cliente_nome'), cliente_cpf=request.form.get('cliente_cpf'),
+        cliente_telefone=request.form.get('cliente_telefone'), cliente_email=request.form.get('cliente_email'),
+        cliente_endereco=request.form.get('cliente_endereco'),
+        instrumento_tipo=request.form.get('instrumento_tipo'), instrumento_marca=request.form.get('instrumento_marca'),
+        instrumento_modelo=request.form.get('instrumento_modelo'), descricao_problema=request.form.get('descricao_problema'),
+        foto_1=fotos[0], foto_2=fotos[1], foto_3=fotos[2], foto_4=fotos[3],
+        video_link=request.form.get('video_link')
+    )
+    db.session.add(nova_os)
+    db.session.commit()
+    flash('Ordem de Serviço criada com sucesso! Ela está na aba "Em Análise".')
+    return redirect(url_for('luthier_dashboard'))
+
+@app.route('/luthier/orcamento/<int:id>', methods=['POST'])
+def luthier_orcamento(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    os = OrdemServico.query.get_or_404(id)
+    
+    os.solucao_sugerida = request.form.get('solucao_sugerida')
+    
+    v_mao_obra = request.form.get('valor_mao_de_obra', '0').replace(',', '.')
+    os.valor_mao_de_obra = float(v_mao_obra) if v_mao_obra else 0.0
+    
+    v_pecas = request.form.get('valor_pecas', '0').replace(',', '.')
+    os.valor_pecas = float(v_pecas) if v_pecas else 0.0
+    
+    os.prazo_estimado = request.form.get('prazo_estimado')
+    
+    data_ent_str = request.form.get('data_entrega')
+    if data_ent_str:
+        os.data_entrega = datetime.strptime(data_ent_str, '%Y-%m-%d').date()
+        
+    os.luthier_responsavel = request.form.get('luthier_responsavel')
+    os.status = 'Aguardando Aprovação'
+    
+    db.session.commit()
+    flash('Orçamento salvo! Clique em "Enviar Zap" para falar com o cliente.')
+    return redirect(url_for('luthier_dashboard'))
+
+@app.route('/luthier/aprovar/<int:id>', methods=['POST'])
+def luthier_aprovar(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    os = OrdemServico.query.get_or_404(id)
+    os.status = 'Em Manutenção'
+    
+    valor_total = (os.valor_mao_de_obra or 0) + (os.valor_pecas or 0)
+    valor_sinal = valor_total / 2.0
+    
+    db.session.add(ContaReceber(
+        descricao=f"Sinal (50%) OS-{os.id} Luthier ({os.cliente_nome})",
+        modulo_origem="Luthier", origem_id=os.id, valor=valor_sinal,
+        data_vencimento=datetime.utcnow().date(), status="Pendente"
+    ))
+    db.session.commit()
+    flash(f'OS aprovada! Cobrança de Sinal gerada (REC). Digite o código REC{os.id} no Caixa para cobrar.')
+    return redirect(url_for('luthier_dashboard'))
+
+@app.route('/luthier/finalizar/<int:id>', methods=['POST'])
+def luthier_finalizar(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    os = OrdemServico.query.get_or_404(id)
+    os.status = 'Finalizado'
+    
+    valor_total = (os.valor_mao_de_obra or 0) + (os.valor_pecas or 0)
+    valor_restante = valor_total / 2.0
+    
+    db.session.add(ContaReceber(
+        descricao=f"Pgto Final (50%) OS-{os.id} Luthier ({os.cliente_nome})",
+        modulo_origem="Luthier", origem_id=os.id, valor=valor_restante,
+        data_vencimento=datetime.utcnow().date(), status="Pendente"
+    ))
+    
+    comissao = (os.valor_mao_de_obra or 0) * 0.40
+    if comissao > 0:
+        db.session.add(ContaPagar(
+            descricao=f"Comissão Luthier {os.luthier_responsavel} (OS-{os.id})",
+            valor=comissao, data_vencimento=datetime.utcnow().date(), status="Pendente"
+        ))
+    
+    db.session.commit()
+    flash('Serviço concluído! Cobrança final enviada ao cliente e comissão do Luthier gerada.')
+    return redirect(url_for('luthier_dashboard'))
+
+@app.route('/luthier/entregar/<int:id>', methods=['POST'])
+def luthier_entregar(id):
+    if 'usuario_id' not in session: return redirect(url_for('dashboard'))
+    os = OrdemServico.query.get_or_404(id)
+    os.status = 'Despachado/Entregue'
+    db.session.commit()
+    flash('Instrumento entregue! A ficha foi movida para o Arquivo Morto no final da página.')
+    return redirect(url_for('luthier_dashboard'))
 
 if __name__ == '__main__':
     app.run(debug=True)
