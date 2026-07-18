@@ -143,14 +143,17 @@ class Produto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     codigo_barras = db.Column(db.String(50), unique=True, nullable=False)
     nome = db.Column(db.String(150), nullable=False)
-    marca = db.Column(db.String(100)) # Novo E-commerce
-    modelo = db.Column(db.String(100)) # Novo E-commerce
+    marca = db.Column(db.String(100))
+    modelo = db.Column(db.String(100))
     categoria = db.Column(db.String(50), nullable=False) 
     preco_custo = db.Column(db.Float, nullable=False, default=0.0)
     preco_venda = db.Column(db.Float, nullable=False)
     quantidade_estoque = db.Column(db.Integer, nullable=False, default=0)
-    modalidade = db.Column(db.String(30), default='Físico') # Físico ou Dropshipping
-    exibir_site = db.Column(db.Boolean, default=False) # Liga com E-commerce
+    modalidade = db.Column(db.String(30), default='Físico')
+    exibir_site = db.Column(db.Boolean, default=False)
+    # ===== NOVOS CAMPOS FISCAIS PARA NF-E =====
+    ncm = db.Column(db.String(20))
+    cfop = db.Column(db.String(10), default='5102') 
 
 class OrdemServico(db.Model):
     __tablename__ = 'ordens_servico'
@@ -188,16 +191,13 @@ class MovimentacaoEstoque(db.Model):
     data_hora = db.Column(db.DateTime, default=datetime.utcnow)
     operador = db.Column(db.String(100))
 
-# ==========================================
-# NOVO: MÓDULO LOJA (PRÉ-VENDA / COMANDA)
-# ==========================================
 class PedidoLoja(db.Model):
     __tablename__ = 'pedidos_loja'
     id = db.Column(db.Integer, primary_key=True)
     vendedor_nome = db.Column(db.String(100), nullable=False)
-    cliente_nome = db.Column(db.String(100)) # Opcional
+    cliente_nome = db.Column(db.String(100)) 
     data_pedido = db.Column(db.DateTime, default=datetime.utcnow)
-    status = db.Column(db.String(20), default='Aberto') # Aberto, Pago, Cancelado
+    status = db.Column(db.String(20), default='Aberto')
     valor_total = db.Column(db.Float, default=0.0)
     itens = db.relationship('ItemPedidoLoja', backref='pedido', lazy=True, cascade='all, delete')
 
