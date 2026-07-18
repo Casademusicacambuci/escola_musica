@@ -10,8 +10,20 @@ from models import db, Usuario, Aluno, Professor, AgendamentoEstudio, Aula, Forn
 
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_cambuci_2026' 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cambuci_crm.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# ==============================================================================
+# NOVA CONFIGURAÇÃO DE BANCO DE DADOS (POSTGRESQL NO RENDER)
+# ==============================================================================
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    # Corrige automaticamente o link fornecido pelo Render para o padrão exigido pelo sistema
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    # Se não encontrar o banco em nuvem (ex: testando no seu computador), usa o arquivo local
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cambuci_crm.db'
 
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -877,7 +889,7 @@ def fechamento_caixa():
     return jsonify(resumo)
 
 # ==============================================================================
-# MÓDULO LUTHIER / OFICINA
+# MÓDULO LUTHIER / OFICINA (RESTAURADO!)
 # ==============================================================================
 @app.route('/luthier', methods=['GET'])
 def luthier_dashboard():
