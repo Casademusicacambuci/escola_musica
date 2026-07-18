@@ -35,7 +35,7 @@
             
             <div class="tab-pane fade show active" id="prateleira" role="tabpanel">
                 <div class="row">
-                    <!-- CADASTRO DE PRODUTO OMNICHANNEL -->
+                    <!-- CADASTRO DE PRODUTO OMNICHANNEL + FISCAL -->
                     <div class="col-lg-4 mb-4">
                         <div class="card shadow-sm border-0 border-top border-secondary border-3">
                             <div class="card-body">
@@ -59,6 +59,19 @@
                                             <input type="text" class="form-control form-control-sm" name="modelo" placeholder="Ex: Dallas">
                                         </div>
                                     </div>
+                                    
+                                    <!-- NOVOS CAMPOS FISCAIS PARA NF-E -->
+                                    <div class="row g-2 mb-2 p-2 bg-light border rounded">
+                                        <div class="col-6">
+                                            <label class="small fw-bold text-dark">NCM (8 dígitos)</label>
+                                            <input type="text" class="form-control form-control-sm" name="ncm" placeholder="Opcional por agora">
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="small fw-bold text-dark">CFOP (Venda)</label>
+                                            <input type="text" class="form-control form-control-sm" name="cfop" value="5102">
+                                        </div>
+                                    </div>
+
                                     <div class="row g-2 mb-2">
                                         <div class="col-6">
                                             <label class="small fw-bold">Categoria</label>
@@ -88,7 +101,7 @@
                                         </div>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="small fw-bold text-primary">Estoque Atual (Deixe 0 se Dropshipping)</label>
+                                        <label class="small fw-bold text-primary">Estoque Atual (Deixe 0 se Drop)</label>
                                         <input type="number" class="form-control form-control-sm border-primary fw-bold" name="quantidade_estoque" value="0" required>
                                     </div>
                                     <div class="form-check form-switch mb-3">
@@ -148,7 +161,7 @@
                                                 </td>
                                             </tr>
 
-                                            <!-- MODAL DE EDITAR -->
+                                            <!-- MODAL DE EDITAR (COM OS CAMPOS FISCAIS) -->
                                             <div class="modal fade" id="modalEditar{{ p.id }}" tabindex="-1" aria-hidden="true">
                                               <div class="modal-dialog">
                                                 <div class="modal-content">
@@ -164,6 +177,13 @@
                                                             <div class="col-6"><label class="small">Marca</label><input type="text" class="form-control form-control-sm" name="marca" value="{{ p.marca }}"></div>
                                                             <div class="col-6"><label class="small">Modelo</label><input type="text" class="form-control form-control-sm" name="modelo" value="{{ p.modelo }}"></div>
                                                           </div>
+                                                          
+                                                          <!-- CAMPOS FISCAIS NA EDIÇÃO -->
+                                                          <div class="row g-2 mb-2 p-2 bg-light border rounded">
+                                                            <div class="col-6"><label class="small">NCM</label><input type="text" class="form-control form-control-sm" name="ncm" value="{{ p.ncm }}"></div>
+                                                            <div class="col-6"><label class="small">CFOP</label><input type="text" class="form-control form-control-sm" name="cfop" value="{{ p.cfop or '5102' }}"></div>
+                                                          </div>
+
                                                           <div class="row g-2 mb-2">
                                                             <div class="col-6">
                                                                 <label class="small">Categoria</label>
